@@ -1,15 +1,13 @@
-export function fetchUpcomingCalendar() {
-  console.log('hello');
-}
+import fs from 'fs';
 
-type CreateUserResponse = {
+interface FilmShowing {
   name: string;
-  job: string;
-  id: string;
-  createdAt: string;
+  tmbdId: number | null;
+  startTime: string;
+  duration: number;
 };
 
-async function createUser() {
+async function getMovieInfo(): Promise<Array<FilmShowing>> {
   let body = {
     variables: {
       date: null,
@@ -53,21 +51,45 @@ async function createUser() {
 
   // 👇️ const result: CreateUserResponse
   const result = await response.json();
-  console.log(result);
+
   let movie_data = result['data']['showingsForDate']['data'];
-  console.log(movie_data);
-  console.log(typeof movie_data);
-  console.log(movie_data[0]);
-  console.log('showing movies now');
+
+  let movie_info_out: Array<FilmShowing> = []
+
   for (let [_key, movie] of Object.entries(movie_data)) {
-    console.log('movie');
-    // console.log(movie);
-    console.log(movie['id'], movie['time']);
-    // console.log(movie['movie'])
-    console.log(movie['movie']['name']);
+    let movie_info: FilmShowing = {
+        name: movie['movie']['name'],
+        tmbdId: movie['movie']['tmdbId'],
+        startTime: movie['time'],
+        duration: movie['movie']['duration']
+    }
+    movie_info_out.push(movie_info)
+    // console.log(movie_info)
+    // console.log('movie');
+    // // console.log(movie);
+    // console.log(movie['id'], movie['time']);
+    // // console.log(movie['movie'])
+    // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
+  return movie_info_out
 }
 
-createUser();
+export async function fetchUpcomingCalendar() {
+    console.log('hello');
+    let movies = await Promise.resolve(getMovieInfo());
+    console.log(movies);
+
+
+    fs.writeFile('./public/data/regentStreetCinema.json', JSON.stringify(movies), (err) => {
+      if (err) {
+        console.error('Error writing file: ', err);
+        return;
+      }
+      console.log('JSON data has been successfully dumped to data.json');
+    });
+
+  }
+
+getMovieInfo();
 
 fetchUpcomingCalendar();

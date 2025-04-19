@@ -1,12 +1,73 @@
 import { Calendar } from '@fullcalendar/core';
-import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
 
-document.addEventListener('DOMContentLoaded', function () {
+// Same as the one in the cinema scraping/api reading (#TODO find a way to share this)
+interface FilmShowing {
+    name: string;
+    tmbdId: number | null;
+    startTime: string;
+    duration: number;
+  };
+
+
+export async function loadCinemaShowings(): Promise<Record<string, FilmShowing[]>> {
+  const result: Record<string, FilmShowing[]> = {};
+
+  // disgusting
+  const files : string[] = (await (await fetch('/public/data/cinemas.json')).json())['cinemas'] as string[];
+
+  console.log(files)
+
+  for (let [_, file] of Object.entries(files)) {
+    const movieData = await fetch(`/public/data/${file}.json`);
+    try {
+        result[file] = await movieData.json() as FilmShowing[];
+    } catch (e) {
+        console.warn(`Failed to parse JSON in file: ${file}`, e);
+    }
+  }
+
+  return result;
+}
+
+
+document.addEventListener('DOMContentLoaded', async function () {
   console.log('Hello World!');
+
+  let cinemaData = await Promise.resolve(loadCinemaShowings());
+
+  console.log(cinemaData);
+
+  let events = []
+  for (let cinema in cinemaData) {
+    console.log(cinema)
+    for (let [mv, movie] of Object.entries(cinemaData[cinema])) {
+      const endDate = new Date(movie.startTime);
+      endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+      events.push({
+        title: `${movie.name} @ ${cinema}`,
+        start: movie.startTime,
+        end: endDate.toISOString()
+      })
+    }
+  }
+
+  console.log(events)
+
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
-    plugins: [dayGridPlugin],
-    initialView: 'dayGridMonth',
+    plugins: [timeGridPlugin],
+    initialView: 'timeGridWeek',
+    headerToolbar: {
+      left: 'prev,next',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay' // user can switch between the two
+    },
+    displayEventEnd: true,
+    displayEventTime:true,
+    eventOverlap: true,
+    eventDisplay: 'block',
+    events: events
   });
   calendar.render();
 });

@@ -9,17 +9,18 @@ interface FilmShowing {
     duration: number;
   };
 
+const DATA_PATH = import.meta.env.BASE_URL + '/data'
 
 export async function loadCinemaShowings(): Promise<Record<string, FilmShowing[]>> {
   const result: Record<string, FilmShowing[]> = {};
 
   // disgusting
-  const files : string[] = (await (await fetch('/data/cinemas.json')).json())['cinemas'] as string[];
+  const files : string[] = (await (await fetch(DATA_PATH+ '/cinemas.json')).json())['cinemas'] as string[];
 
   console.log(files)
 
   for (let [_, file] of Object.entries(files)) {
-    const movieData = await fetch(`/data/${file}.json`);
+    const movieData = await fetch(`${DATA_PATH}/${file}.json`);
     try {
         result[file] = await movieData.json() as FilmShowing[];
     } catch (e) {

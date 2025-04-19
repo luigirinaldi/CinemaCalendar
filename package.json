@@ -4,12 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "getData": "npx tsx scripts/main.ts",
+    "getData": "npm run cleanData && mkdir ./public/data && npx tsx scripts/main.ts",
     "dev": "vite",
     "build": "npm run getData && tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --write .",
-    "clean": "rm -rf ./dist && rm ./public/data/*"
+    "clean": "rm -rf ./dist && npm run cleanData",
+    "cleanData": "rm -rf ./public/data"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

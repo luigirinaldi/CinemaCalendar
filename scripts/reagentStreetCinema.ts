@@ -90,6 +90,3 @@ export async function fetchUpcomingCalendar() {
 
   }
 
-getMovieInfo();
-
-fetchUpcomingCalendar();

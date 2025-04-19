@@ -14,12 +14,12 @@ export async function loadCinemaShowings(): Promise<Record<string, FilmShowing[]
   const result: Record<string, FilmShowing[]> = {};
 
   // disgusting
-  const files : string[] = (await (await fetch('/public/data/cinemas.json')).json())['cinemas'] as string[];
+  const files : string[] = (await (await fetch('/data/cinemas.json')).json())['cinemas'] as string[];
 
   console.log(files)
 
   for (let [_, file] of Object.entries(files)) {
-    const movieData = await fetch(`/public/data/${file}.json`);
+    const movieData = await fetch(`/data/${file}.json`);
     try {
         result[file] = await movieData.json() as FilmShowing[];
     } catch (e) {
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let events = []
   for (let cinema in cinemaData) {
     console.log(cinema)
-    for (let [mv, movie] of Object.entries(cinemaData[cinema])) {
+    for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
       const endDate = new Date(movie.startTime);
       endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
       events.push({

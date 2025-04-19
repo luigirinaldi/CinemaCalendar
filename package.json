@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "getData": "npx tsx scripts/main.ts",
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run getData && tsc && vite build",
     "preview": "vite preview",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "clean": "rm -rf ./dist && rm ./public/data/*"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

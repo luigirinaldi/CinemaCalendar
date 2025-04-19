@@ -3,34 +3,37 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 
 // Same as the one in the cinema scraping/api reading (#TODO find a way to share this)
 interface FilmShowing {
-    name: string;
-    tmbdId: number | null;
-    startTime: string;
-    duration: number;
-  };
+  name: string;
+  tmbdId: number | null;
+  startTime: string;
+  duration: number;
+}
 
-const DATA_PATH = import.meta.env.BASE_URL + '/data'
+const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
-export async function loadCinemaShowings(): Promise<Record<string, FilmShowing[]>> {
+export async function loadCinemaShowings(): Promise<
+  Record<string, FilmShowing[]>
+> {
   const result: Record<string, FilmShowing[]> = {};
 
   // disgusting
-  const files : string[] = (await (await fetch(DATA_PATH+ '/cinemas.json')).json())['cinemas'] as string[];
+  const files: string[] = (
+    await (await fetch(DATA_PATH + '/cinemas.json')).json()
+  )['cinemas'] as string[];
 
-  console.log(files)
+  console.log(files);
 
   for (let [_, file] of Object.entries(files)) {
     const movieData = await fetch(`${DATA_PATH}/${file}.json`);
     try {
-        result[file] = await movieData.json() as FilmShowing[];
+      result[file] = (await movieData.json()) as FilmShowing[];
     } catch (e) {
-        console.warn(`Failed to parse JSON in file: ${file}`, e);
+      console.warn(`Failed to parse JSON in file: ${file}`, e);
     }
   }
 
   return result;
 }
-
 
 document.addEventListener('DOMContentLoaded', async function () {
   console.log('Hello World!');
@@ -39,21 +42,21 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   console.log(cinemaData);
 
-  let events = []
+  let events = [];
   for (let cinema in cinemaData) {
-    console.log(cinema)
+    console.log(cinema);
     for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
       const endDate = new Date(movie.startTime);
       endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
       events.push({
         title: `${movie.name} @ ${cinema}`,
         start: movie.startTime,
-        end: endDate.toISOString()
-      })
+        end: endDate.toISOString(),
+      });
     }
   }
 
-  console.log(events)
+  console.log(events);
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
@@ -62,13 +65,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     headerToolbar: {
       left: 'prev,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay' // user can switch between the two
+      right: 'dayGridMonth,timeGridWeek,timeGridDay', // user can switch between the two
     },
     displayEventEnd: true,
-    displayEventTime:true,
+    displayEventTime: true,
     eventOverlap: true,
     eventDisplay: 'block',
-    events: events
+    events: events,
   });
   calendar.render();
 });

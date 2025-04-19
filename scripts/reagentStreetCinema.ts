@@ -5,7 +5,7 @@ interface FilmShowing {
   tmbdId: number | null;
   startTime: string;
   duration: number;
-};
+}
 
 async function getMovieInfo(): Promise<Array<FilmShowing>> {
   let body = {
@@ -54,16 +54,16 @@ async function getMovieInfo(): Promise<Array<FilmShowing>> {
 
   let movie_data = result['data']['showingsForDate']['data'];
 
-  let movie_info_out: Array<FilmShowing> = []
+  let movie_info_out: Array<FilmShowing> = [];
 
   for (let [_key, movie] of Object.entries(movie_data)) {
     let movie_info: FilmShowing = {
-        name: movie['movie']['name'],
-        tmbdId: movie['movie']['tmdbId'],
-        startTime: movie['time'],
-        duration: movie['movie']['duration']
-    }
-    movie_info_out.push(movie_info)
+      name: movie['movie']['name'],
+      tmbdId: movie['movie']['tmdbId'],
+      startTime: movie['time'],
+      duration: movie['movie']['duration'],
+    };
+    movie_info_out.push(movie_info);
     // console.log(movie_info)
     // console.log('movie');
     // // console.log(movie);
@@ -71,22 +71,23 @@ async function getMovieInfo(): Promise<Array<FilmShowing>> {
     // // console.log(movie['movie'])
     // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
-  return movie_info_out
+  return movie_info_out;
 }
 
 export async function fetchUpcomingCalendar() {
-    console.log('hello');
-    let movies = await Promise.resolve(getMovieInfo());
-    console.log(movies);
+  console.log('hello');
+  let movies = await Promise.resolve(getMovieInfo());
+  console.log(movies);
 
-
-    fs.writeFile('./public/data/regentStreetCinema.json', JSON.stringify(movies), (err) => {
+  fs.writeFile(
+    './public/data/regentStreetCinema.json',
+    JSON.stringify(movies),
+    (err) => {
       if (err) {
         console.error('Error writing file: ', err);
         return;
       }
       console.log('JSON data has been successfully dumped to data.json');
-    });
-
-  }
-
+    }
+  );
+}

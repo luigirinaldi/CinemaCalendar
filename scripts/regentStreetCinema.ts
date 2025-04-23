@@ -1,11 +1,5 @@
 import fs from 'fs';
-
-interface FilmShowing {
-  name: string;
-  tmbdId: number | null;
-  startTime: string;
-  duration: number;
-}
+import { FilmShowing } from '../src/types'
 
 async function getMovieInfo(): Promise<Array<FilmShowing>> {
   let body = {

@@ -3,6 +3,7 @@ import { fetchUpcomingCalendar2 } from './theSpaceLimena';
 import fs from 'fs';
 
 async function main() {
+  await fetchUpcomingCalendar();
   await fetchUpcomingCalendar2();
 
   // Write out the list of avalable cinemas

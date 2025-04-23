@@ -3,8 +3,7 @@
 // Modified by: @luigirinaldi
 
 import { Browser } from "happy-dom";
-import fs from "node:fs";
-import { FilmShowing } from '../src/types'
+import { CinemaShowing, FilmShowing, ScraperFunction } from '../src/types'
 
 const months = [
   "January",
@@ -70,9 +69,10 @@ function scrape(page, callback) {
         const url = buttonEl.href;
         try {
           const start = parseDate(day, time);
+          const duration: number = (parseInt(runtime) || 0);
         //   const end = new Date(start.getTime() + (parseInt(runtime) || 0) * 60_000);
           const soldOut = listEl.matches(".soldfilm_book_button");
-          callback({ title, start, runtime, url, description, soldOut, filmUrl });
+          callback({ title, start, duration, url, description, soldOut, filmUrl });
         } catch(err) {
           console.error("Error while processing", { title, filmUrl, description, runtime, day, time}, err);
         }
@@ -81,7 +81,7 @@ function scrape(page, callback) {
   })
 }
 
-async function main() {
+export async function scraper() {
   const browser = new Browser({
     settings: {
       disableJavaScriptEvaluation: true,
@@ -101,12 +101,12 @@ async function main() {
 
   let movie_info_out: Array<FilmShowing> = [];
 
-  scrape(page.mainFrame.document, ({title, start, runtime, url, description, filmUrl, soldOut}) => {
+  scrape(page.mainFrame.document, ({title, start, duration, url, description, filmUrl, soldOut}) => {
     movie_info_out.push({
         name: title,
         tmbdId: null,
         startTime: start.toISOString(),
-        duration: runtime
+        duration: duration
     })
     // calendar.createEvent({
     //   start,
@@ -137,6 +137,10 @@ async function main() {
 //   })
 
   await browser.close();
-}
 
-main();
+  return [{
+    cinema: 'PrinceCharlesCinema',
+    location: 'London',
+    showings: movie_info_out
+  } as CinemaShowing] 
+}

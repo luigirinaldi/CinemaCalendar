@@ -6,3 +6,10 @@ export interface FilmShowing {
     duration: number;
 }
 
+export interface CinemaShowing {
+    cinema: string;
+    location: string; // string (city name) for now can be gps coordinate or both
+    showings: FilmShowing[]
+}
+
+export type ScraperFunction = () => Promise<CinemaShowing[]>

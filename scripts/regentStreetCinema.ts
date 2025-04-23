@@ -1,7 +1,7 @@
 import fs from 'fs';
-import { FilmShowing } from '../src/types'
+import { CinemaShowing, FilmShowing } from '../src/types'
 
-async function getMovieInfo(): Promise<Array<FilmShowing>> {
+async function getMovieInfo() : Promise<CinemaShowing[]> {
   let body = {
     variables: {
       date: null,
@@ -65,7 +65,11 @@ async function getMovieInfo(): Promise<Array<FilmShowing>> {
     // // console.log(movie['movie'])
     // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
-  return movie_info_out;
+  return [{
+    cinema: 'RegentStreeCinema',
+    location: 'London',
+    showings: movie_info_out
+  }]
 }
 
 export async function fetchUpcomingCalendar() {

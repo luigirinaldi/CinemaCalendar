@@ -14,9 +14,9 @@ export async function loadCinemaShowings(): Promise<
   // disgusting
   const files: string[] = (
     await (await fetch(DATA_PATH + '/cinemas.json')).json()
-  )['cinemas'] as string[];
+  ) as string[];
 
-  console.log(files);
+  console.log("available cinemas:", files);
 
   for (let [_, file] of Object.entries(files)) {
     const movieData = await fetch(`${DATA_PATH}/${file}.json`);

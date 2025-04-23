@@ -1,11 +1,12 @@
-import { fetchUpcomingCalendar } from './regentStreetCinema';
+import {  scraper as RegentScraper  } from './regentStreetCinema';
 import { fetchUpcomingCalendar2 } from './theSpaceLimena';
 import { scraper as PrinceScraper } from './princeCharlesCinema';
 import fs from 'fs';
 import { ScraperFunction } from '../src/types';
 
 const scrapers: Record<string, ScraperFunction> = {
-    PrinceScraper
+    PrinceScraper,
+    RegentScraper
 }
 
 async function writeFile(data, filename: string) {

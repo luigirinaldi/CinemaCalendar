@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { CinemaShowing, FilmShowing } from '../src/types'
 
-async function getMovieInfo() : Promise<CinemaShowing[]> {
+export async function scraper() : Promise<CinemaShowing[]> {
   let body = {
     variables: {
       date: null,
@@ -53,7 +53,7 @@ async function getMovieInfo() : Promise<CinemaShowing[]> {
   for (let [_key, movie] of Object.entries(movie_data)) {
     let movie_info: FilmShowing = {
       name: movie['movie']['name'],
-      tmbdId: movie['movie']['tmdbId'],
+      tmdbId: movie['movie']['tmdbId'],
       startTime: movie['time'],
       duration: movie['movie']['duration'],
     };
@@ -70,22 +70,4 @@ async function getMovieInfo() : Promise<CinemaShowing[]> {
     location: 'London',
     showings: movie_info_out
   }]
-}
-
-export async function fetchUpcomingCalendar() {
-  console.log('hello');
-  let movies = await Promise.resolve(getMovieInfo());
-  console.log(movies);
-
-  fs.writeFile(
-    './public/data/regentStreetCinema.json',
-    JSON.stringify(movies),
-    (err) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log('JSON data has been successfully dumped to regentStreetCinema.json');
-    }
-  );
 }

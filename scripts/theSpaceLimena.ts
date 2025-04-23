@@ -5,7 +5,7 @@ async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> 
   const response = await fetch(
     `https://www.thespacecinema.it/api/microservice/showings/cinemas/${cinema}/films`
   );
-  console.log(await response.status);
+  console.log(response.status);
   const filmss = await response.json();
 
   return filmss.result.flatMap(film => film.showingGroups.flatMap(day => day.sessions.map(show => ({

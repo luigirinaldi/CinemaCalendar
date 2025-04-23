@@ -1,6 +1,8 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { FilmShowing } from './types';
+import dayGridPlugin from '@fullcalendar/daygrid'
+import listPlugin from '@fullcalendar/list'
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
@@ -57,13 +59,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
-    plugins: [timeGridPlugin],
+    plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
     initialView: 'timeGridWeek',
     headerToolbar: {
       left: 'prev,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay', // user can switch between the two
-    },
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+    },    
     displayEventEnd: true,
     displayEventTime: true,
     eventOverlap: true,

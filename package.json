@@ -19,6 +19,7 @@
     "vite": "^6.3.1"
   },
   "dependencies": {
-    "fullcalendar": "^6.1.17"
+    "fullcalendar": "^6.1.17",
+    "ical.js": "^2.1.0"
   }
 }

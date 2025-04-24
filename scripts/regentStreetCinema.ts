@@ -87,7 +87,7 @@ export async function fetchUpcomingCalendar() {
         console.error('Error writing file: ', err);
         return;
       }
-      console.log('JSON data has been successfully dumped to data.json');
+      console.log('JSON data has been successfully dumped to regentStreetCinema.json');
     }
   );
 }

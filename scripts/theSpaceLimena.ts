@@ -3,7 +3,7 @@ import type { FilmShowing } from '../src/types';
 
 async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> {
   // TODO - change cinema in cookies
-  const response = await fetch("https://www.thespacecinema.it/api/microservice/showings/cinemas/1012/films", {
+  const response = await fetch(`https://www.thespacecinema.it/api/microservice/showings/cinemas/${cinema}/films`, {
     "headers": {
       "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
       "accept-language": "en-US,en;q=0.9,it;q=0.8",

@@ -1,5 +1,5 @@
 import fs from 'fs';
-import type { FilmShowing } from '../src/types'
+import type { FilmShowing } from '../src/types';
 
 async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> {
   const response = await fetch(

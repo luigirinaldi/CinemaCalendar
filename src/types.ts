@@ -1,6 +1,7 @@
 export interface FilmShowing {
-  name: string;
-  tmdbId: number | string | null;
-  startTime: string;
-  duration: number; // Duration in minutes or null if not available
+    name: string;
+    tmdbId: number | string | null;
+    startTime: string;
+    endTime?: string;
+    duration: number;
 }

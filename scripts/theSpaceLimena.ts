@@ -3,33 +3,28 @@ import type { FilmShowing } from '../src/types';
 
 async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> {
   // TODO - extend to every the space cinema
-  const puppeteer = require('puppeteer');
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
+  // get a microservicesToken from the main page
+  let response = await fetch('https://www.thespacecinema.it');
+  const regex:RegExpMatchArray|undefined|null = response.headers.get('set-cookie')?.match(/(?<=microservicesToken\=)[^;]+/);
+  const microservicesToken:string = regex ? regex[0] : '';
 
-  await page.goto('https://www.thespacecinema.it/cinema/limena/al-cinema', { waitUntil: 'networkidle0' });
-
-  const cookies = await page.cookies();
-  const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-
-  const res = await fetch('https://www.thespacecinema.it/api/microservice/showings/cinemas/1012/films', {
+  response = await fetch(`https://www.thespacecinema.it/api/microservice/showings/cinemas/${cinema}/films`, {
     headers: {
-      'cookie': cookieHeader,
-      'user-agent': 'Mozilla/5.0',
-      'accept': 'application/json'
+      'Authorization': 'Bearer ' + microservicesToken,
+      'User-Agent': 'Mozilla/5.0',
+      'Accept': 'application/json'
     }
   });
 
-  await browser.close();
-
-  console.log(res.status);
-  const data = await res.json();
+  console.log("The request to thespacecinema API gave response code: ", response.status);
+  const data = await response.json();
   
   return data.result.flatMap(film => film.showingGroups.flatMap(day => day.sessions.map(show => ({
     name: film.filmTitle,
     tmdbId: film.filmId,
     startTime: show.startTime,
-    duration: show.duration
+    endTime: show.endTime,
+    duration: film.runningTime
   }))));
 }
 

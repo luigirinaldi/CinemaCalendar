@@ -1,13 +1,6 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
-
-// Same as the one in the cinema scraping/api reading (#TODO find a way to share this)
-interface FilmShowing {
-  name: string;
-  tmbdId: number | null;
-  startTime: string;
-  duration: number;
-}
+import type { FilmShowing } from './types';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 

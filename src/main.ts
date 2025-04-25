@@ -39,12 +39,16 @@ document.addEventListener('DOMContentLoaded', async function () {
   for (let cinema in cinemaData) {
     console.log(cinema);
     for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
-      const endDate = new Date(movie.startTime);
-      endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+      let endDateString:string|undefined = movie.endTime;
+      if (!endDateString) {
+        const endDate = new Date(movie.startTime);
+        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+        endDateString = endDate.toISOString();
+      }
       events.push({
         title: `${movie.name} @ ${cinema}`,
         start: movie.startTime,
-        end: endDate.toISOString(),
+        end: endDateString,
       });
     }
   }

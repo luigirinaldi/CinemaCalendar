@@ -17,6 +17,9 @@ async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> 
   });
 
   console.log("The request to thespacecinema API gave response code: ", response.status);
+  if (response.status !== 200) {
+    return []; // This returns an empty list of movies so the getData script won't be stopped in case of an error
+  }
   const data = await response.json();
   
   return data.result.flatMap(film => film.showingGroups.flatMap(day => day.sessions.map(show => ({

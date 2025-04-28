@@ -126,33 +126,8 @@ export async function scraper() {
         startTime: start.toISOString(),
         duration: duration,
       });
-      // calendar.createEvent({
-      //   start,
-      //   end,
-      //   url,
-      //   summary: title,
-      //   description: `${soldOut ? "[sold out] " : ""}${filmUrl}\n\n${description}`,
-      //   location: {
-      //     title: "Prince Charles Cinema",
-      //     // address: "7 Leicester Pl, London, WC2H 7BY",
-      //     // geo: {
-      //     //   lat: 51.511484,
-      //     //   lon: -0.130210,
-      //     // }
-      //   }
-      // });
     }
   );
-
-  //   console.log(movie_info_out)
-  //   const dest = process.argv[2] || "out.ics";
-  //   fs.writeFile(dest, calendar.toString(), error => {
-  //     if (error) {
-  //       console.error(error);
-  //     } else {
-  //       console.log(`wrote ${calendar.events().length} events to ${dest}`);
-  //     }
-  //   })
 
   await browser.close();
 

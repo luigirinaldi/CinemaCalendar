@@ -58,12 +58,6 @@ export async function scraper(): Promise<CinemaShowing[]> {
       duration: movie['movie']['duration'],
     };
     movie_info_out.push(movie_info);
-    // console.log(movie_info)
-    // console.log('movie');
-    // // console.log(movie);
-    // console.log(movie['id'], movie['time']);
-    // // console.log(movie['movie'])
-    // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
   return [
     {

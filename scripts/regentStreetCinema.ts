@@ -1,7 +1,7 @@
 import fs from 'fs';
-import { CinemaShowing, FilmShowing } from '../src/types'
+import { CinemaShowing, FilmShowing } from '../src/types';
 
-export async function scraper() : Promise<CinemaShowing[]> {
+export async function scraper(): Promise<CinemaShowing[]> {
   let body = {
     variables: {
       date: null,
@@ -65,9 +65,11 @@ export async function scraper() : Promise<CinemaShowing[]> {
     // // console.log(movie['movie'])
     // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
-  return [{
-    cinema: 'RegentStreeCinema',
-    location: 'London',
-    showings: movie_info_out
-  }]
+  return [
+    {
+      cinema: 'RegentStreeCinema',
+      location: 'London',
+      showings: movie_info_out,
+    },
+  ];
 }

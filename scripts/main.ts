@@ -1,31 +1,27 @@
-import {  scraper as RegentScraper  } from './regentStreetCinema';
+import { scraper as RegentScraper } from './regentStreetCinema';
 import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
 import { scraper as PrinceScraper } from './princeCharlesCinema';
 import fs from 'fs';
 import { ScraperFunction } from '../src/types';
 
 const scrapers: Record<string, ScraperFunction> = {
-    PrinceScraper,
-    RegentScraper,
-    theSpaceLimenaScraper,
-}
+  PrinceScraper,
+  RegentScraper,
+  theSpaceLimenaScraper,
+};
 
 async function writeFile(data, filename: string) {
-  fs.writeFile(
-    filename,
-    JSON.stringify(data),
-    (err: any) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log(`JSON data has been successfully dumped to ${filename}`);
+  fs.writeFile(filename, JSON.stringify(data), (err: any) => {
+    if (err) {
+      console.error('Error writing file: ', err);
+      return;
     }
-  );
+    console.log(`JSON data has been successfully dumped to ${filename}`);
+  });
 }
- 
+
 async function main() {
-  let cinemas : string[] = []  
+  let cinemas: string[] = [];
   for (const [name, scraper] of Object.entries(scrapers)) {
     const result = await scraper();
     for (const [_, cinema] of Object.entries(result)) {
@@ -34,7 +30,7 @@ async function main() {
     }
   }
 
-  await writeFile(cinemas, './public/data/cinemas.json')
+  await writeFile(cinemas, './public/data/cinemas.json');
 }
 
 main();

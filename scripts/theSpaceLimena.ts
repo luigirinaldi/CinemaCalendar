@@ -1,7 +1,7 @@
 import fs from 'fs';
-import type { FilmShowing } from '../src/types';
+import type { CinemaShowing, FilmShowing, ScraperFunction } from '../src/types';
 
-async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> {
+export async function scraper(cinema:number = 1012): Promise<CinemaShowing[]> {
   // TODO - extend to every the space cinema
   // get a microservicesToken from the main page
   let response = await fetch('https://www.thespacecinema.it');
@@ -22,28 +22,14 @@ async function getMovieInfo(cinema:number = 1012) : Promise<Array<FilmShowing>> 
   }
   const data = await response.json();
   
-  return data.result.flatMap(film => film.showingGroups.flatMap(day => day.sessions.map(show => ({
+  return [{
+    cinema: "TheSpaceCinemaLimena",
+    location: "Padova",
+    showings: data.result.flatMap(film => film.showingGroups.flatMap(day => day.sessions.map(show => ({
     name: film.filmTitle,
     tmdbId: film.filmId,
     startTime: show.startTime,
     endTime: show.endTime,
     duration: film.runningTime
-  }))));
-}
-
-export async function fetchUpcomingCalendar2() {
-  let movies = await getMovieInfo();
-  console.log(movies);
-
-  fs.writeFile(
-    './public/data/theSpaceLimena.json',
-    JSON.stringify(movies),
-    (err) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log('JSON data has been successfully dumped to theSpace.json');
-    }
-  );
+  }))))}]
 }

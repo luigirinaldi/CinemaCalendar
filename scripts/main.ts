@@ -1,12 +1,13 @@
 import {  scraper as RegentScraper  } from './regentStreetCinema';
-import { fetchUpcomingCalendar2 } from './theSpaceLimena';
+import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
 import { scraper as PrinceScraper } from './princeCharlesCinema';
 import fs from 'fs';
 import { ScraperFunction } from '../src/types';
 
 const scrapers: Record<string, ScraperFunction> = {
     PrinceScraper,
-    RegentScraper
+    RegentScraper,
+    theSpaceLimenaScraper,
 }
 
 async function writeFile(data, filename: string) {
@@ -18,7 +19,7 @@ async function writeFile(data, filename: string) {
         console.error('Error writing file: ', err);
         return;
       }
-      console.log('JSON data has been successfully dumped to cinemas.json');
+      console.log(`JSON data has been successfully dumped to ${filename}`);
     }
   );
 }

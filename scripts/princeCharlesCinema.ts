@@ -104,7 +104,7 @@ export async function scraper() {
   scrape(page.mainFrame.document, ({title, start, duration, url, description, filmUrl, soldOut}) => {
     movie_info_out.push({
         name: title,
-        tmbdId: null,
+        tmdbId: null,
         startTime: start.toISOString(),
         duration: duration
     })
@@ -126,7 +126,7 @@ export async function scraper() {
   });
 
 
-  console.log(movie_info_out)
+//   console.log(movie_info_out)
 //   const dest = process.argv[2] || "out.ics";
 //   fs.writeFile(dest, calendar.toString(), error => {
 //     if (error) {

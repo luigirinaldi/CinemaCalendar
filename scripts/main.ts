@@ -1,14 +1,18 @@
-import { scraper as RegentScraper } from './regentStreetCinema';
-import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
-import { scraper as PrinceScraper } from './princeCharlesCinema';
 import fs from 'fs';
 import { ScraperFunction } from '../src/types';
+import { scraper as RegentScraper } from './regentStreetCinema';
+import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
+import { scraper as LuxPadovaScraper } from './luxPadova';
+import { scraper as PrinceScraper } from './princeCharlesCinema';
+import { scraper as RexScraper } from './rexCinema';
 
 const scrapers: Record<string, ScraperFunction> = {
-  PrinceScraper,
   RegentScraper,
   theSpaceLimenaScraper,
-};
+  LuxPadovaScraper,
+  PrinceScraper,
+  RexScraper
+}
 
 async function writeFile(data, filename: string) {
   fs.writeFile(filename, JSON.stringify(data), (err: any) => {

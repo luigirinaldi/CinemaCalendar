@@ -49,7 +49,7 @@ function scrape(page, callback) {
     )?.innerText;
     const runtime = Array.from(
       eventEl.querySelectorAll('.running-time > span'),
-      (span) => {
+      (span:any) => {
         return span.textContent.trim();
       }
     ).find((text) => {
@@ -74,9 +74,7 @@ function scrape(page, callback) {
           try {
             const start = parseDate(day, time);
             const duration: number = parseInt(runtime) || 0;
-            const end = new Date(
-              start.getTime() + (parseInt(runtime) || 0) * 60_000
-            );
+            const end = new Date(start.getTime() + (parseInt(runtime) || 0) * 60_000);
             const soldOut = listEl.matches('.soldfilm_book_button');
             callback({
               title,

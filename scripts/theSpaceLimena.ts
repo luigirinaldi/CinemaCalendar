@@ -1,5 +1,4 @@
-import fs from 'fs';
-import type { CinemaShowing, FilmShowing, ScraperFunction } from '../src/types';
+import type { CinemaShowing } from '../src/types';
 
 export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
   // TODO - extend to every the space cinema

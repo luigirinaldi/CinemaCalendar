@@ -7,13 +7,22 @@ import './style.css';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
-function getColorFromHashAndN(index: number, n: number): string {
-  // The hue value will be between 0 and 360 (the color wheel)
-  const hueStep = 360 / n;  // Step size to equally space out n colors
-  const hue = (index * hueStep) % 360;  // Ensure hue wraps around the color wheel
+function getColourFromHashAndN(index: number, n: number): string {
+  // The hue value will be between 0 and 360 (the colour wheel)
+  const hueStep = 360 / n;  // Step size to equally space out n colours
+  const hue = (index * hueStep) % 360;  // Ensure hue wraps around the colour wheel
   
-  // Use the HSL format to directly create the color
-  return `hsl(${hue}, 100%, 50%)`;  // Saturation 100% and Lightness 50% for vivid colors
+  // Use the HSL format to directly create the colour
+  return `hsl(${hue}, 100%, 50%)`;  // Saturation 100% and Lightness 50% for vivid colours
+}
+
+function cinemaButtonTemplate(cinemaName : string, colour: string) {
+  return `
+    <label class="container">
+      <input type="checkbox" checked="checked" style="accent-color: ${colour};">
+      <span class="checkmark">${cinemaName}</span>
+    </label>
+  `
 }
 
 export async function loadCinemaShowings(): Promise<
@@ -41,16 +50,18 @@ export async function loadCinemaShowings(): Promise<
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
-  console.log('Hello World!');
-
-  let cinemaData = await Promise.resolve(loadCinemaShowings());
+  const cinemaData = await Promise.resolve(loadCinemaShowings());
 
   console.log(cinemaData, Object.keys(cinemaData).length);
 
   let events = [];
   Object.keys(cinemaData).forEach((cinema, i) => {
-    const color = getColorFromHashAndN(i, Object.keys(cinemaData).length);
-    console.log(cinema, color, i);
+    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+    console.log(cinema, colour, i);
+
+    const cinemaButtonHTML = cinemaButtonTemplate(cinema, colour);
+    document.getElementById('button-container')?.insertAdjacentHTML("afterbegin", cinemaButtonHTML);
+
     for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
       let endDateString: string | undefined = movie.endTime;
       if (!endDateString) {
@@ -62,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         title: `${movie.name} @ ${cinema}`,
         start: movie.startTime,
         end: endDateString,
-        color: color,
+        color: colour,
       });
     }
   })

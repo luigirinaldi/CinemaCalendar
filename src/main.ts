@@ -9,18 +9,21 @@ const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
-  const hueStep = 360 / n;  // Step size to equally space out n colours
-  const hue = (index * hueStep) % 360;  // Ensure hue wraps around the colour wheel
-  
+  const hueStep = 360 / n; // Step size to equally space out n colours
+  const hue = (index * hueStep) % 360; // Ensure hue wraps around the colour wheel
+
   // Use the HSL format to directly create the colour
-  return `hsl(${hue}, 100%, 50%)`;  // Saturation 100% and Lightness 50% for vivid colours
+  return `hsl(${hue}, 100%, 50%)`; // Saturation 100% and Lightness 50% for vivid colours
 }
 
-function cinemaCheckboxTemplate(cinemaName : string, colour: string) {
-  const checkbox = document.createElement("label");
-  checkbox.insertAdjacentHTML("afterbegin",`<input type="checkbox" checked="checked" style="accent-color: ${colour};">
-      <span class="checkmark">${cinemaName}</span>`)
-  return checkbox
+function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
+  const checkbox = document.createElement('label');
+  checkbox.insertAdjacentHTML(
+    'afterbegin',
+    `<input type="checkbox" checked="checked" style="accent-color: ${colour};">
+      <span class="checkmark">${cinemaName}</span>`
+  );
+  return checkbox;
 }
 
 export async function loadCinemaShowings(): Promise<
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     eventOverlap: true,
     eventDisplay: 'block',
     // events: events,
-    height: 'parent'
+    height: 'parent',
   });
   calendar.render();
 
@@ -74,8 +77,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
     console.log(cinema, colour, i);
 
-    
-    const events = Object.entries(cinemaData[cinema]).map(([cinema, movie]) => {
+    const events = Object.entries(cinemaData[cinema]).map(([_, movie]) => {
       let endDateString: string | undefined = movie.endTime;
       if (!endDateString) {
         const endDate = new Date(movie.startTime);
@@ -88,23 +90,22 @@ document.addEventListener('DOMContentLoaded', async function () {
         end: endDateString,
         color: colour,
       };
-    })
+    });
     console.log(events);
-    
+
     let cinemaEventSource = calendar.addEventSource(events);
-    
+
     const cinemaCheckbox = cinemaCheckboxTemplate(cinema, colour);
-    document.getElementById('button-container')?.insertAdjacentElement("beforeend", cinemaCheckbox);
+    document
+      .getElementById('button-container')
+      ?.insertAdjacentElement('beforeend', cinemaCheckbox);
 
     cinemaCheckbox.addEventListener('change', (_event) => {
       if (cinemaCheckbox.firstChild.checked) {
-          cinemaEventSource = calendar.addEventSource(events);
-        } else {
-          cinemaEventSource.remove();
+        cinemaEventSource = calendar.addEventSource(events);
+      } else {
+        cinemaEventSource.remove();
       }
+    });
   });
-  })
-
-
-
 });

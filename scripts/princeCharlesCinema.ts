@@ -3,7 +3,7 @@
 // Modified by: @luigirinaldi
 
 import { Browser } from 'happy-dom';
-import { CinemaShowing, FilmShowing, ScraperFunction } from '../src/types';
+import { CinemaShowing, FilmShowing } from '../src/types';
 
 const months = [
   'January',
@@ -74,12 +74,13 @@ function scrape(page, callback) {
           try {
             const start = parseDate(day, time);
             const duration: number = parseInt(runtime) || 0;
-            //   const end = new Date(start.getTime() + (parseInt(runtime) || 0) * 60_000);
+            const end = new Date(start.getTime() + (parseInt(runtime) || 0) * 60_000);
             const soldOut = listEl.matches('.soldfilm_book_button');
             callback({
               title,
               start,
               duration,
+              end,
               url,
               description,
               soldOut,
@@ -119,11 +120,12 @@ export async function scraper() {
 
   scrape(
     page.mainFrame.document,
-    ({ title, start, duration, url, description, filmUrl, soldOut }) => {
+    ({ title, start, duration, end, url, description, filmUrl, soldOut }) => {
       movie_info_out.push({
         name: title,
         tmdbId: null,
         startTime: start.toISOString(),
+        endTime: end.toISOString(),
         duration: duration,
       });
     }

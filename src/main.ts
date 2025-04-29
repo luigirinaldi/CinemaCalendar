@@ -16,13 +16,11 @@ function getColourFromHashAndN(index: number, n: number): string {
   return `hsl(${hue}, 100%, 50%)`;  // Saturation 100% and Lightness 50% for vivid colours
 }
 
-function cinemaButtonTemplate(cinemaName : string, colour: string) {
-  return `
-    <label class="container">
-      <input type="checkbox" checked="checked" style="accent-color: ${colour};">
-      <span class="checkmark">${cinemaName}</span>
-    </label>
-  `
+function cinemaCheckboxTemplate(cinemaName : string, colour: string) {
+  const checkbox = document.createElement("label");
+  checkbox.insertAdjacentHTML("afterbegin",`<input type="checkbox" checked="checked" style="accent-color: ${colour};">
+      <span class="checkmark">${cinemaName}</span>`)
+  return checkbox
 }
 
 export async function loadCinemaShowings(): Promise<
@@ -54,32 +52,6 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   console.log(cinemaData, Object.keys(cinemaData).length);
 
-  let events = [];
-  Object.keys(cinemaData).forEach((cinema, i) => {
-    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-    console.log(cinema, colour, i);
-
-    const cinemaButtonHTML = cinemaButtonTemplate(cinema, colour);
-    document.getElementById('button-container')?.insertAdjacentHTML("afterbegin", cinemaButtonHTML);
-
-    for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
-      let endDateString: string | undefined = movie.endTime;
-      if (!endDateString) {
-        const endDate = new Date(movie.startTime);
-        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
-        endDateString = endDate.toISOString();
-      }
-      events.push({
-        title: `${movie.name} @ ${cinema}`,
-        start: movie.startTime,
-        end: endDateString,
-        color: colour,
-      });
-    }
-  })
-
-  console.log(events);
-
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
     plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
@@ -93,8 +65,46 @@ document.addEventListener('DOMContentLoaded', async function () {
     displayEventTime: true,
     eventOverlap: true,
     eventDisplay: 'block',
-    events: events,
+    // events: events,
     height: 'parent'
   });
   calendar.render();
+
+  Object.keys(cinemaData).forEach((cinema, i) => {
+    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+    console.log(cinema, colour, i);
+
+    
+    const events = Object.entries(cinemaData[cinema]).map(([cinema, movie]) => {
+      let endDateString: string | undefined = movie.endTime;
+      if (!endDateString) {
+        const endDate = new Date(movie.startTime);
+        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+        endDateString = endDate.toISOString();
+      }
+      return {
+        title: `${movie.name} @ ${cinema}`,
+        start: movie.startTime,
+        end: endDateString,
+        color: colour,
+      };
+    })
+    console.log(events);
+    
+    let cinemaEventSource = calendar.addEventSource(events);
+    
+    const cinemaCheckbox = cinemaCheckboxTemplate(cinema, colour);
+    document.getElementById('button-container')?.insertAdjacentElement("beforeend", cinemaCheckbox);
+
+    cinemaCheckbox.addEventListener('change', (_event) => {
+      if (cinemaCheckbox.firstChild.checked) {
+          cinemaEventSource = calendar.addEventSource(events);
+        } else {
+          cinemaEventSource.remove();
+      }
+  });
+  })
+
+
+
 });

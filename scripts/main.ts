@@ -4,12 +4,14 @@ import { scraper as RegentScraper } from './regentStreetCinema';
 import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
 import { scraper as LuxPadovaScraper } from './luxPadova';
 import { scraper as PrinceScraper } from './princeCharlesCinema';
+import { scraper as RexScraper } from './rexCinema';
 
 const scrapers: Record<string, ScraperFunction> = {
   RegentScraper,
   theSpaceLimenaScraper,
   LuxPadovaScraper,
-  PrinceScraper
+  PrinceScraper,
+  RexScraper
 }
 
 async function writeFile(data, filename: string) {

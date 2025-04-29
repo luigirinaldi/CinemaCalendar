@@ -49,7 +49,7 @@ function scrape(page, callback) {
     )?.innerText;
     const runtime = Array.from(
       eventEl.querySelectorAll('.running-time > span'),
-      (span) => {
+      (span:any) => {
         return span.textContent.trim();
       }
     ).find((text) => {

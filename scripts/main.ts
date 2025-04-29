@@ -1,25 +1,38 @@
-import { fetchUpcomingCalendar } from './regentStreetCinema';
-import { fetchUpcomingCalendar2 } from './theSpaceLimena';
-import { fetchUpcomingCalendar3 as fetchLuxPadova } from './luxPadova';
 import fs from 'fs';
+import { ScraperFunction } from '../src/types';
+import { scraper as RegentScraper } from './regentStreetCinema';
+import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
+import { scraper as LuxPadovaScraper } from './luxPadova';
+import { scraper as PrinceScraper } from './princeCharlesCinema';
+
+const scrapers: Record<string, ScraperFunction> = {
+  RegentScraper,
+  theSpaceLimenaScraper,
+  LuxPadovaScraper,
+  PrinceScraper
+}
+
+async function writeFile(data, filename: string) {
+  fs.writeFile(filename, JSON.stringify(data), (err: any) => {
+    if (err) {
+      console.error('Error writing file: ', err);
+      return;
+    }
+    console.log(`JSON data has been successfully dumped to ${filename}`);
+  });
+}
 
 async function main() {
-  await fetchUpcomingCalendar();
-  await fetchUpcomingCalendar2();
-  await fetchLuxPadova();
-
-  // Write out the list of avalable cinemas
-  fs.writeFile(
-    './public/data/cinemas.json',
-    JSON.stringify({ cinemas: ['regentStreetCinema','theSpaceLimena','luxPadova'] }),
-    (err: any) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log('JSON data has been successfully dumped to cinemas.json');
+  let cinemas: string[] = [];
+  for (const [name, scraper] of Object.entries(scrapers)) {
+    const result = await scraper();
+    for (const [_, cinema] of Object.entries(result)) {
+      cinemas.push(cinema.cinema);
+      await writeFile(cinema.showings, `./public/data/${cinema.cinema}.json`);
     }
-  );
+  }
+
+  await writeFile(cinemas, './public/data/cinemas.json');
 }
 
 main();

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import ICAL from 'ical.js';
-import type { FilmShowing } from '../src/types';
+import type { CinemaShowing, FilmShowing } from '../src/types';
 
 async function fetchAndParseICS(url: string, parseEvent:Function, filter: boolean = false) : Promise<FilmShowing[]> {
   const res = await fetch(url);
@@ -64,24 +64,14 @@ function parseEvent(event: ICAL.Event): FilmShowing {
   };
 }
 
-export async function fetchUpcomingCalendar3() {
-  console.log('hello');
-  let movies = await Promise.resolve(fetchAndParseICS(
-    'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',
-    parseEvent,
-    true
-  ));
-  console.log(movies);
-
-  fs.writeFile(
-    './public/data/luxPadova.json',
-    JSON.stringify(movies),
-    (err) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log('JSON data has been successfully dumped to luxPadova.json');
-    }
-  );
+export async function scraper() : Promise<CinemaShowing[]> {
+  return [{
+    cinema: 'LuxPadova',
+    location: 'Padova',
+    showings: await fetchAndParseICS(
+      'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',
+      parseEvent,
+      true
+    )
+  }];
 }

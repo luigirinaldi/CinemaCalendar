@@ -1,13 +1,7 @@
 import fs from 'fs';
+import { CinemaShowing, FilmShowing } from '../src/types';
 
-interface FilmShowing {
-  name: string;
-  tmbdId: number | null;
-  startTime: string;
-  duration: number;
-}
-
-async function getMovieInfo(): Promise<Array<FilmShowing>> {
+export async function scraper(): Promise<CinemaShowing[]> {
   let body = {
     variables: {
       date: null,
@@ -59,35 +53,17 @@ async function getMovieInfo(): Promise<Array<FilmShowing>> {
   for (let [_key, movie] of Object.entries(movie_data)) {
     let movie_info: FilmShowing = {
       name: movie['movie']['name'],
-      tmbdId: movie['movie']['tmdbId'],
+      tmdbId: movie['movie']['tmdbId'],
       startTime: movie['time'],
       duration: movie['movie']['duration'],
     };
     movie_info_out.push(movie_info);
-    // console.log(movie_info)
-    // console.log('movie');
-    // // console.log(movie);
-    // console.log(movie['id'], movie['time']);
-    // // console.log(movie['movie'])
-    // console.log(movie['movie']['name'], movie['movie']['duration'], movie['movie']['tmdbId']);
   }
-  return movie_info_out;
-}
-
-export async function fetchUpcomingCalendar() {
-  console.log('hello');
-  let movies = await Promise.resolve(getMovieInfo());
-  console.log(movies);
-
-  fs.writeFile(
-    './public/data/regentStreetCinema.json',
-    JSON.stringify(movies),
-    (err) => {
-      if (err) {
-        console.error('Error writing file: ', err);
-        return;
-      }
-      console.log('JSON data has been successfully dumped to regentStreetCinema.json');
-    }
-  );
+  return [
+    {
+      cinema: 'RegentStreeCinema',
+      location: 'London',
+      showings: movie_info_out,
+    },
+  ];
 }

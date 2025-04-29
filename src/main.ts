@@ -1,6 +1,8 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { FilmShowing } from './types';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import listPlugin from '@fullcalendar/list';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
@@ -10,11 +12,11 @@ export async function loadCinemaShowings(): Promise<
   const result: Record<string, FilmShowing[]> = {};
 
   // disgusting
-  const files: string[] = (
-    await (await fetch(DATA_PATH + '/cinemas.json')).json()
-  )['cinemas'] as string[];
+  const files: string[] = (await (
+    await fetch(DATA_PATH + '/cinemas.json')
+  ).json()) as string[];
 
-  console.log(files);
+  console.log('available cinemas:', files);
 
   for (let [_, file] of Object.entries(files)) {
     const movieData = await fetch(`${DATA_PATH}/${file}.json`);
@@ -39,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   for (let cinema in cinemaData) {
     console.log(cinema);
     for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
-      let endDateString:string|undefined = movie.endTime;
+      let endDateString: string | undefined = movie.endTime;
       if (!endDateString) {
         const endDate = new Date(movie.startTime);
         endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
@@ -57,12 +59,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
-    plugins: [timeGridPlugin],
+    plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
     initialView: 'timeGridWeek',
     headerToolbar: {
       left: 'prev,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay', // user can switch between the two
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth',
     },
     displayEventEnd: true,
     displayEventTime: true,

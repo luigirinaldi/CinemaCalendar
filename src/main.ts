@@ -3,6 +3,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import type { FilmShowing } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
+import './style.css';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
@@ -71,6 +72,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     eventOverlap: true,
     eventDisplay: 'block',
     events: events,
+    height: 'parent'
   });
   calendar.render();
 });

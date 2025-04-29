@@ -21,3 +21,10 @@ html, body {
 #calendar {
     flex: 1;
 }
+
+#button-container {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    justify-content: space-around;
+}

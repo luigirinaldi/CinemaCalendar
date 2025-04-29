@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', async function () {
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
     plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
-    initialView: 'timeGridWeek',
+    initialView: 'timeGridDay',
     headerToolbar: {
       left: 'prev,next',
       center: 'title',

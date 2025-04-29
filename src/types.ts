@@ -5,4 +5,3 @@ export interface FilmShowing {
     endTime?: string;
     duration: number;
 }
-  

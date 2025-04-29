@@ -1,7 +1,9 @@
 import type { CinemaShowing } from '../src/types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
-  const response = await fetch(`https://www.cinemarex.it/pages/rexJsonCompact.php`);
+  const response = await fetch(
+    `https://www.cinemarex.it/pages/rexJsonCompact.php`
+  );
 
   console.log(
     'The request to rexcinema API gave response code: ',
@@ -23,7 +25,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
           startTime: show.inizio,
           duration: film.durata,
         }))
-      )
-    }
+      ),
+    },
   ];
 }

@@ -106,12 +106,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     let cinemaEventSource = calendar.addEventSource(events);
 
-    const { label , checkbox } = cinemaCheckboxTemplate(cinema, colour);
+    const { label, checkbox } = cinemaCheckboxTemplate(cinema, colour);
     document
       .getElementById('button-container')
       ?.insertAdjacentElement('beforeend', label);
 
-      checkbox.addEventListener('change', (_event) => {
+    checkbox.addEventListener('change', (_event) => {
       if (checkbox.checked) {
         cinemaEventSource = calendar.addEventSource(events);
       } else {

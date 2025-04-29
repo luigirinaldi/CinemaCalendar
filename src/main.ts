@@ -17,13 +17,24 @@ function getColourFromHashAndN(index: number, n: number): string {
 }
 
 function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
-  const checkbox = document.createElement('label');
-  checkbox.insertAdjacentHTML(
-    'afterbegin',
-    `<input type="checkbox" checked="checked" style="accent-color: ${colour};">
-      <span class="checkmark">${cinemaName}</span>`
-  );
-  return checkbox;
+  const label = document.createElement('label');
+
+  // Create checkbox input
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = true;
+  checkbox.style.accentColor = colour;
+
+  // Create span for the label text
+  const span = document.createElement('span');
+  span.className = 'checkmark';
+  span.textContent = cinemaName;
+
+  // Append checkbox and span to the label
+  label.appendChild(checkbox);
+  label.appendChild(span);
+
+  return { label, checkbox };
 }
 
 export async function loadCinemaShowings(): Promise<
@@ -95,13 +106,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     let cinemaEventSource = calendar.addEventSource(events);
 
-    const cinemaCheckbox = cinemaCheckboxTemplate(cinema, colour);
+    const { label , checkbox } = cinemaCheckboxTemplate(cinema, colour);
     document
       .getElementById('button-container')
-      ?.insertAdjacentElement('beforeend', cinemaCheckbox);
+      ?.insertAdjacentElement('beforeend', label);
 
-    cinemaCheckbox.addEventListener('change', (_event) => {
-      if (cinemaCheckbox.firstChild.checked) {
+      checkbox.addEventListener('change', (_event) => {
+      if (checkbox.checked) {
         cinemaEventSource = calendar.addEventSource(events);
       } else {
         cinemaEventSource.remove();

@@ -3,8 +3,39 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import type { FilmShowing } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
+import './style.css';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
+
+function getColourFromHashAndN(index: number, n: number): string {
+  // The hue value will be between 0 and 360 (the colour wheel)
+  const hueStep = 360 / n; // Step size to equally space out n colours
+  const hue = (index * hueStep) % 360; // Ensure hue wraps around the colour wheel
+
+  // Use the HSL format to directly create the colour
+  return `hsl(${hue}, 100%, 50%)`; // Saturation 100% and Lightness 50% for vivid colours
+}
+
+function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
+  const label = document.createElement('label');
+
+  // Create checkbox input
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = true;
+  checkbox.style.accentColor = colour;
+
+  // Create span for the label text
+  const span = document.createElement('span');
+  span.className = 'checkmark';
+  span.textContent = cinemaName;
+
+  // Append checkbox and span to the label
+  label.appendChild(checkbox);
+  label.appendChild(span);
+
+  return { label, checkbox };
+}
 
 export async function loadCinemaShowings(): Promise<
   Record<string, FilmShowing[]>
@@ -31,36 +62,14 @@ export async function loadCinemaShowings(): Promise<
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
-  console.log('Hello World!');
+  const cinemaData = await Promise.resolve(loadCinemaShowings());
 
-  let cinemaData = await Promise.resolve(loadCinemaShowings());
-
-  console.log(cinemaData);
-
-  let events = [];
-  for (let cinema in cinemaData) {
-    console.log(cinema);
-    for (let [_mv, movie] of Object.entries(cinemaData[cinema])) {
-      let endDateString: string | undefined = movie.endTime;
-      if (!endDateString) {
-        const endDate = new Date(movie.startTime);
-        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
-        endDateString = endDate.toISOString();
-      }
-      events.push({
-        title: `${movie.name} @ ${cinema}`,
-        start: movie.startTime,
-        end: endDateString,
-      });
-    }
-  }
-
-  console.log(events);
+  console.log(cinemaData, Object.keys(cinemaData).length);
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
     plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
-    initialView: 'timeGridWeek',
+    initialView: 'timeGridDay',
     headerToolbar: {
       left: 'prev,next',
       center: 'title',
@@ -70,7 +79,44 @@ document.addEventListener('DOMContentLoaded', async function () {
     displayEventTime: true,
     eventOverlap: true,
     eventDisplay: 'block',
-    events: events,
+    // events: events,
+    height: 'parent',
   });
   calendar.render();
+
+  Object.keys(cinemaData).forEach((cinema, i) => {
+    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+    console.log(cinema, colour, i);
+
+    const events = Object.entries(cinemaData[cinema]).map(([_, movie]) => {
+      let endDateString: string | undefined = movie.endTime;
+      if (!endDateString) {
+        const endDate = new Date(movie.startTime);
+        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+        endDateString = endDate.toISOString();
+      }
+      return {
+        title: `${movie.name} @ ${cinema}`,
+        start: movie.startTime,
+        end: endDateString,
+        color: colour,
+      };
+    });
+    console.log(events);
+
+    let cinemaEventSource = calendar.addEventSource(events);
+
+    const { label, checkbox } = cinemaCheckboxTemplate(cinema, colour);
+    document
+      .getElementById('button-container')
+      ?.insertAdjacentElement('beforeend', label);
+
+    checkbox.addEventListener('change', (_event) => {
+      if (checkbox.checked) {
+        cinemaEventSource = calendar.addEventSource(events);
+      } else {
+        cinemaEventSource.remove();
+      }
+    });
+  });
 });

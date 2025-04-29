@@ -1,0 +1,31 @@
+/* style.css */
+html,
+body {
+  /* overflow: hidden; don't do scrollbars */
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+#calendar-container {
+  flex: 1;
+  display: flex;
+  flex-flow: row;
+  padding: 10px;
+}
+
+#calendar {
+  flex: 1;
+}
+
+#button-container {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: space-around;
+}

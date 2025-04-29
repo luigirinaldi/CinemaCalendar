@@ -11,8 +11,8 @@ const scrapers: Record<string, ScraperFunction> = {
   theSpaceLimenaScraper,
   LuxPadovaScraper,
   PrinceScraper,
-  RexScraper
-}
+  RexScraper,
+};
 
 async function writeFile(data, filename: string) {
   fs.writeFile(filename, JSON.stringify(data), (err: any) => {

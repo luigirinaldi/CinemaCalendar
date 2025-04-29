@@ -61,7 +61,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
   }
   return [
     {
-      cinema: 'RegentStreeCinema',
+      cinema: 'RegentStreetCinema',
       location: 'London',
       showings: movie_info_out,
     },

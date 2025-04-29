@@ -33,7 +33,7 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
   return [
     {
       cinema: 'TheSpaceCinemaLimena',
-      location: 'Padova',
+      location: 'Limena',
       showings: data.result.flatMap((film) =>
         film.showingGroups.flatMap((day) =>
           day.sessions.map((show) => ({

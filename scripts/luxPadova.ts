@@ -40,7 +40,7 @@ return events;
  * - _location_ - Where the event takes place.
  * - _startDate_ - An ```ICAL.Time``` object representing the event's start.
  * - _endDate_ - An ```ICAL.Time``` object representing the event's end.
- * - _duration_ - An ICAL.Duration object if duration is specified instead of end date.
+ * - _duration_ - An ```ICAL.Duration``` object if duration is specified instead of end date.
  * - _uid_ - Unique identifier for the event.
  * - _organizer_ - The organizer's contact information.
  * - _status_ - The event's status (e.g., "CONFIRMED", "CANCELLED").
@@ -50,15 +50,17 @@ return events;
  * @returns A FilmShowing object with the parsed data.
  */
 function parseEvent(event: ICAL.Event): FilmShowing {
-  const res = event.summary.split(/[\s–-][\s–-]/); // regex matches every word in { ,–,-}^2
+  const res = event.summary.split(/[\s–-][\s–-]/, 2); // regex matches every word in { ,–,-}^2
   const title = res[0];
   const desc = res[res.length - 1];
-  const duration = desc ? desc.match(/\(\d+′\)/) : null; // regex matches (x′) where x is a number
+  const durations = desc ? desc.match(/(?<=[\(+])\d+(?=′)/) : null; // regex matches (x′) where x is a number
+  let duration:number = 0;
+  durations?.forEach((minutes) => {duration += +minutes;}); // The '+' operator converts the string to a number
   return {
     name: title,
     tmdbId: event.uid,
     startTime: event.startDate.toString(),
-    duration: duration ? +duration[0].slice(1, -2) : 0, // The '+' operator converts the string to a number
+    duration: duration
   };
 }
 

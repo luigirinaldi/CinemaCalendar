@@ -1,6 +1,6 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import type { CinemaDB, FilmShowing } from './types';
+import type { CinemaDB, FilmShowing, FilmShowingDB } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import './style.css';
@@ -89,6 +89,10 @@ JOIN cinemas ON film_showings.cinema_id = cinemas.id`);
   // worker.worker.bytesRead = 0;
 }
 
+type CinemaCheckboxState = {
+  checked: boolean;
+  colour: string;
+};
 
 async function main() {
   const sqlWorker = await connect_sql();
@@ -98,7 +102,7 @@ async function main() {
   console.log(cinemaData, Object.keys(cinemaData).length);
   
   // make the global, mutable checkbox state variable
-  let cinemaCheckBoxes: Record<string, boolean> = {};
+  let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
   
   cinemaData.forEach((cinema, i) => {
     // get a unique colour for each cinema
@@ -110,10 +114,14 @@ async function main() {
       .getElementById('button-container')
       ?.insertAdjacentElement('beforeend', label);
 
-    cinemaCheckBoxes[cinema.id] = true;
+    cinemaCheckBoxes[cinema.id]  = {
+      checked: true,
+      colour: colour
+    }
+
     // modify the checkbox state when the checkbox state changes
     checkbox.addEventListener('change', (_event) => {
-      cinemaCheckBoxes[cinema.id] = checkbox.checked;
+      cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
       // call the refetch so that the event are updated to exclude/include the correct cinemas
       calendar.refetchEvents() // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
     });
@@ -136,7 +144,7 @@ async function main() {
     events: async function (info, successCallback, failureCallback) {
       console.log(info, cinemaCheckBoxes)
       try {
-        const films = await sqlWorker.db.query('select title, name as cinema_name, duration_minutes as duration, start_time, end_time from film_showings join films on film_showings.film_id = films.id join cinemas on film_showings.cinema_id = cinemas.id where start_time between ? and ?', [info.startStr, info.endStr])
+        const films = await sqlWorker.db.query('select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id from film_showings join films on film_showings.film_id = films.id join cinemas on film_showings.cinema_id = cinemas.id where start_time between ? and ?', [info.startStr, info.endStr]) as FilmShowingDB[];
         console.log(films)
         successCallback(films.map(movie => {
           let endDateString: string | undefined = movie.end_time;
@@ -146,9 +154,10 @@ async function main() {
             endDateString = endDate.toISOString();
           }
           return  {
-            title:  `${movie.name} @ ${movie.cinema_name}`,
+            title:  `${movie.title} @ ${movie.cinema_name}`,
             start: movie.start_time,
             end: endDateString,
+            color: cinemaCheckBoxes[movie.cinema_id].colour
           }
         }))
       }

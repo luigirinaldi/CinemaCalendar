@@ -19,4 +19,13 @@ export interface CinemaDB {
   location: string
 }
 
+export interface FilmShowingDB {
+    title: string;
+    start_time: string;
+    end_time?: string;
+    duration: number;
+    cinema_name: string;
+    cinema_id: number;
+  }
+
 export type ScraperFunction = () => Promise<CinemaShowing[]>;

@@ -23,7 +23,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
           name: film.titolo,
           tmdbId: show.id_cinebot,
           startTime: show.inizio,
-          duration: film.durata,
+          duration: +film.durata // the '+' converts the string to number
         }))
       ),
     },

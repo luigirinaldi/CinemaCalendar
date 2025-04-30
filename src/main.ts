@@ -1,12 +1,13 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import type { FilmShowing } from './types';
+import type { CinemaDB, FilmShowing } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import './style.css';
 
 
-import { createDbWorker } from "sql.js-httpvfs"
+import { createDbWorker, WorkerHttpvfs } from "sql.js-httpvfs"
+import { fail } from 'assert';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
 
@@ -40,33 +41,12 @@ function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
   return { label, checkbox };
 }
 
-export async function loadCinemaShowings(): Promise<
-  Record<string, FilmShowing[]>
-> {
-  const result: Record<string, FilmShowing[]> = {};
+document.addEventListener('DOMContentLoaded', main);
 
-  // disgusting
-  const files: string[] = (await (
-    await fetch(DATA_PATH + '/cinemas.json')
-  ).json()) as string[];
 
-  console.log('available cinemas:', files);
 
-  for (let [_, file] of Object.entries(files)) {
-    const movieData = await fetch(`${DATA_PATH}/${file}.json`);
-    try {
-      result[file] = (await movieData.json()) as FilmShowing[];
-    } catch (e) {
-      console.warn(`Failed to parse JSON in file: ${file}`, e);
-    }
-  }
-
-  return result;
-}
-
-document.addEventListener('DOMContentLoaded', sql_test);
-
-async function sql_test() {
+// Function to setup the sql workers and instantiate everything
+async function connect_sql() {
   // sadly there's no good way to package workers and wasm directly so you need a way to get these two URLs from your bundler.
   // This is the webpack5 way to create a asset bundle of the worker and wasm:
   const workerUrl = new URL(
@@ -77,7 +57,6 @@ async function sql_test() {
     "sql.js-httpvfs/dist/sql-wasm.wasm",
     import.meta.url,
   );
-  // the legacy webpack4 way is something like `import wasmUrl from "file-loader!sql.js-httpvfs/dist/sql-wasm.wasm"`.
 
   // the config is either the url to the create_db script, or a inline configuration:
   const config = {
@@ -97,9 +76,7 @@ async function sql_test() {
     wasmUrl.toString(),
     maxBytesToRead // optional, defaults to Infinity
   );
-  // you can also pass multiple config objects which can then be used as separate database schemas with `ATTACH virtualFilename as schemaname`, where virtualFilename is also set in the config object.
-
-
+  return worker
   // worker.db is a now SQL.js instance except that all functions return Promises.
   const result = await worker.db.exec(`select title, name, start_time from film_showings JOIN films ON film_showings.film_id = films.id
 JOIN cinemas ON film_showings.cinema_id = cinemas.id`);
@@ -114,9 +91,33 @@ JOIN cinemas ON film_showings.cinema_id = cinemas.id`);
 
 
 async function main() {
-  const cinemaData = await Promise.resolve(loadCinemaShowings());
+  const sqlWorker = await connect_sql();
+  
+  const cinemaData = await sqlWorker.db.query('select id, name, location from cinemas') as CinemaDB[];
 
   console.log(cinemaData, Object.keys(cinemaData).length);
+  
+  // make the global, mutable checkbox state variable
+  let cinemaCheckBoxes: Record<string, boolean> = {};
+  
+  cinemaData.forEach((cinema, i) => {
+    // get a unique colour for each cinema
+    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+    console.log(cinema, colour, i);
+    // create the html for the cinema checkbox
+    const { label, checkbox } = cinemaCheckboxTemplate(cinema.name, colour);
+    document
+      .getElementById('button-container')
+      ?.insertAdjacentElement('beforeend', label);
+
+    cinemaCheckBoxes[cinema.id] = true;
+    // modify the checkbox state when the checkbox state changes
+    checkbox.addEventListener('change', (_event) => {
+      cinemaCheckBoxes[cinema.id] = checkbox.checked;
+      // call the refetch so that the event are updated to exclude/include the correct cinemas
+      calendar.refetchEvents() // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+    });
+  })
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
@@ -131,44 +132,67 @@ async function main() {
     displayEventTime: true,
     eventOverlap: true,
     eventDisplay: 'block',
-    // events: events,
     height: 'parent',
+    events: async function (info, successCallback, failureCallback) {
+      console.log(info, cinemaCheckBoxes)
+      try {
+        const films = await sqlWorker.db.query('select title, name as cinema_name, duration_minutes as duration, start_time, end_time from film_showings join films on film_showings.film_id = films.id join cinemas on film_showings.cinema_id = cinemas.id where start_time between ? and ?', [info.startStr, info.endStr])
+        console.log(films)
+        successCallback(films.map(movie => {
+          let endDateString: string | undefined = movie.end_time;
+          if (!endDateString) {
+            const endDate = new Date(movie.start_time);
+            endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+            endDateString = endDate.toISOString();
+          }
+          return  {
+            title:  `${movie.name} @ ${movie.cinema_name}`,
+            start: movie.start_time,
+            end: endDateString,
+          }
+        }))
+      }
+      catch(error) {
+        console.log("Something went wrong fetching events", error)
+        failureCallback(error);
+      }
+    }
   });
   calendar.render();
 
-  Object.keys(cinemaData).forEach((cinema, i) => {
-    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-    console.log(cinema, colour, i);
+  // Object.keys(cinemaData).forEach((cinema, i) => {
+  //   const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+  //   console.log(cinema, colour, i);
 
-    const events = Object.entries(cinemaData[cinema]).map(([_, movie]) => {
-      let endDateString: string | undefined = movie.endTime;
-      if (!endDateString) {
-        const endDate = new Date(movie.startTime);
-        endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
-        endDateString = endDate.toISOString();
-      }
-      return {
-        title: `${movie.name} @ ${cinema}`,
-        start: movie.startTime,
-        end: endDateString,
-        color: colour,
-      };
-    });
-    console.log(events);
+  //   const events = Object.entries(cinemaData[cinema]).map(([_, movie]) => {
+  //     let endDateString: string | undefined = movie.endTime;
+  //     if (!endDateString) {
+  //       const endDate = new Date(movie.startTime);
+  //       endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+  //       endDateString = endDate.toISOString();
+  //     }
+  //     return {
+  //       title: `${movie.name} @ ${cinema}`,
+  //       start: movie.startTime,
+  //       end: endDateString,
+  //       color: colour,
+  //     };
+  //   });
+  //   console.log(events);
 
-    let cinemaEventSource = calendar.addEventSource(events);
+  //   let cinemaEventSource = calendar.addEventSource(events);
 
-    const { label, checkbox } = cinemaCheckboxTemplate(cinema, colour);
-    document
-      .getElementById('button-container')
-      ?.insertAdjacentElement('beforeend', label);
+  //   const { label, checkbox } = cinemaCheckboxTemplate(cinema, colour);
+  //   document
+  //     .getElementById('button-container')
+  //     ?.insertAdjacentElement('beforeend', label);
 
-    checkbox.addEventListener('change', (_event) => {
-      if (checkbox.checked) {
-        cinemaEventSource = calendar.addEventSource(events);
-      } else {
-        cinemaEventSource.remove();
-      }
-    });
-  });
+  //   checkbox.addEventListener('change', (_event) => {
+  //     if (checkbox.checked) {
+  //       cinemaEventSource = calendar.addEventSource(events);
+  //     } else {
+  //       cinemaEventSource.remove();
+  //     }
+  //   });
+  // });
 }

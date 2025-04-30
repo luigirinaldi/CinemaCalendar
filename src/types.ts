@@ -12,4 +12,11 @@ export interface CinemaShowing {
   showings: FilmShowing[];
 }
 
+// represents the schema in the sqlite, should be generated automatically
+export interface CinemaDB {
+  id: number,
+  name: string,
+  location: string
+}
+
 export type ScraperFunction = () => Promise<CinemaShowing[]>;

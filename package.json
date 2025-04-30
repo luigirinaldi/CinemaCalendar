@@ -25,6 +25,7 @@
     "fullcalendar": "^6.1.17",
     "happy-dom": "^17.4.4",
     "ical.js": "^2.1.0",
-    "rimraf": "^6.0.1"
+    "rimraf": "^6.0.1",
+    "sql.js-httpvfs": "^0.8.12"
   }
 }

@@ -28,7 +28,7 @@ async function writeFile(data, filename: string) {
 }
 
 async function main() {
-  const db = new Database('./my.db');
+  const db = new Database('./public/data/my.db');
 
   // Make cinema table
   db.prepare(

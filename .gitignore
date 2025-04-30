@@ -25,3 +25,4 @@ dist-ssr
 
 # Data to be generated on the spot
 public/data/
+**/*.db

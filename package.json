@@ -13,6 +13,7 @@
     "cleanData": "rimraf public/data"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.14.1",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
@@ -20,10 +21,10 @@
     "vite": "^6.3.1"
   },
   "dependencies": {
+    "better-sqlite3": "^11.9.1",
     "fullcalendar": "^6.1.17",
     "happy-dom": "^17.4.4",
     "ical.js": "^2.1.0",
-    "rimraf": "^6.0.1",
-    "sqlite3": "^5.1.7"
+    "rimraf": "^6.0.1"
   }
 }

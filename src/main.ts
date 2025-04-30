@@ -5,8 +5,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import './style.css';
 
-
-import { createDbWorker, WorkerHttpvfs } from "sql.js-httpvfs"
+import { createDbWorker, WorkerHttpvfs } from 'sql.js-httpvfs';
 import { fail } from 'assert';
 
 const DATA_PATH = import.meta.env.BASE_URL + '/data';
@@ -43,31 +42,25 @@ function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
 
 document.addEventListener('DOMContentLoaded', main);
 
-
-
 // Function to setup the sql workers and instantiate everything
 async function connect_sql() {
   // sadly there's no good way to package workers and wasm directly so you need a way to get these two URLs from your bundler.
   // This is the webpack5 way to create a asset bundle of the worker and wasm:
   const workerUrl = new URL(
-    "sql.js-httpvfs/dist/sqlite.worker.js",
-    import.meta.url,
+    'sql.js-httpvfs/dist/sqlite.worker.js',
+    import.meta.url
   );
-  const wasmUrl = new URL(
-    "sql.js-httpvfs/dist/sql-wasm.wasm",
-    import.meta.url,
-  );
+  const wasmUrl = new URL('sql.js-httpvfs/dist/sql-wasm.wasm', import.meta.url);
 
   // the config is either the url to the create_db script, or a inline configuration:
   const config = {
-    from: "inline",
+    from: 'inline',
     config: {
-      serverMode: "full", // file is just a plain old full sqlite database
+      serverMode: 'full', // file is just a plain old full sqlite database
       requestChunkSize: 4096, // the page size of the  sqlite database (by default 4096)
-      url: import.meta.env.BASE_URL + "data/my.db" // url to the database (relative or full)
-    }
+      url: import.meta.env.BASE_URL + 'data/my.db', // url to the database (relative or full)
+    },
   };
-
 
   let maxBytesToRead = 10 * 1024 * 1024;
   const worker = await createDbWorker(
@@ -76,9 +69,10 @@ async function connect_sql() {
     wasmUrl.toString(),
     maxBytesToRead // optional, defaults to Infinity
   );
-  return worker
+  return worker;
   // worker.db is a now SQL.js instance except that all functions return Promises.
-  const result = await worker.db.exec(`select title, name, start_time from film_showings JOIN films ON film_showings.film_id = films.id
+  const result = await worker.db
+    .exec(`select title, name, start_time from film_showings JOIN films ON film_showings.film_id = films.id
 JOIN cinemas ON film_showings.cinema_id = cinemas.id`);
   document.body.textContent = JSON.stringify(result);
   // worker.worker.bytesRead is a Promise for the number of bytes read by the worker.
@@ -96,14 +90,16 @@ type CinemaCheckboxState = {
 
 async function main() {
   const sqlWorker = await connect_sql();
-  
-  const cinemaData = await sqlWorker.db.query('select id, name, location from cinemas') as CinemaDB[];
+
+  const cinemaData = (await sqlWorker.db.query(
+    'select id, name, location from cinemas'
+  )) as CinemaDB[];
 
   console.log(cinemaData, Object.keys(cinemaData).length);
-  
+
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
-  
+
   cinemaData.forEach((cinema, i) => {
     // get a unique colour for each cinema
     const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
@@ -114,18 +110,18 @@ async function main() {
       .getElementById('button-container')
       ?.insertAdjacentElement('beforeend', label);
 
-    cinemaCheckBoxes[cinema.id]  = {
+    cinemaCheckBoxes[cinema.id] = {
       checked: true,
-      colour: colour
-    }
+      colour: colour,
+    };
 
     // modify the checkbox state when the checkbox state changes
     checkbox.addEventListener('change', (_event) => {
       cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
       // call the refetch so that the event are updated to exclude/include the correct cinemas
-      calendar.refetchEvents() // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+      calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
     });
-  })
+  });
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
@@ -142,30 +138,44 @@ async function main() {
     eventDisplay: 'block',
     height: 'parent',
     events: async function (info, successCallback, failureCallback) {
-      console.log(info, cinemaCheckBoxes)
+      console.log(info, cinemaCheckBoxes);
       try {
-        const films = await sqlWorker.db.query('select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id from film_showings join films on film_showings.film_id = films.id join cinemas on film_showings.cinema_id = cinemas.id where start_time between ? and ?', [info.startStr, info.endStr]) as FilmShowingDB[];
-        console.log(films)
-        successCallback(films.map(movie => {
-          let endDateString: string | undefined = movie.end_time;
-          if (!endDateString) {
-            const endDate = new Date(movie.start_time);
-            endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
-            endDateString = endDate.toISOString();
-          }
-          return  {
-            title:  `${movie.title} @ ${movie.cinema_name}`,
-            start: movie.start_time,
-            end: endDateString,
-            color: cinemaCheckBoxes[movie.cinema_id].colour
-          }
-        }))
-      }
-      catch(error) {
-        console.log("Something went wrong fetching events", error)
+        const checkedCinemas = Object.entries(cinemaCheckBoxes)
+          .filter(([_, { checked }]) => checked) // Keep only checked cinemas
+          .map(([id]) => id);
+        // make a query to get the relevant film showings,
+        // the dodgy stuff for the cinema id is there to pick out the cinemas which have checked boxes,
+        // the dodginess comes from the fact that sqlite (?) doesn't have native array bindings (GPT's word so idk)
+        const films = (await sqlWorker.db.query(
+          `
+          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id 
+          from film_showings 
+          join films on film_showings.film_id = films.id 
+          join cinemas on film_showings.cinema_id = cinemas.id
+          where start_time between ? and ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})`,
+          [info.startStr, info.endStr, ...checkedCinemas]
+        )) as FilmShowingDB[];
+        successCallback(
+          films.map((movie) => {
+            let endDateString: string | undefined = movie.end_time;
+            if (!endDateString) {
+              const endDate = new Date(movie.start_time);
+              endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
+              endDateString = endDate.toISOString();
+            }
+            return {
+              title: `${movie.title} @ ${movie.cinema_name}`,
+              start: movie.start_time,
+              end: endDateString,
+              color: cinemaCheckBoxes[movie.cinema_id].colour,
+            };
+          })
+        );
+      } catch (error) {
+        console.log('Something went wrong fetching events', error);
         failureCallback(error);
       }
-    }
+    },
   });
   calendar.render();
 

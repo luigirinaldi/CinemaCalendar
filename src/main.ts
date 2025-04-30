@@ -69,18 +69,8 @@ async function connect_sql() {
     wasmUrl.toString(),
     maxBytesToRead // optional, defaults to Infinity
   );
-  return worker;
   // worker.db is a now SQL.js instance except that all functions return Promises.
-  const result = await worker.db
-    .exec(`select title, name, start_time from film_showings JOIN films ON film_showings.film_id = films.id
-JOIN cinemas ON film_showings.cinema_id = cinemas.id`);
-  document.body.textContent = JSON.stringify(result);
-  // worker.worker.bytesRead is a Promise for the number of bytes read by the worker.
-  console.log(await worker.worker.bytesRead);
-  // if a request would cause it to exceed maxBytesToRead, that request will throw a SQLite disk I/O error.
-
-  // you can reset bytesRead by assigning to it:
-  // worker.worker.bytesRead = 0;
+  return worker;
 }
 
 type CinemaCheckboxState = {
@@ -178,40 +168,4 @@ async function main() {
     },
   });
   calendar.render();
-
-  // Object.keys(cinemaData).forEach((cinema, i) => {
-  //   const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-  //   console.log(cinema, colour, i);
-
-  //   const events = Object.entries(cinemaData[cinema]).map(([_, movie]) => {
-  //     let endDateString: string | undefined = movie.endTime;
-  //     if (!endDateString) {
-  //       const endDate = new Date(movie.startTime);
-  //       endDate.setUTCMinutes(endDate.getUTCMinutes() + movie.duration);
-  //       endDateString = endDate.toISOString();
-  //     }
-  //     return {
-  //       title: `${movie.name} @ ${cinema}`,
-  //       start: movie.startTime,
-  //       end: endDateString,
-  //       color: colour,
-  //     };
-  //   });
-  //   console.log(events);
-
-  //   let cinemaEventSource = calendar.addEventSource(events);
-
-  //   const { label, checkbox } = cinemaCheckboxTemplate(cinema, colour);
-  //   document
-  //     .getElementById('button-container')
-  //     ?.insertAdjacentElement('beforeend', label);
-
-  //   checkbox.addEventListener('change', (_event) => {
-  //     if (checkbox.checked) {
-  //       cinemaEventSource = calendar.addEventSource(events);
-  //     } else {
-  //       cinemaEventSource.remove();
-  //     }
-  //   });
-  // });
 }

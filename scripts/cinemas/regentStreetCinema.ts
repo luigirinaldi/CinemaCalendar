@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { CinemaShowing, FilmShowing } from '../src/types';
+import { CinemaShowing, FilmShowing } from '../../src/types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
   let body = {

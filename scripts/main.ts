@@ -5,13 +5,13 @@ import { CinemaShowing, ScraperFunction } from '../src/types';
 import Database from 'better-sqlite3';
 import { match } from 'assert';
 
-const stepFiles = readdirSync('./scripts').filter(f => f.endsWith("Cinema.ts"));
+const stepFiles = readdirSync('./scripts/cinemas');
 
 const scrapers: ScraperFunction[] = [];
 
 // Dynamically import all scraper scripts
 for (const file of stepFiles) {
-  const module = await import('./' + file); // dynamic import
+  const module = await import('./cinemas/' + file); // dynamic import
   if (typeof module.scraper === "function") {
     scrapers.push(module.scraper as ScraperFunction);
     console.log(`✅ Loaded scraper from ${file}`);

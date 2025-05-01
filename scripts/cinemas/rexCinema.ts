@@ -1,4 +1,4 @@
-import type { CinemaShowing } from '../src/types';
+import type { CinemaShowing } from '../../src/types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
   const response = await fetch(

@@ -7,6 +7,8 @@ import listPlugin from '@fullcalendar/list';
 import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
+import { ViewProps } from '@fullcalendar/core/internal';
+import { group } from 'console';
 
 document.addEventListener('DOMContentLoaded', main);
 
@@ -114,54 +116,34 @@ async function main() {
 
   const CustomViewConfig = {
 
-    content: (arg) => {
+    content: (arg: ViewProps) => {
+      console.log(arg)
       const container = document.createElement('div');
       container.innerText = 'Loading...';
-    
-      sqlWorker.db.query('select * from films')
+
+      const checkedCinemas = Object.entries(cinemaCheckBoxes)
+        .filter(([_, { checked }]) => checked) // Keep only checked cinemas
+        .map(([id]) => id);
+      (sqlWorker.db.query(`
+          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id 
+          from film_showings 
+          join films on film_showings.film_id = films.id 
+          join cinemas on film_showings.cinema_id = cinemas.id
+          where start_time > ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
+          order by start_time;`,
+          [arg.dateProfile.currentDate.toISOString(), ...checkedCinemas]
+        ) as Promise<FilmShowingDB[]>)
         .then(data => {
-          container.innerHTML = `<ul>${data.map(item => `<li>${item}</li>`).join('')}</ul>`;
+          const grouped_data = data.reduce((acc, row) => {
+            acc[row.title] = acc[row.title] ? [...acc[row.title], row] : [row];
+            return acc;
+          }, {} as Record<string, FilmShowingDB[]>);
+          console.log(grouped_data)
+          container.innerHTML = `<ul>${Object.entries(grouped_data).map(([title, filminfo]) => `<li><h3>${title}</h3>${filminfo.map(film => film.start_time).join(" ")}</li>`).join('')}</ul>`;
         });
     
       return { domNodes: [container] };
     }
-
-    // content: function (props) {
-    //   let data = [1,3];
-
-    //   let html = `
-    //       <div>${data.map(d => String(d)).join(" ")}</div>
-    //       `;
-
-
-    //   sqlWorker.db.query('select * from films').then(newdata => {
-    //     console.log(newdata);
-    //     data = newdata;
-    //   }).catch(e => {
-    //     console.log("Something went wrong", e);
-    //   });
-
-    //   // // const container = document.createElement('div');
-    //   // // container.className = 'movie-view';
-
-    //   // (async () => {
-    //   //   const films = (await sqlWorker.db.query(
-    //   //   'select * from films'
-    //   // ));
-    //   // console.log(films);}
-    //   // )();
-    //   // // container.innerHTML = '<h1>hello</h1>';
-    //   // let segs = sliceEvents(props, true); // allDay=true
-    //   // let html =
-    //   //   '<div class="view-title">' +
-    //   //     props.dateProfile.currentRange.start.toUTCString() +
-    //   //   '</div>' +
-    //   //   '<div class="view-events">' +
-    //   //     segs.length + ' events' +
-    //   //   '</div>'
-  
-    //   return { html: html };
-    // },
   }
   
   const CustomViewPlugin = createPlugin({

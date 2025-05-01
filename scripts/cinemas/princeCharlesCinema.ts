@@ -3,7 +3,7 @@
 // Modified by: @luigirinaldi
 
 import { Browser } from 'happy-dom';
-import { CinemaShowing, FilmShowing } from '../src/types';
+import { CinemaShowing, FilmShowing } from '../../src/types';
 
 const months = [
   'January',

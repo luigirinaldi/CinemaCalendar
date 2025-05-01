@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { CinemaShowing, FilmShowing } from '../src/types';
+import { CinemaShowing, FilmShowing } from '../../src/types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
   let body = {
@@ -46,7 +46,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
   // 👇️ const result: CreateUserResponse
   const result = await response.json();
 
-  let movie_data = result['data']['showingsForDate']['data'];
+  let movie_data:object = result['data']['showingsForDate']['data'];
 
   let movie_info_out: Array<FilmShowing> = [];
 

@@ -135,7 +135,7 @@ async function main() {
           from film_showings 
           join films on film_showings.film_id = films.id 
           join cinemas on film_showings.cinema_id = cinemas.id
-          where start_time > ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
+          where start_time >= ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
           order by start_time;`,
           [arg.dateProfile.currentDate.toISOString(), ...checkedCinemas]
         ) as Promise<FilmShowingDB[]>
@@ -147,11 +147,24 @@ async function main() {
           },
           {} as Record<string, FilmShowingDB[]>
         );
+        console.log(data);
         console.log(grouped_data);
         container.innerHTML = `<ul>${Object.entries(grouped_data)
           .map(
             ([title, filminfo]) =>
-              `<li><h3>${title}</h3>${filminfo.map((film) => film.start_time).join(' ')}</li>`
+              `<li>
+                <h3>${title}</h3>
+                <div style="display: flex; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; ">
+                  ${filminfo
+                    .map(
+                      (film) => `
+                          <span style="background-color: ${cinemaCheckBoxes[film.cinema_id].colour}">
+                            ${new Date(film.start_time).toLocaleString()}
+                          </span>`
+                    )
+                    .join('')}
+                </div>
+              </li>`
           )
           .join('')}</ul>`;
       });

@@ -16,7 +16,7 @@ export async function fetchAndParseICS(
   // filter out past showings
   if (filter) {
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // zero out time to get beginning of today
+    today.setUTCHours(0,0,0,0); // Set time to midnight
     vevents = vevents.filter((vevent) => {
       const event = new ICAL.Event(vevent);
       return event.startDate.toJSDate() >= today;

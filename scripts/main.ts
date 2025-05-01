@@ -1,21 +1,24 @@
 import fs from 'fs';
-import { ScraperFunction } from '../src/types';
-import { scraper as RegentScraper } from './regentStreetCinema';
-import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
-import { scraper as LuxPadovaScraper } from './luxPadova';
-import { scraper as PrinceScraper } from './princeCharlesCinema';
-import { scraper as RexScraper } from './rexCinema';
+import { readdirSync } from "fs";
+import { CinemaShowing, ScraperFunction } from '../src/types';
 
 import Database from 'better-sqlite3';
 import { match } from 'assert';
 
-const scrapers: ScraperFunction[] = [
-  RegentScraper,
-  theSpaceLimenaScraper,
-  LuxPadovaScraper,
-  PrinceScraper,
-  RexScraper,
-];
+const stepFiles = readdirSync('./scripts').filter(f => f.endsWith("Cinema.ts"));
+
+const scrapers: ScraperFunction[] = [];
+
+// Dynamically import all scraper scripts
+for (const file of stepFiles) {
+  const module = await import('./' + file); // dynamic import
+  if (typeof module.scraper === "function") {
+    scrapers.push(module.scraper as ScraperFunction);
+    console.log(`✅ Loaded scraper from ${file}`);
+  } else {
+    console.warn(`❌ No 'scraper' function found in ${file}`);
+  }
+}
 
 async function writeFile(data, filename: string) {
   fs.writeFile(filename, JSON.stringify(data), (err: any) => {
@@ -82,7 +85,7 @@ async function main() {
         const insertAll = db.transaction(() => {
           cinema.showings.forEach((film) => {
             insertFilm.run(film.name, film.duration, film.tmdbId);
-            const film_id = getFilmId.get({ title: film.name });
+            const film_id:any = getFilmId.get({ title: film.name });
             insertFilmShowing.run(
               cinema_id,
               film_id.id,

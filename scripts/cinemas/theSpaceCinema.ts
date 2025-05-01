@@ -20,13 +20,11 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
     }
   );
 
-  console.log(
-    'The request to thespacecinema API gave response code: ',
-    response.status
-  );
   if (response.status !== 200) {
+    console.warn('The request to thespacecinema API gave response code: ',response.status);
     return []; // This returns an empty list of movies so the getData script won't be stopped in case of an error
   }
+  
   const data = await response.json();
 
   return [

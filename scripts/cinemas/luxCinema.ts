@@ -42,7 +42,7 @@ function parseEvent(event: ICAL.Event): FilmShowing {
 export async function scraper(): Promise<CinemaShowing[]> {
   return [
     {
-      cinema: 'LuxPadova',
+      cinema: 'LuxCinema',
       location: 'Padova',
       showings: await fetchAndParseICS(
         'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',

@@ -1,4 +1,3 @@
-import fs from 'fs';
 import ICAL from 'ical.js';
 import type { CinemaShowing, FilmShowing } from '../../src/types';
 

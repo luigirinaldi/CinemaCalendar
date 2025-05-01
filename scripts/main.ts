@@ -1,17 +1,20 @@
 import fs from 'fs';
-import { ScraperFunction } from '../src/types';
-import { scraper as RegentScraper } from './regentStreetCinema';
-import { scraper as theSpaceLimenaScraper } from './theSpaceLimena';
-import { scraper as LuxPadovaScraper } from './luxPadova';
-import { scraper as PrinceScraper } from './princeCharlesCinema';
-import { scraper as RexScraper } from './rexCinema';
+import { readdirSync } from "fs";
+import { CinemaShowing, ScraperFunction } from '../src/types';
 
-const scrapers: Record<string, ScraperFunction> = {
-  RegentScraper,
-  theSpaceLimenaScraper,
-  LuxPadovaScraper,
-  PrinceScraper,
-  RexScraper
+const stepFiles = readdirSync('./scripts').filter(f => f.endsWith("Cinema.ts"));
+
+const scrapers: ScraperFunction[] = [];
+
+// Dynamically import all scraper scripts
+for (const file of stepFiles) {
+  const module = await import('./' + file); // dynamic import
+  if (typeof module.scraper === "function") {
+    scrapers.push(module.scraper as ScraperFunction);
+    console.log(`✅ Loaded scraper from ${file}`);
+  } else {
+    console.warn(`❌ No 'scraper' function found in ${file}`);
+  }
 }
 
 async function writeFile(data, filename: string) {
@@ -26,12 +29,12 @@ async function writeFile(data, filename: string) {
 
 async function main() {
   let cinemas: string[] = [];
-  for (const [name, scraper] of Object.entries(scrapers)) {
+  for (const scraper of scrapers) {
     const result = await scraper();
-    for (const [_, cinema] of Object.entries(result)) {
-      cinemas.push(cinema.cinema);
+    await Promise.all(result.map(async (cinema:CinemaShowing) => {
+      cinemas.push(cinema.cinema + cinema.location);
       await writeFile(cinema.showings, `./public/data/${cinema.cinema}.json`);
-    }
+    }));
   }
 
   await writeFile(cinemas, './public/data/cinemas.json');

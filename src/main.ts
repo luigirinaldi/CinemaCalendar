@@ -1,5 +1,11 @@
 // import { Calendar } from '@fullcalendar/core';
-import { sliceEvents, Calendar, ViewContentArg, createPlugin, ViewApi } from '@fullcalendar/core';
+import {
+  sliceEvents,
+  Calendar,
+  ViewContentArg,
+  createPlugin,
+  ViewApi,
+} from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { CinemaDB, FilmShowingDB } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -11,7 +17,6 @@ import { ViewProps } from '@fullcalendar/core/internal';
 import { group } from 'console';
 
 document.addEventListener('DOMContentLoaded', main);
-
 
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
@@ -115,16 +120,17 @@ async function main() {
   });
 
   const CustomViewConfig = {
-
     content: (arg: ViewProps) => {
-      console.log(arg)
+      console.log(arg);
       const container = document.createElement('div');
       container.innerText = 'Loading...';
 
       const checkedCinemas = Object.entries(cinemaCheckBoxes)
         .filter(([_, { checked }]) => checked) // Keep only checked cinemas
         .map(([id]) => id);
-      (sqlWorker.db.query(`
+      (
+        sqlWorker.db.query(
+          `
           select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id 
           from film_showings 
           join films on film_showings.film_id = films.id 
@@ -132,28 +138,34 @@ async function main() {
           where start_time > ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
           order by start_time;`,
           [arg.dateProfile.currentDate.toISOString(), ...checkedCinemas]
-        ) as Promise<FilmShowingDB[]>)
-        .then(data => {
-          const grouped_data = data.reduce((acc, row) => {
+        ) as Promise<FilmShowingDB[]>
+      ).then((data) => {
+        const grouped_data = data.reduce(
+          (acc, row) => {
             acc[row.title] = acc[row.title] ? [...acc[row.title], row] : [row];
             return acc;
-          }, {} as Record<string, FilmShowingDB[]>);
-          console.log(grouped_data)
-          container.innerHTML = `<ul>${Object.entries(grouped_data).map(([title, filminfo]) => `<li><h3>${title}</h3>${filminfo.map(film => film.start_time).join(" ")}</li>`).join('')}</ul>`;
-        });
-    
+          },
+          {} as Record<string, FilmShowingDB[]>
+        );
+        console.log(grouped_data);
+        container.innerHTML = `<ul>${Object.entries(grouped_data)
+          .map(
+            ([title, filminfo]) =>
+              `<li><h3>${title}</h3>${filminfo.map((film) => film.start_time).join(' ')}</li>`
+          )
+          .join('')}</ul>`;
+      });
+
       return { domNodes: [container] };
-    }
-  }
-  
+    },
+  };
+
   const CustomViewPlugin = createPlugin({
     name: 'Movie',
     views: {
-      movie: CustomViewConfig
-    }
+      movie: CustomViewConfig,
+    },
   });
-
-
 
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {

@@ -17,7 +17,6 @@ export async function fetchAndParseICS(
   if (filter) {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // zero out time to get beginning of today
-    console.log(today);
     vevents = vevents.filter((vevent) => {
       const event = new ICAL.Event(vevent);
       return event.startDate.toJSDate() >= today;

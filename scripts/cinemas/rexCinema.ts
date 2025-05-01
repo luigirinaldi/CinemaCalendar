@@ -19,7 +19,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
         film.eventi.map((show) => ({
           name: film.titolo,
           tmdbId: show.id_cinebot,
-          startTime: show.inizio,
+          startTime: (new Date(show.inizio)).toISOString(),
           duration: +film.durata, // the '+' converts the string to number
         }))
       ),

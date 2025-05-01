@@ -1,10 +1,7 @@
 // import { Calendar } from '@fullcalendar/core';
 import {
-  sliceEvents,
   Calendar,
-  ViewContentArg,
   createPlugin,
-  ViewApi,
 } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { CinemaDB, FilmShowingDB } from './types';
@@ -14,7 +11,6 @@ import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
-import { group } from 'console';
 
 document.addEventListener('DOMContentLoaded', main);
 

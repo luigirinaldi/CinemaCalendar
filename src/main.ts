@@ -1,4 +1,5 @@
-import { Calendar } from '@fullcalendar/core';
+// import { Calendar } from '@fullcalendar/core';
+import { sliceEvents, Calendar, ViewContentArg, createPlugin, ViewApi } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { CinemaDB, FilmShowingDB } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -8,6 +9,7 @@ import './style.css';
 import { createDbWorker } from 'sql.js-httpvfs';
 
 document.addEventListener('DOMContentLoaded', main);
+
 
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
@@ -110,14 +112,75 @@ async function main() {
     });
   });
 
+  const CustomViewConfig = {
+
+    content: (arg) => {
+      const container = document.createElement('div');
+      container.innerText = 'Loading...';
+    
+      sqlWorker.db.query('select * from films')
+        .then(data => {
+          container.innerHTML = `<ul>${data.map(item => `<li>${item}</li>`).join('')}</ul>`;
+        });
+    
+      return { domNodes: [container] };
+    }
+
+    // content: function (props) {
+    //   let data = [1,3];
+
+    //   let html = `
+    //       <div>${data.map(d => String(d)).join(" ")}</div>
+    //       `;
+
+
+    //   sqlWorker.db.query('select * from films').then(newdata => {
+    //     console.log(newdata);
+    //     data = newdata;
+    //   }).catch(e => {
+    //     console.log("Something went wrong", e);
+    //   });
+
+    //   // // const container = document.createElement('div');
+    //   // // container.className = 'movie-view';
+
+    //   // (async () => {
+    //   //   const films = (await sqlWorker.db.query(
+    //   //   'select * from films'
+    //   // ));
+    //   // console.log(films);}
+    //   // )();
+    //   // // container.innerHTML = '<h1>hello</h1>';
+    //   // let segs = sliceEvents(props, true); // allDay=true
+    //   // let html =
+    //   //   '<div class="view-title">' +
+    //   //     props.dateProfile.currentRange.start.toUTCString() +
+    //   //   '</div>' +
+    //   //   '<div class="view-events">' +
+    //   //     segs.length + ' events' +
+    //   //   '</div>'
+  
+    //   return { html: html };
+    // },
+  }
+  
+  const CustomViewPlugin = createPlugin({
+    name: 'Movie',
+    views: {
+      movie: CustomViewConfig
+    }
+  });
+
+
+
   let calendarEl: HTMLElement = document.getElementById('calendar')!;
   let calendar = new Calendar(calendarEl, {
-    plugins: [timeGridPlugin, dayGridPlugin, listPlugin],
-    initialView: 'timeGridDay',
+    plugins: [timeGridPlugin, dayGridPlugin, listPlugin, CustomViewPlugin],
+    initialView: 'movie',
     headerToolbar: {
       left: 'prev,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth,movie',
     },
     displayEventEnd: true,
     displayEventTime: true,

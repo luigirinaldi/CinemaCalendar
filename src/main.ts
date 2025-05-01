@@ -1,14 +1,13 @@
 import { Calendar } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import type { CinemaDB, FilmShowing, FilmShowingDB } from './types';
+import type { CinemaDB, FilmShowingDB } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import listPlugin from '@fullcalendar/list';
 import './style.css';
 
-import { createDbWorker, WorkerHttpvfs } from 'sql.js-httpvfs';
-import { fail } from 'assert';
+import { createDbWorker } from 'sql.js-httpvfs';
 
-const DATA_PATH = import.meta.env.BASE_URL + '/data';
+document.addEventListener('DOMContentLoaded', main);
 
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
@@ -40,8 +39,6 @@ function cinemaCheckboxTemplate(cinemaName: string, colour: string) {
   return { label, checkbox };
 }
 
-document.addEventListener('DOMContentLoaded', main);
-
 // Function to setup the sql workers and instantiate everything
 async function connect_sql() {
   // sadly there's no good way to package workers and wasm directly so you need a way to get these two URLs from your bundler.
@@ -52,19 +49,19 @@ async function connect_sql() {
   );
   const wasmUrl = new URL('sql.js-httpvfs/dist/sql-wasm.wasm', import.meta.url);
 
-  // the config is either the url to the create_db script, or a inline configuration:
-  const config = {
-    from: 'inline',
-    config: {
-      serverMode: 'full', // file is just a plain old full sqlite database
-      requestChunkSize: 4096, // the page size of the  sqlite database (by default 4096)
-      url: import.meta.env.BASE_URL + 'data/my.db', // url to the database (relative or full)
-    },
-  };
-
   let maxBytesToRead = 10 * 1024 * 1024;
   const worker = await createDbWorker(
-    [config],
+    // the config is either the url to the create_db script, or a inline configuration:
+    [
+      {
+        from: 'inline',
+        config: {
+          serverMode: 'full', // file is just a plain old full sqlite database
+          requestChunkSize: 4096, // the page size of the  sqlite database (by default 4096)
+          url: import.meta.env.BASE_URL + 'data/my.db', // url to the database (relative or full)
+        },
+      },
+    ],
     workerUrl.toString(),
     wasmUrl.toString(),
     maxBytesToRead // optional, defaults to Infinity
@@ -128,7 +125,6 @@ async function main() {
     eventDisplay: 'block',
     height: 'parent',
     events: async function (info, successCallback, failureCallback) {
-      console.log(info, cinemaCheckBoxes);
       try {
         const checkedCinemas = Object.entries(cinemaCheckBoxes)
           .filter(([_, { checked }]) => checked) // Keep only checked cinemas
@@ -162,8 +158,9 @@ async function main() {
           })
         );
       } catch (error) {
+        let typed_e = error as Error;
         console.log('Something went wrong fetching events', error);
-        failureCallback(error);
+        failureCallback(typed_e);
       }
     },
   });

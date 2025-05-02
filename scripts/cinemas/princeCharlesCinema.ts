@@ -4,6 +4,7 @@
 
 import { Browser } from 'happy-dom';
 import { CinemaShowing, FilmShowing } from '../../src/types';
+import { DateTime } from "luxon";
 
 const months = [
   'January',
@@ -25,17 +26,18 @@ function parseDate(day, time) {
   const [_, h, m, am] = time.match(/^(\d{1,2}):(\d{2}) (am|pm)$/);
   const today = new Date();
   const date = parseInt(dom);
-  const monthIdx = months[mon];
+  const monthIdx = months[mon] + 1;
   const year =
     today.getFullYear() +
     (monthIdx < today.getMonth() ||
     (monthIdx === today.getMonth() && date < today.getDate())
       ? 1
       : 0);
-  const hour = parseInt(h) + (am === 'pm' ? 12 : 0);
+  const hour = parseInt(h) + (am === 'pm' ? (parseInt(h) === 12 ? 0 : 12): (parseInt(h) === 12 ? -12 : 0));
   const minute = parseInt(m);
-  // console.log({ today, day, time, date, monthIdx, year, hour, minute });
-  const value = new Date(year, monthIdx, date, hour, minute);
+//   console.log({ today, day, time, date, monthIdx, year, hour, minute });
+  const value = DateTime.fromObject({year:year,month: monthIdx,day: date,hour: hour, minute: minute}, {zone : "Europe/London"});
+  // console.log(`${day} ${time}`, value, value.toLocal().toISO());
   if (isNaN(value.valueOf())) throw new Error(`Invalid date: ${day} ${time}`);
   return value;
 }
@@ -74,9 +76,7 @@ function scrape(page, callback) {
           try {
             const start = parseDate(day, time);
             const duration: number = parseInt(runtime) || 0;
-            const end = new Date(
-              start.getTime() + (parseInt(runtime) || 0) * 60_000
-            );
+            const end = start.plus({minutes: duration});
             const soldOut = listEl.matches('.soldfilm_book_button');
             callback({
               title,
@@ -126,8 +126,8 @@ export async function scraper() {
       movie_info_out.push({
         name: title,
         tmdbId: null,
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
+        startTime: start.toISO(),
+        endTime: end.toISO(),
         duration: duration,
       });
     }

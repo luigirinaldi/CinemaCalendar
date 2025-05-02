@@ -57,6 +57,7 @@ async function main() {
         film_id INTEGER NOT NULL,
         start_time TEXT NOT NULL,
         end_time TEXT,
+        url TEXT,
 
         FOREIGN KEY (cinema_id) REFERENCES cinemas(id),
         FOREIGN KEY (film_id) REFERENCES films(id))`
@@ -73,7 +74,7 @@ async function main() {
         'INSERT OR IGNORE INTO films (title, duration_minutes, tmdb_id) VALUES (?, ? ,?)'
       );
       const insertFilmShowing = db.prepare(
-        'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time) VALUES (?,?,?,?)'
+        'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time, url) VALUES (?,?,?,?,?)'
       );
       Object.entries(result).forEach(([_, cinema]) => {
         console.log(cinema.cinema);
@@ -90,7 +91,8 @@ async function main() {
               cinema_id,
               film_id.id,
               film.startTime,
-              film.endTime
+              film.endTime,
+              film.url,
             );
           });
         });

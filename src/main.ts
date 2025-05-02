@@ -127,7 +127,7 @@ async function main() {
       (
         sqlWorker.db.query(
           `
-          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id 
+          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id, url
           from film_showings 
           join films on film_showings.film_id = films.id 
           join cinemas on film_showings.cinema_id = cinemas.id
@@ -154,12 +154,12 @@ async function main() {
                   ${filminfo
                     .map(
                       (film) => `
-                          <div style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
+                          ${film.url === null ? '<div': '<a'} href="${film.url}" style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
                           <div style="font-size: 0.7em;">${film.cinema_name}</div>
                           <span>
                             ${new Date(film.start_time).toLocaleString()}
                           </span>
-                          </div>`
+                          </${film.url === null ? 'div': 'a'}>`
                     )
                     .join('')}
                 </div>

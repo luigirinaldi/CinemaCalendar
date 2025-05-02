@@ -129,6 +129,7 @@ export async function scraper() {
         startTime: start.toISO(),
         endTime: end.toISO(),
         duration: duration,
+        url: url,
       });
     }
   );

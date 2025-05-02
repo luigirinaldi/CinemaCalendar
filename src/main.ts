@@ -131,9 +131,9 @@ async function main() {
           from film_showings 
           join films on film_showings.film_id = films.id 
           join cinemas on film_showings.cinema_id = cinemas.id
-          where start_time >= ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
+          where start_time between ? and ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
           order by start_time;`,
-          [arg.dateProfile.currentDate.toISOString(), ...checkedCinemas]
+          [arg.dateProfile.currentRange.start.toISOString(), arg.dateProfile.currentRange.end.toISOString(), ...checkedCinemas]
         ) as Promise<FilmShowingDB[]>
       ).then((data) => {
         const grouped_data = data.reduce(
@@ -154,9 +154,12 @@ async function main() {
                   ${filminfo
                     .map(
                       (film) => `
-                          <span style="background-color: ${cinemaCheckBoxes[film.cinema_id].colour}">
+                          <div style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
+                          <div style="font-size: 0.7em;">${film.cinema_name}</div>
+                          <span>
                             ${new Date(film.start_time).toLocaleString()}
-                          </span>`
+                          </span>
+                          </div>`
                     )
                     .join('')}
                 </div>

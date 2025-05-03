@@ -46,7 +46,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
   // 👇️ const result: CreateUserResponse
   const result = await response.json();
 
-  let movie_data:object = result['data']['showingsForDate']['data'];
+  let movie_data: object = result['data']['showingsForDate']['data'];
 
   let movie_info_out: Array<FilmShowing> = [];
 
@@ -56,6 +56,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
       tmdbId: movie['movie']['tmdbId'],
       startTime: movie['time'],
       duration: movie['movie']['duration'],
+      url: "https://www.regentstreetcinema.com/checkout/showing/" + movie['id'],
     };
     movie_info_out.push(movie_info);
   }

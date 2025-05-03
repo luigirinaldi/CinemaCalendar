@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { readdirSync } from "fs";
+import { readdirSync } from 'fs';
 import { CinemaShowing, ScraperFunction } from '../src/types';
 
 import Database from 'better-sqlite3';
@@ -12,7 +12,7 @@ const scrapers: ScraperFunction[] = [];
 // Dynamically import all scraper scripts
 for (const file of stepFiles) {
   const module = await import('./cinemas/' + file); // dynamic import
-  if (typeof module.scraper === "function") {
+  if (typeof module.scraper === 'function') {
     scrapers.push(module.scraper as ScraperFunction);
     console.log(`✅ Loaded scraper from ${file}`);
   } else {
@@ -57,6 +57,7 @@ async function main() {
         film_id INTEGER NOT NULL,
         start_time TEXT NOT NULL,
         end_time TEXT,
+        url TEXT,
 
         FOREIGN KEY (cinema_id) REFERENCES cinemas(id),
         FOREIGN KEY (film_id) REFERENCES films(id))`
@@ -73,7 +74,7 @@ async function main() {
         'INSERT OR IGNORE INTO films (title, duration_minutes, tmdb_id) VALUES (?, ? ,?)'
       );
       const insertFilmShowing = db.prepare(
-        'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time) VALUES (?,?,?,?)'
+        'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time, url) VALUES (?,?,?,?,?)'
       );
       Object.entries(result).forEach(([_, cinema]) => {
         console.log(cinema.cinema);
@@ -85,12 +86,13 @@ async function main() {
         const insertAll = db.transaction(() => {
           cinema.showings.forEach((film) => {
             insertFilm.run(film.name, film.duration, film.tmdbId);
-            const film_id:any = getFilmId.get({ title: film.name });
+            const film_id: any = getFilmId.get({ title: film.name });
             insertFilmShowing.run(
               cinema_id,
               film_id.id,
               film.startTime,
-              film.endTime
+              film.endTime,
+              film.url
             );
           });
         });

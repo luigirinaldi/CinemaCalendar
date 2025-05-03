@@ -1,8 +1,5 @@
 // import { Calendar } from '@fullcalendar/core';
-import {
-  Calendar,
-  createPlugin,
-} from '@fullcalendar/core';
+import { Calendar, createPlugin } from '@fullcalendar/core';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import type { CinemaDB, FilmShowingDB } from './types';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -127,13 +124,17 @@ async function main() {
       (
         sqlWorker.db.query(
           `
-          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id 
+          select title, name as cinema_name, duration_minutes as duration, start_time, end_time, cinema_id, url
           from film_showings 
           join films on film_showings.film_id = films.id 
           join cinemas on film_showings.cinema_id = cinemas.id
-          where start_time >= ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
+          where start_time between ? and ? and cinema_id in (${checkedCinemas.map(() => '?').join(',')})
           order by start_time;`,
-          [arg.dateProfile.currentDate.toISOString(), ...checkedCinemas]
+          [
+            arg.dateProfile.currentRange.start.toISOString(),
+            arg.dateProfile.currentRange.end.toISOString(),
+            ...checkedCinemas,
+          ]
         ) as Promise<FilmShowingDB[]>
       ).then((data) => {
         const grouped_data = data.reduce(
@@ -154,9 +155,12 @@ async function main() {
                   ${filminfo
                     .map(
                       (film) => `
-                          <span style="background-color: ${cinemaCheckBoxes[film.cinema_id].colour}">
+                          ${film.url === null ? '<div' : '<a'} href="${film.url}" style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
+                          <div style="font-size: 0.7em;">${film.cinema_name}</div>
+                          <span>
                             ${new Date(film.start_time).toLocaleString()}
-                          </span>`
+                          </span>
+                          </${film.url === null ? 'div' : 'a'}>`
                     )
                     .join('')}
                 </div>

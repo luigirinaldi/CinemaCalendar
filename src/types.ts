@@ -4,6 +4,7 @@ export interface FilmShowing {
   startTime: string;
   endTime?: string;
   duration: number;
+  url?: string;
 }
 
 export interface CinemaShowing {
@@ -26,6 +27,7 @@ export interface FilmShowingDB {
   duration: number;
   cinema_name: string;
   cinema_id: number;
+  url?: string;
 }
 
 export type ScraperFunction = () => Promise<CinemaShowing[]>;

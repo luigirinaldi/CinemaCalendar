@@ -20,16 +20,6 @@ for (const file of stepFiles) {
   }
 }
 
-async function writeFile(data, filename: string) {
-  fs.writeFile(filename, JSON.stringify(data), (err: any) => {
-    if (err) {
-      console.error('Error writing file: ', err);
-      return;
-    }
-    console.log(`JSON data has been successfully dumped to ${filename}`);
-  });
-}
-
 async function main() {
   const db = new Database('./public/data/my.db');
 

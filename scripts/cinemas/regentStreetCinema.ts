@@ -56,7 +56,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
       tmdbId: movie['movie']['tmdbId'],
       startTime: movie['time'],
       duration: movie['movie']['duration'],
-      url: "https://www.regentstreetcinema.com/checkout/showing/" + movie['id'],
+      url: 'https://www.regentstreetcinema.com/checkout/showing/' + movie['id'],
     };
     movie_info_out.push(movie_info);
   }

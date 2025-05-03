@@ -15,10 +15,7 @@ function hasNoUndefined<T extends Record<string, any>>(
 
 export async function scraper(): Promise<CinemaShowing[]> {
   let response = await fetch(
-    'https://www.institut-francais.org.uk/whats-on/?type=72&period=any&location=onsite',
-    {
-      method: 'GET',
-    }
+    'https://www.institut-francais.org.uk/whats-on/?type=72&period=any&location=onsite'
   );
 
   let html = await response.text();
@@ -59,7 +56,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
   const film_showings = (
     await Promise.all(
       movie_info.map(async (movie) => {
-        const movie_response = await fetch(movie.url, { method: 'GET' });
+        const movie_response = await fetch(movie.url);
         const parsed_page = parse(await movie_response.text());
 
         let showings = parsed_page

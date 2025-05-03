@@ -1,5 +1,7 @@
+import { DateTime } from 'luxon';
 import { CinemaShowing, FilmShowing } from '../../src/types';
 import { parse } from 'node-html-parser';
+import { format } from 'path';
 
 const CINEMA_NAME = 'Ciné Lumière';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -186,7 +188,9 @@ export async function scraper(): Promise<CinemaShowing[]> {
         return film.showings.map((showings) => {
           return {
             name: film.title,
-            startTime: showings.datetime,
+            startTime: DateTime.fromISO(showings.datetime, {
+              zone: 'Europe/London',
+            }).toISO(),
             url: showings.url,
             duration: film.duration ?? 0, // sometimes there are movies where the duration is not specified so have to put 0
           } as FilmShowing;

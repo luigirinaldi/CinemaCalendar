@@ -27,9 +27,12 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
   const movie_info = movies.flatMap(movie => {
     const link = movie.querySelector('a');
+    const metadata = movie.querySelector('div.card__information')?.querySelector('div.card__metadata');
     const info =  {
         href: link?.getAttribute('href'),
-        title: link?.getAttribute('title')
+        title: link?.getAttribute('title'),
+        tags: metadata?.querySelector('div.card__terms')?.querySelectorAll('div.tag').map(tag => tag.innerHTML),
+        date_range: metadata?.querySelector('div.card__dates')?.innerText.trim()
     }
     if (hasNoUndefined(info)) {
       return [info];

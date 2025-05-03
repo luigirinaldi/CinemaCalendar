@@ -11,22 +11,23 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
   const result = await response.json();
 
-  let films = 0;
   const movie_info_out: FilmShowing[] = result
     .filter((event) => event.event_type && event.event_type.includes('101'))
     .flatMap((event) => {
-      films += 1;
-      return Object.entries(event['performances']).map(([k, v]) => {
-        let duration = +event['run_time'].match(/(\d+) mins/)[1];
-        return {
-          name: event['title'],
-          startTime: DateTime.fromSeconds(+v[0]['timestamp']).toISO(),
-          duration: duration,
-          url: event['url'],
-        } as FilmShowing;
-      });
+      let duration = +event['run_time'].match(/(\d+) mins/)[1];
+      return Object.entries(event['performances']).flatMap(
+        ([_dayTimestamp, performances]) => {
+          return performances.flatMap((perf) => {
+            return {
+              name: event['title'],
+              startTime: DateTime.fromSeconds(+perf['timestamp']).toISO(),
+              duration: duration,
+              url: event['url'],
+            } as FilmShowing;
+          });
+        }
+      );
     });
-
   return [
     {
       cinema: 'RiverSideStudios',
@@ -35,3 +36,5 @@ export async function scraper(): Promise<CinemaShowing[]> {
     },
   ];
 }
+
+scraper();

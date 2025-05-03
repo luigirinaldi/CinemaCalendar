@@ -4,7 +4,7 @@ export interface FilmShowing {
   startTime: string;
   endTime?: string;
   duration: number;
-  url?:string;
+  url?: string;
 }
 
 export interface CinemaShowing {

@@ -6,7 +6,10 @@ export async function scraper(): Promise<CinemaShowing[]> {
   );
 
   if (response.status !== 200) {
-    console.warn('The request to rexcinema API gave response code: ',response.status);
+    console.warn(
+      'The request to rexcinema API gave response code: ',
+      response.status
+    );
     return []; // This returns an empty list of movies so the getData script won't be stopped in case of an error
   }
   const data = await response.json();
@@ -19,7 +22,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
         film.eventi.map((show) => ({
           name: film.titolo,
           tmdbId: show.id_cinebot,
-          startTime: (new Date(show.inizio)).toISOString(),
+          startTime: new Date(show.inizio).toISOString(),
           duration: +film.durata, // the '+' converts the string to number
         }))
       ),

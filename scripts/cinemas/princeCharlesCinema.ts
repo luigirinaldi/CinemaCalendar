@@ -4,7 +4,7 @@
 
 import { Browser } from 'happy-dom';
 import { CinemaShowing, FilmShowing } from '../../src/types';
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
 const months = [
   'January',
@@ -33,10 +33,21 @@ function parseDate(day, time) {
     (monthIdx === today.getMonth() && date < today.getDate())
       ? 1
       : 0);
-  const hour = parseInt(h) + (am === 'pm' ? (parseInt(h) === 12 ? 0 : 12): (parseInt(h) === 12 ? -12 : 0));
+  const hour =
+    parseInt(h) +
+    (am === 'pm'
+      ? parseInt(h) === 12
+        ? 0
+        : 12
+      : parseInt(h) === 12
+        ? -12
+        : 0);
   const minute = parseInt(m);
-//   console.log({ today, day, time, date, monthIdx, year, hour, minute });
-  const value = DateTime.fromObject({year:year,month: monthIdx,day: date,hour: hour, minute: minute}, {zone : "Europe/London"});
+  //   console.log({ today, day, time, date, monthIdx, year, hour, minute });
+  const value = DateTime.fromObject(
+    { year: year, month: monthIdx, day: date, hour: hour, minute: minute },
+    { zone: 'Europe/London' }
+  );
   // console.log(`${day} ${time}`, value, value.toLocal().toISO());
   if (isNaN(value.valueOf())) throw new Error(`Invalid date: ${day} ${time}`);
   return value;
@@ -76,7 +87,7 @@ function scrape(page, callback) {
           try {
             const start = parseDate(day, time);
             const duration: number = parseInt(runtime) || 0;
-            const end = start.plus({minutes: duration});
+            const end = start.plus({ minutes: duration });
             const soldOut = listEl.matches('.soldfilm_book_button');
             callback({
               title,

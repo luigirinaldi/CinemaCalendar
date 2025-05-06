@@ -127,6 +127,7 @@ function updateUrlParams(data: Record<string, any>, reset = false) {
     ? new URLSearchParams()
     : new URLSearchParams(window.location.search);
   Object.entries(data).forEach(([param, val]) => urlParams.set(param, val));
+  console.log(urlParams, urlParams.toString());
   const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
   window.history.pushState({ path: newUrl }, '', newUrl);
 }
@@ -159,9 +160,12 @@ function createCinemaCheckboxes(
       cinemaState[id].checked = checkbox.checked;
       // call the refetch so that the event are updated to exclude/include the correct cinemas
       calendar.refetchEvents();
-      // console.log("id changed", id)
       updateUrlParams(
-        Object.fromEntries([[String(id), checkbox.checked]]),
+        {
+          selected: Object.entries(cinemaState)
+            .filter(([_k, v]) => v.checked)
+            .map(([id, _v]) => +id),
+        },
         false
       );
     });
@@ -170,9 +174,9 @@ function createCinemaCheckboxes(
   calendar.refetchEvents();
   const newParams = {
     location: location,
-    ...Object.fromEntries(
-      Object.entries(cinemaState).map(([id, cininfo]) => [id, cininfo.checked])
-    ),
+    selected: Object.entries(cinemaState)
+      .filter(([_k, v]) => v.checked)
+      .map(([id, _v]) => id),
   };
   updateUrlParams(newParams, true);
 }
@@ -326,29 +330,28 @@ async function main() {
   });
 
   // create the calendar using the urlparams
-  if (params.size > 0) {
-    const location = params.get('location') ?? null;
+  if (params.size > 0 && params.has('location')) {
+    const location = params.get('location');
+    const activeCinemaIds =
+      params
+        .get('selected')
+        ?.split(',')
+        .map((v) => +v) ?? [];
+    const filteredcinemas = cinemaData.filter(
+      (cinema) => cinema.location == location
+    );
     cinemaCheckBoxes = Object.fromEntries(
-      Array.from(params.entries())
-        // get those get params for which the keys are numbers
-        // and the id exists in the current cinemas
-        .filter(
-          ([key, _val]) =>
-            !isNaN(+key) && cinemaData.map((cin) => cin.id).includes(+key)
-        )
-        .map(([id, val], i, arr) => {
-          const currid = +id;
-          const cinemainfo = cinemaData.filter((cin) => cin.id == currid)[0];
-          return [
-            currid,
-            {
-              checked: val === 'true',
-              name: cinemainfo.name,
-              location: cinemainfo.location,
-              colour: getColourFromHashAndN(i, arr.length),
-            },
-          ];
-        })
+      filteredcinemas.map((cinema, i) => {
+        return [
+          cinema.id,
+          {
+            checked: activeCinemaIds.includes(cinema.id),
+            name: cinema.name,
+            location: cinema.location,
+            colour: getColourFromHashAndN(i, filteredcinemas.length),
+          },
+        ];
+      })
     );
     console.log(cinemaCheckBoxes);
     createCinemaCheckboxes(location, cinemaCheckBoxes, calendar);

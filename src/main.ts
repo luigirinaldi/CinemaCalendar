@@ -8,13 +8,13 @@ import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
-import { loadEnvFile } from 'process';
-import { isNumberObject } from 'util/types';
-import { name } from 'happy-dom/lib/PropertySymbol.js';
 
 document.addEventListener('DOMContentLoaded', main);
 
-function addDropdownLogic(cinemas: CinemaDB[], cityCallback) {
+function addDropdownLogic(
+  cinemas: CinemaDB[],
+  dropDownCallback: (location: string, cinemas: CinemaDB[]) => void
+) {
   const cinemasByLocation = cinemas.reduce(
     (acc, cinema) => {
       acc[cinema.location].push(cinema);
@@ -38,7 +38,7 @@ function addDropdownLogic(cinemas: CinemaDB[], cityCallback) {
 
     dropdownDiv?.insertAdjacentElement('beforeend', element);
     element.addEventListener('click', () => {
-      cityCallback(location, cinemas);
+      dropDownCallback(location, cinemas);
       // un toggle showing after the city is clicked
       dropdownDiv?.classList.toggle('show');
     });

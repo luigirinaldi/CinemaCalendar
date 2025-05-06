@@ -8,7 +8,6 @@ import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
-import { childNodes } from 'happy-dom/lib/PropertySymbol.js';
 
 document.addEventListener('DOMContentLoaded', main);
 
@@ -33,13 +32,13 @@ function addDropdownLogic(cinemas : CinemaDB[], cityCallback) {
     
     dropdownDiv?.insertAdjacentElement('beforeend', element)
     element.addEventListener('click', () => {
-      dropdownButt!.textContent = location;
+
       cityCallback(location, cinemas);
       // un toggle showing after the city is clicked
       dropdownDiv?.classList.toggle("show");
     });
   })
-  // // untoggle when the dropdown button loses focus (blur)
+  // untoggle when the dropdown button loses focus (blur)
   document.addEventListener('click', (event) => {
     if (
       !dropdownDiv?.contains(event.target as Node) &&
@@ -113,11 +112,41 @@ async function connect_sql() {
 
 type CinemaCheckboxState = {
   checked: boolean;
+  name: string,
+  location: string,
   colour: string;
 };
 
-async function main() {
+function createCinemaCheckboxes(location: string, cinemaState: Record<string, CinemaCheckboxState>, calendar: Calendar) {
+    // take a cinemaState + location and render it by setting all the correct html things 
     
+    // set the dropdown button as the current location
+    document.getElementById('dropdown-button')!.textContent = location;
+    
+    // Clear previous cinema tickboxes
+    const cinemaSelector = document.getElementById('button-container');
+    cinemaSelector?.replaceChildren();
+
+    Object.entries(cinemaState).forEach(([id, cininfo]) => {
+        // get a unique colour for each cinema
+        const { label, checkbox } = cinemaCheckboxTemplate(cininfo.name, cininfo.colour);
+        cinemaSelector?.insertAdjacentElement('beforeend', label);
+
+        // modify the checkbox state when the checkbox state changes
+        checkbox.addEventListener('change', (_event) => {
+          cinemaState[id].checked = checkbox.checked;
+          // call the refetch so that the event are updated to exclude/include the correct cinemas
+          calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+        });
+    })
+    // refresh the calendar when the cinema check boxes are regenerated
+    calendar.refetchEvents();
+}
+
+async function main() {
+//   const params = new URLSearchParams(window.location.search);
+
+
   const sqlWorker = await connect_sql();
   
   const cinemaData = (await sqlWorker.db.query(
@@ -131,35 +160,17 @@ async function main() {
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
 
-  addDropdownLogic(cinemaData, ((location, cinemas: CinemaDB[]) => {
-    const cinemaSelector = document.getElementById('button-container');
-    console.log(cinemaSelector?.childNodes)
-    cinemaCheckBoxes = {};
-    // this is for clearing the previous elements
-    cinemaSelector?.replaceChildren();
+  addDropdownLogic(cinemaData, ((location : string, cinemas: CinemaDB[]) => {
+    // update cinemaCheckBoxes
+    const numcinemas = cinemas.length;
+    cinemaCheckBoxes = Object.fromEntries(cinemas.map((cinema, i) => [cinema.id, {
+      checked : true,
+      name : cinema.name,
+      location: cinema.location,
+      colour: getColourFromHashAndN(i, numcinemas),
+    }]));
 
-    cinemas.forEach((cinema, i) => { 
-      // get a unique colour for each cinema
-      const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-      console.log(cinema, colour, i);
-      // create the html for the cinema checkbox
-      const { label, checkbox } = cinemaCheckboxTemplate(cinema.name, colour);
-      cinemaSelector?.insertAdjacentElement('beforeend', label);
-  
-      cinemaCheckBoxes[cinema.id] = {
-        checked: true,
-        colour: colour,
-      };
-  
-      // modify the checkbox state when the checkbox state changes
-      checkbox.addEventListener('change', (_event) => {
-        cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
-        // call the refetch so that the event are updated to exclude/include the correct cinemas
-        calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
-      });
-    });
-    // refresh the calendar when a new city is selected
-    calendar.refetchEvents();
+    createCinemaCheckboxes(location, cinemaCheckBoxes, calendar);
   }));
 
 

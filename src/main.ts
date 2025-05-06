@@ -9,6 +9,8 @@ import './style.css';
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
 import { loadEnvFile } from 'process';
+import { isNumberObject } from 'util/types';
+import { name } from 'happy-dom/lib/PropertySymbol.js';
 
 document.addEventListener('DOMContentLoaded', main);
 
@@ -125,11 +127,11 @@ function updateUrlParams(data: Record<string, any>, reset = false) {
   window.history.pushState({path: newUrl}, '', newUrl);
 }
 
-function createCinemaCheckboxes(location: string, cinemaState: Record<string, CinemaCheckboxState>, calendar: Calendar) {
+function createCinemaCheckboxes(location: string | null, cinemaState: Record<string, CinemaCheckboxState>, calendar: Calendar) {
     // take a cinemaState + location and render it by setting all the correct html things 
     
     // set the dropdown button as the current location
-    document.getElementById('dropdown-button')!.textContent = location;
+    if (location != null) document.getElementById('dropdown-button')!.textContent = location;
     
     // Clear previous cinema tickboxes
     const cinemaSelector = document.getElementById('button-container');
@@ -139,7 +141,7 @@ function createCinemaCheckboxes(location: string, cinemaState: Record<string, Ci
         // get a unique colour for each cinema
         const { label, checkbox } = cinemaCheckboxTemplate(cininfo.name, cininfo.colour);
         cinemaSelector?.insertAdjacentElement('beforeend', label);
-
+        checkbox.checked = cininfo.checked;
         // modify the checkbox state when the checkbox state changes
         checkbox.addEventListener('change', (_event) => {
           cinemaState[id].checked = checkbox.checked;
@@ -160,18 +162,23 @@ function createCinemaCheckboxes(location: string, cinemaState: Record<string, Ci
 
 async function main() {
   const params = new URLSearchParams(window.location.search);
-  console.log(params)
+  console.log("url params:", params)
+
+  
   const sqlWorker = await connect_sql();
   
   const cinemaData = (await sqlWorker.db.query(
       'select id, name, location from cinemas'
   )) as CinemaDB[];
-
+  
   console.log(cinemaData, Object.keys(cinemaData).length);
-
+  
+  
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
   
+
+
   // Add the logic for the dropdown list
   addDropdownLogic(cinemaData, ((location : string, cinemas: CinemaDB[]) => {
     // update cinemaCheckBoxes
@@ -322,5 +329,27 @@ async function main() {
       }
     },
   });
+
+  // create the calendar using the urlparams
+  if (params.size > 0) {
+    const location = params.get('location') ?? null;
+    cinemaCheckBoxes = Object.fromEntries(Array.from(params.entries())
+                      // get those get params for which the keys are numbers
+                      // and the id exists in the current cinemas
+                      .filter(([key, _val]) => !isNaN(+key) && (+key in cinemaData.map(cin => cin.id)))
+                      .map(([id, val], i, arr) => {
+                        const currid = +id;
+                        console.log(currid, val, Boolean(val))
+                        const cinemainfo = cinemaData.filter(cin => cin.id == currid)[0];
+                        return [currid, {
+                        checked: val === 'true',
+                        name: cinemainfo.name,
+                        location: cinemainfo.location,
+                        colour: getColourFromHashAndN(i, arr.length),
+                      }]}));
+    console.log(cinemaCheckBoxes)
+    createCinemaCheckboxes(location, cinemaCheckBoxes, calendar);
+  }
+
   calendar.render();
 }

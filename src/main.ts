@@ -8,6 +8,7 @@ import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
+import { loadEnvFile } from 'process';
 
 document.addEventListener('DOMContentLoaded', main);
 
@@ -117,6 +118,13 @@ type CinemaCheckboxState = {
   colour: string;
 };
 
+function updateUrlParams(data: Record<string, any>, reset = false) {
+  const urlParams = reset ? new URLSearchParams() : new URLSearchParams(window.location.search);
+  Object.entries(data).forEach(([param, val]) => urlParams.set(param, val));
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  window.history.pushState({path: newUrl}, '', newUrl);
+}
+
 function createCinemaCheckboxes(location: string, cinemaState: Record<string, CinemaCheckboxState>, calendar: Calendar) {
     // take a cinemaState + location and render it by setting all the correct html things 
     
@@ -136,30 +144,35 @@ function createCinemaCheckboxes(location: string, cinemaState: Record<string, Ci
         checkbox.addEventListener('change', (_event) => {
           cinemaState[id].checked = checkbox.checked;
           // call the refetch so that the event are updated to exclude/include the correct cinemas
-          calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+          calendar.refetchEvents();
+          // console.log("id changed", id)
+          updateUrlParams(Object.fromEntries([[String(id), checkbox.checked]]), false);
         });
     })
     // refresh the calendar when the cinema check boxes are regenerated
     calendar.refetchEvents();
+    const newParams = {
+      'location':location,
+      ...Object.fromEntries(Object.entries(cinemaState).map(([id, cininfo]) => [id, cininfo.checked]))
+    }
+    updateUrlParams(newParams, true);
 }
 
 async function main() {
-//   const params = new URLSearchParams(window.location.search);
-
-
+  const params = new URLSearchParams(window.location.search);
+  console.log(params)
   const sqlWorker = await connect_sql();
   
   const cinemaData = (await sqlWorker.db.query(
       'select id, name, location from cinemas'
   )) as CinemaDB[];
-  
-  // Add the logic for the dropdown list
 
   console.log(cinemaData, Object.keys(cinemaData).length);
-    
+
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
-
+  
+  // Add the logic for the dropdown list
   addDropdownLogic(cinemaData, ((location : string, cinemas: CinemaDB[]) => {
     // update cinemaCheckBoxes
     const numcinemas = cinemas.length;

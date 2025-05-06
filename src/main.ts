@@ -11,6 +11,21 @@ import { ViewProps } from '@fullcalendar/core/internal';
 
 document.addEventListener('DOMContentLoaded', main);
 
+function addDropdownLogic(cinemas : CinemaDB[]) {
+  const cinemasByLocation = cinemas.reduce((acc, cinema) => {
+    acc[cinema.location].push(cinema);
+    return acc;
+  }, Object.fromEntries(cinemas.map(cinema => [cinema.location, [] as CinemaDB[]])) )
+  const dropdownDiv = document.getElementById("dropdown-div");
+  // Toggle showing 
+  document.getElementById("dropdown-button")?.addEventListener("click", function () {
+      dropdownDiv?.classList.toggle("show");
+    });
+  Object.entries(cinemasByLocation).forEach(([location, cinemas]) => {
+    dropdownDiv?.insertAdjacentHTML('beforeend', `<a>${location}</a>`)
+  })
+}
+
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
   const hueStep = 360 / n; // Step size to equally space out n colours
@@ -78,11 +93,15 @@ type CinemaCheckboxState = {
 };
 
 async function main() {
+    
   const sqlWorker = await connect_sql();
-
+  
   const cinemaData = (await sqlWorker.db.query(
-    'select id, name, location from cinemas'
+      'select id, name, location from cinemas'
   )) as CinemaDB[];
+  
+    // Add the logic for the dropdown list
+  addDropdownLogic(cinemaData);
 
   console.log(cinemaData, Object.keys(cinemaData).length);
 

@@ -11,6 +11,49 @@ import { ViewProps } from '@fullcalendar/core/internal';
 
 document.addEventListener('DOMContentLoaded', main);
 
+function addDropdownLogic(
+  cinemas: CinemaDB[],
+  dropDownCallback: (location: string, cinemas: CinemaDB[]) => void
+) {
+  const cinemasByLocation = cinemas.reduce(
+    (acc, cinema) => {
+      acc[cinema.location].push(cinema);
+      return acc;
+    },
+    Object.fromEntries(
+      cinemas.map((cinema) => [cinema.location, [] as CinemaDB[]])
+    )
+  );
+  console.log(cinemasByLocation);
+  const dropdownDiv = document.getElementById('dropdown-div');
+  const dropdownButt = document.getElementById('dropdown-button');
+  // Toggle showing when clicked
+  dropdownButt?.addEventListener('click', function () {
+    dropdownDiv?.classList.toggle('show');
+  });
+
+  Object.entries(cinemasByLocation).forEach(([location, cinemas]) => {
+    const element = document.createElement('a');
+    element.textContent = `${location} (${cinemas.length} cinemas)`;
+
+    dropdownDiv?.insertAdjacentElement('beforeend', element);
+    element.addEventListener('click', () => {
+      dropDownCallback(location, cinemas);
+      // un toggle showing after the city is clicked
+      dropdownDiv?.classList.toggle('show');
+    });
+  });
+  // untoggle when the dropdown button loses focus (blur)
+  document.addEventListener('click', (event) => {
+    if (
+      !dropdownDiv?.contains(event.target as Node) &&
+      !dropdownButt?.contains(event.target as Node)
+    ) {
+      dropdownDiv?.classList.remove('show');
+    }
+  });
+}
+
 function getColourFromHashAndN(index: number, n: number): string {
   // The hue value will be between 0 and 360 (the colour wheel)
   const hueStep = 360 / n; // Step size to equally space out n colours
@@ -74,10 +117,70 @@ async function connect_sql() {
 
 type CinemaCheckboxState = {
   checked: boolean;
+  name: string;
+  location: string;
   colour: string;
 };
 
+function updateUrlParams(data: Record<string, any>, reset = false) {
+  const urlParams = reset
+    ? new URLSearchParams()
+    : new URLSearchParams(window.location.search);
+  Object.entries(data).forEach(([param, val]) => urlParams.set(param, val));
+  const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+  window.history.pushState({ path: newUrl }, '', newUrl);
+}
+
+function createCinemaCheckboxes(
+  location: string | null,
+  cinemaState: Record<string, CinemaCheckboxState>,
+  calendar: Calendar
+) {
+  // take a cinemaState + location and render it by setting all the correct html things
+
+  // set the dropdown button as the current location
+  if (location != null)
+    document.getElementById('dropdown-button')!.textContent = location;
+
+  // Clear previous cinema tickboxes
+  const cinemaSelector = document.getElementById('button-container');
+  cinemaSelector?.replaceChildren();
+
+  Object.entries(cinemaState).forEach(([id, cininfo]) => {
+    // get a unique colour for each cinema
+    const { label, checkbox } = cinemaCheckboxTemplate(
+      cininfo.name,
+      cininfo.colour
+    );
+    cinemaSelector?.insertAdjacentElement('beforeend', label);
+    checkbox.checked = cininfo.checked;
+    // modify the checkbox state when the checkbox state changes
+    checkbox.addEventListener('change', (_event) => {
+      cinemaState[id].checked = checkbox.checked;
+      // call the refetch so that the event are updated to exclude/include the correct cinemas
+      calendar.refetchEvents();
+      // console.log("id changed", id)
+      updateUrlParams(
+        Object.fromEntries([[String(id), checkbox.checked]]),
+        false
+      );
+    });
+  });
+  // refresh the calendar when the cinema check boxes are regenerated
+  calendar.refetchEvents();
+  const newParams = {
+    location: location,
+    ...Object.fromEntries(
+      Object.entries(cinemaState).map(([id, cininfo]) => [id, cininfo.checked])
+    ),
+  };
+  updateUrlParams(newParams, true);
+}
+
 async function main() {
+  const params = new URLSearchParams(window.location.search);
+  console.log('url params:', params);
+
   const sqlWorker = await connect_sql();
 
   const cinemaData = (await sqlWorker.db.query(
@@ -89,32 +192,9 @@ async function main() {
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
 
-  cinemaData.forEach((cinema, i) => {
-    // get a unique colour for each cinema
-    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-    console.log(cinema, colour, i);
-    // create the html for the cinema checkbox
-    const { label, checkbox } = cinemaCheckboxTemplate(cinema.name, colour);
-    document
-      .getElementById('button-container')
-      ?.insertAdjacentElement('beforeend', label);
-
-    cinemaCheckBoxes[cinema.id] = {
-      checked: true,
-      colour: colour,
-    };
-
-    // modify the checkbox state when the checkbox state changes
-    checkbox.addEventListener('change', (_event) => {
-      cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
-      // call the refetch so that the event are updated to exclude/include the correct cinemas
-      calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
-    });
-  });
-
   const CustomViewConfig = {
     content: (arg: ViewProps) => {
-      console.log(arg);
+      // console.log(arg);
       const container = document.createElement('div');
       container.innerText = 'Loading...';
 
@@ -148,23 +228,25 @@ async function main() {
         console.log(grouped_data);
         container.innerHTML = `<ul>${Object.entries(grouped_data)
           .map(
-            ([title, filminfo]) =>
-              `<li>
-                <h3>${title}</h3>
-                <div style="display: flex; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; ">
+            ([title, filminfo]) => `<li>
+              <h3>${title}</h3>
+              <div style="display: flex; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; ">
                   ${filminfo
-                    .map(
-                      (film) => `
+                    .map((film) => {
+                      const datetime = new Date(film.start_time);
+                      const pad = (n: number) => String(n).padStart(2, '0');
+                      return `
                           ${film.url === null ? '<div' : '<a'} href="${film.url}" style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
                           <div style="font-size: 0.7em;">${film.cinema_name}</div>
                           <span>
-                            ${new Date(film.start_time).toLocaleString()}
+                          <!-- ${pad(datetime.getDate())}/${pad(datetime.getMonth())} -->
+                          ${pad(datetime.getHours())}:${pad(datetime.getMinutes())}
                           </span>
-                          </${film.url === null ? 'div' : 'a'}>`
-                    )
+                          </${film.url === null ? 'div' : 'a'}>`;
+                    })
                     .join('')}
-                </div>
-              </li>`
+                    </div>
+                    </li>`
           )
           .join('')}</ul>`;
       });
@@ -185,9 +267,17 @@ async function main() {
     plugins: [timeGridPlugin, dayGridPlugin, listPlugin, CustomViewPlugin],
     initialView: 'movie',
     headerToolbar: {
-      left: 'prev,next',
+      left: 'prev,today,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth,movie',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth movie',
+    },
+    buttonText: {
+      today: 'Today',
+      month: 'M',
+      week: 'W',
+      day: 'D',
+      list: 'L',
+      movie: 'Films',
     },
     displayEventEnd: true,
     displayEventTime: true,
@@ -234,5 +324,54 @@ async function main() {
       }
     },
   });
+
+  // create the calendar using the urlparams
+  if (params.size > 0) {
+    const location = params.get('location') ?? null;
+    cinemaCheckBoxes = Object.fromEntries(
+      Array.from(params.entries())
+        // get those get params for which the keys are numbers
+        // and the id exists in the current cinemas
+        .filter(
+          ([key, _val]) =>
+            !isNaN(+key) && cinemaData.map((cin) => cin.id).includes(+key)
+        )
+        .map(([id, val], i, arr) => {
+          const currid = +id;
+          const cinemainfo = cinemaData.filter((cin) => cin.id == currid)[0];
+          return [
+            currid,
+            {
+              checked: val === 'true',
+              name: cinemainfo.name,
+              location: cinemainfo.location,
+              colour: getColourFromHashAndN(i, arr.length),
+            },
+          ];
+        })
+    );
+    console.log(cinemaCheckBoxes);
+    createCinemaCheckboxes(location, cinemaCheckBoxes, calendar);
+  }
+
+  // Add the logic for the dropdown list
+  addDropdownLogic(cinemaData, (location: string, cinemas: CinemaDB[]) => {
+    // update cinemaCheckBoxes
+    const numcinemas = cinemas.length;
+    cinemaCheckBoxes = Object.fromEntries(
+      cinemas.map((cinema, i) => [
+        cinema.id,
+        {
+          checked: true,
+          name: cinema.name,
+          location: cinema.location,
+          colour: getColourFromHashAndN(i, numcinemas),
+        },
+      ])
+    );
+
+    createCinemaCheckboxes(location, cinemaCheckBoxes, calendar);
+  });
+
   calendar.render();
 }

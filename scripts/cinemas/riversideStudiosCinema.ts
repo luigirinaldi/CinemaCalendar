@@ -19,7 +19,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
         ([_dayTimestamp, performances]) => {
           return performances.flatMap((perf) => {
             return {
-              name: event['title'],
+              name: event['title'].trim(),
               startTime: DateTime.fromSeconds(+perf['timestamp']).toISO(),
               duration: duration,
               url: event['url'],

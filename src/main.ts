@@ -8,22 +8,46 @@ import './style.css';
 
 import { createDbWorker } from 'sql.js-httpvfs';
 import { ViewProps } from '@fullcalendar/core/internal';
+import { childNodes } from 'happy-dom/lib/PropertySymbol.js';
 
 document.addEventListener('DOMContentLoaded', main);
 
-function addDropdownLogic(cinemas : CinemaDB[]) {
+
+
+function addDropdownLogic(cinemas : CinemaDB[], cityCallback) {
   const cinemasByLocation = cinemas.reduce((acc, cinema) => {
     acc[cinema.location].push(cinema);
     return acc;
   }, Object.fromEntries(cinemas.map(cinema => [cinema.location, [] as CinemaDB[]])) )
+  console.log(cinemasByLocation)
   const dropdownDiv = document.getElementById("dropdown-div");
-  // Toggle showing 
-  document.getElementById("dropdown-button")?.addEventListener("click", function () {
+  const dropdownButt = document.getElementById("dropdown-button");
+  // Toggle showing when clicked
+  dropdownButt?.addEventListener("click", function () {
+      dropdownDiv?.classList.toggle("show");
+  });
+  
+  Object.entries(cinemasByLocation).forEach(([location, cinemas]) => {
+    const element = document.createElement('a');
+    element.textContent = `${location} (${cinemas.length} cinemas)`;
+    
+    dropdownDiv?.insertAdjacentElement('beforeend', element)
+    element.addEventListener('click', () => {
+      dropdownButt!.textContent = location;
+      cityCallback(location, cinemas);
+      // un toggle showing after the city is clicked
       dropdownDiv?.classList.toggle("show");
     });
-  Object.entries(cinemasByLocation).forEach(([location, cinemas]) => {
-    dropdownDiv?.insertAdjacentHTML('beforeend', `<a>${location}</a>`)
   })
+  // // untoggle when the dropdown button loses focus (blur)
+  document.addEventListener('click', (event) => {
+    if (
+      !dropdownDiv?.contains(event.target as Node) &&
+      !dropdownButt?.contains(event.target as Node)
+    ) {
+      dropdownDiv?.classList.remove('show');
+    }
+  });
 }
 
 function getColourFromHashAndN(index: number, n: number): string {
@@ -100,40 +124,48 @@ async function main() {
       'select id, name, location from cinemas'
   )) as CinemaDB[];
   
-    // Add the logic for the dropdown list
-  addDropdownLogic(cinemaData);
+  // Add the logic for the dropdown list
 
   console.log(cinemaData, Object.keys(cinemaData).length);
-
+    
   // make the global, mutable checkbox state variable
   let cinemaCheckBoxes: Record<string, CinemaCheckboxState> = {};
 
-  cinemaData.forEach((cinema, i) => {
-    // get a unique colour for each cinema
-    const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
-    console.log(cinema, colour, i);
-    // create the html for the cinema checkbox
-    const { label, checkbox } = cinemaCheckboxTemplate(cinema.name, colour);
-    document
-      .getElementById('button-container')
-      ?.insertAdjacentElement('beforeend', label);
+  addDropdownLogic(cinemaData, ((location, cinemas: CinemaDB[]) => {
+    const cinemaSelector = document.getElementById('button-container');
+    console.log(cinemaSelector?.childNodes)
+    cinemaCheckBoxes = {};
+    // this is for clearing the previous elements
+    cinemaSelector?.replaceChildren();
 
-    cinemaCheckBoxes[cinema.id] = {
-      checked: true,
-      colour: colour,
-    };
-
-    // modify the checkbox state when the checkbox state changes
-    checkbox.addEventListener('change', (_event) => {
-      cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
-      // call the refetch so that the event are updated to exclude/include the correct cinemas
-      calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+    cinemas.forEach((cinema, i) => { 
+      // get a unique colour for each cinema
+      const colour = getColourFromHashAndN(i, Object.keys(cinemaData).length);
+      console.log(cinema, colour, i);
+      // create the html for the cinema checkbox
+      const { label, checkbox } = cinemaCheckboxTemplate(cinema.name, colour);
+      cinemaSelector?.insertAdjacentElement('beforeend', label);
+  
+      cinemaCheckBoxes[cinema.id] = {
+        checked: true,
+        colour: colour,
+      };
+  
+      // modify the checkbox state when the checkbox state changes
+      checkbox.addEventListener('change', (_event) => {
+        cinemaCheckBoxes[cinema.id].checked = checkbox.checked;
+        // call the refetch so that the event are updated to exclude/include the correct cinemas
+        calendar.refetchEvents(); // (not sure how calendar can be referenced here since it hasn't been defined yet but ok)
+      });
     });
-  });
+    // refresh the calendar when a new city is selected
+    calendar.refetchEvents();
+  }));
+
 
   const CustomViewConfig = {
     content: (arg: ViewProps) => {
-      console.log(arg);
+      // console.log(arg);
       const container = document.createElement('div');
       container.innerText = 'Loading...';
 

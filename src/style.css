@@ -27,34 +27,25 @@ body {
   display: flex;
   flex-direction: row;
   gap: 10px;
+  padding: 10px;
   justify-content: space-around;
+  flex-wrap: wrap;
 }
 
 .dropbtn {
     background-color: #04AA6D;
     color: white;
-    padding: 16px;
-    font-size: 16px;
+    padding: 10px;
+    font-size: 20px;
     border: none;
     cursor: pointer;
+    width: 100%;
+    justify-self: center;
   }
   
 .dropbtn:hover, .dropbtn:focus {
 background-color: #3e8e41;
 }
-
-#myInput {
-box-sizing: border-box;
-background-image: url('searchicon.png');
-background-position: 14px 12px;
-background-repeat: no-repeat;
-font-size: 16px;
-padding: 14px 20px 12px 45px;
-border: none;
-border-bottom: 1px solid #ddd;
-}
-
-#myInput:focus {outline: 3px solid #ddd;}
 
 .dropdown {
 position: relative;
@@ -66,9 +57,10 @@ display: none;
 position: absolute;
 background-color: #f6f6f6;
 min-width: 230px;
+width: 100%;
 overflow: auto;
 border: 1px solid #ddd;
-z-index: 1;
+z-index: 2;
 }
 
 .dropdown-content a {
@@ -80,3 +72,4 @@ display: block;
 
 .dropdown a:hover {background-color: #ddd;}
 .show {display: block;}
+

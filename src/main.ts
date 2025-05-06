@@ -199,24 +199,29 @@ async function main() {
         console.log(grouped_data);
         container.innerHTML = `<ul>${Object.entries(grouped_data)
           .map(
-            ([title, filminfo]) =>
-              `<li>
-                <h3>${title}</h3>
-                <div style="display: flex; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; ">
+            ([title, filminfo]) =>`<li>
+              <h3>${title}</h3>
+              <div style="display: flex; flex-direction: row; gap: 10px; justify-content: flex-start; flex-wrap: wrap; ">
                   ${filminfo
                     .map(
-                      (film) => `
+                      (film) => 
+                      {
+                      const datetime = new Date(film.start_time);
+                      const pad = (n : number) => String(n).padStart(2,'0');
+                      return `
                           ${film.url === null ? '<div' : '<a'} href="${film.url}" style="border: 3px solid ${cinemaCheckBoxes[film.cinema_id].colour};border-radius: 10px;padding: 5px;">
                           <div style="font-size: 0.7em;">${film.cinema_name}</div>
                           <span>
-                            ${new Date(film.start_time).toLocaleString()}
+                          <!-- ${pad(datetime.getDate())}/${pad(datetime.getMonth())} -->
+                          ${pad(datetime.getHours())}:${pad(datetime.getMinutes())}
                           </span>
                           </${film.url === null ? 'div' : 'a'}>`
+                          }
                     )
                     .join('')}
-                </div>
-              </li>`
-          )
+                    </div>
+                    </li>`
+                  )
           .join('')}</ul>`;
       });
 

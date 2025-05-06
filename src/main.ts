@@ -236,9 +236,17 @@ async function main() {
     plugins: [timeGridPlugin, dayGridPlugin, listPlugin, CustomViewPlugin],
     initialView: 'movie',
     headerToolbar: {
-      left: 'prev,next',
+      left: 'prev,today,next',
       center: 'title',
-      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth,movie',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth movie',
+    },
+    buttonText: {
+      today: 'Today',
+      month: 'M',
+      week: 'W',
+      day: 'D',
+      list: 'L',
+      movie: 'Films'
     },
     displayEventEnd: true,
     displayEventTime: true,

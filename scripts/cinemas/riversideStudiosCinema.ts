@@ -14,7 +14,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
   const movie_info_out: FilmShowing[] = result
     .filter((event) => event.event_type && event.event_type.includes('101'))
     .flatMap((event) => {
-      let duration = +event['run_time'].match(/(\d+) mins/)[1];
+      let duration = +event['run_time'].match(/(\d+)([ mins]*)/)[1];
       return Object.entries(event['performances']).flatMap(
         ([_dayTimestamp, performances]) => {
           return performances.flatMap((perf) => {

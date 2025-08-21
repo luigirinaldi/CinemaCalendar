@@ -36,5 +36,3 @@ export async function scraper(): Promise<CinemaShowing[]> {
     },
   ];
 }
-
-scraper();

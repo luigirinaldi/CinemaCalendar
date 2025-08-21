@@ -3,19 +3,54 @@ import { readdirSync } from 'fs';
 import { CinemaShowing, ScraperFunction } from '../src/types';
 
 import Database from 'better-sqlite3';
-import { match } from 'assert';
+import { Database as DatabaseT } from 'better-sqlite3';
+
+async function scrapeAndStore(fun: ScraperFunction, db: DatabaseT) {
+  const result = await fun();
+  const insertCinema = db.prepare(
+    'INSERT INTO cinemas (name, location) VALUES (@name, @location)'
+  );
+  const getFilmId = db.prepare('SELECT id FROM films WHERE title=@title');
+  const insertFilm = db.prepare(
+    'INSERT OR IGNORE INTO films (title, duration_minutes, tmdb_id) VALUES (?, ? ,?)'
+  );
+  const insertFilmShowing = db.prepare(
+    'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time, url) VALUES (?,?,?,?,?)'
+  );
+  Object.entries(result).forEach(([_, cinema]) => {
+    const { changes, lastInsertRowid: cinema_id } = insertCinema.run({
+      name: cinema.cinema,
+      location: cinema.location,
+    });
+    const insertAll = db.transaction(() => {
+      cinema.showings.forEach((film) => {
+        insertFilm.run(film.name, film.duration, film.tmdbId);
+        const film_id: any = getFilmId.get({ title: film.name });
+        insertFilmShowing.run(
+          cinema_id,
+          film_id.id,
+          film.startTime,
+          film.endTime,
+          film.url
+        );
+      });
+    });
+    insertAll();
+    console.log(`🎦 Inserted movies for ${cinema.cinema}`);
+  });
+}
 
 async function main() {
   const stepFiles = readdirSync('./scripts/cinemas');
 
-  const scrapers: ScraperFunction[] = [];
+  const scrapers: [string, ScraperFunction][] = [];
 
   // Dynamically import all scraper scripts
   for (const file of stepFiles) {
     const module = await import('./cinemas/' + file); // dynamic import
     if (typeof module.scraper === 'function') {
-      scrapers.push(module.scraper as ScraperFunction);
-      console.log(`✅ Loaded scraper from ${file}`);
+      scrapers.push([file, module.scraper as ScraperFunction]);
+      console.log(`☑️ Loaded scraper from ${file}`);
     } else {
       console.warn(`❌ No 'scraper' function found in ${file}`);
     }
@@ -54,41 +89,13 @@ async function main() {
   ).run();
 
   await Promise.all(
-    scrapers.map(async (fun) => {
-      const result = await fun();
-      const insertCinema = db.prepare(
-        'INSERT INTO cinemas (name, location) VALUES (@name, @location)'
-      );
-      const getFilmId = db.prepare('SELECT id FROM films WHERE title=@title');
-      const insertFilm = db.prepare(
-        'INSERT OR IGNORE INTO films (title, duration_minutes, tmdb_id) VALUES (?, ? ,?)'
-      );
-      const insertFilmShowing = db.prepare(
-        'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time, url) VALUES (?,?,?,?,?)'
-      );
-      Object.entries(result).forEach(([_, cinema]) => {
-        console.log(cinema.cinema);
-
-        const { changes, lastInsertRowid: cinema_id } = insertCinema.run({
-          name: cinema.cinema,
-          location: cinema.location,
-        });
-        const insertAll = db.transaction(() => {
-          cinema.showings.forEach((film) => {
-            insertFilm.run(film.name, film.duration, film.tmdbId);
-            const film_id: any = getFilmId.get({ title: film.name });
-            insertFilmShowing.run(
-              cinema_id,
-              film_id.id,
-              film.startTime,
-              film.endTime,
-              film.url
-            );
-          });
-        });
-        insertAll();
-        console.log(`Inserted movies for ${cinema.cinema}`);
-      });
+    scrapers.map(async ([name, fun]) => {
+      try {
+        await scrapeAndStore(fun, db);
+      } catch (e) {
+        console.log(`‼️ Scraper \'${name}\' threw an error:\n ${e}`);
+        // console.log(e);
+      }
     })
   );
 

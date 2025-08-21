@@ -5,22 +5,22 @@ import { CinemaShowing, ScraperFunction } from '../src/types';
 import Database from 'better-sqlite3';
 import { match } from 'assert';
 
-const stepFiles = readdirSync('./scripts/cinemas');
-
-const scrapers: ScraperFunction[] = [];
-
-// Dynamically import all scraper scripts
-for (const file of stepFiles) {
-  const module = await import('./cinemas/' + file); // dynamic import
-  if (typeof module.scraper === 'function') {
-    scrapers.push(module.scraper as ScraperFunction);
-    console.log(`✅ Loaded scraper from ${file}`);
-  } else {
-    console.warn(`❌ No 'scraper' function found in ${file}`);
-  }
-}
-
 async function main() {
+  const stepFiles = readdirSync('./scripts/cinemas');
+
+  const scrapers: ScraperFunction[] = [];
+
+  // Dynamically import all scraper scripts
+  for (const file of stepFiles) {
+    const module = await import('./cinemas/' + file); // dynamic import
+    if (typeof module.scraper === 'function') {
+      scrapers.push(module.scraper as ScraperFunction);
+      console.log(`✅ Loaded scraper from ${file}`);
+    } else {
+      console.warn(`❌ No 'scraper' function found in ${file}`);
+    }
+  }
+
   const db = new Database('./public/data/my.db');
 
   // Make cinema table

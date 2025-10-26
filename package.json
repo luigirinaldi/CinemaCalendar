@@ -23,8 +23,9 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.9.1",
+    "env-cmd": "^11.0.0",
     "fullcalendar": "^6.1.17",
-    "happy-dom": "^17.4.4",
+    "happy-dom": "^20.0.8",
     "ical.js": "^2.1.0",
     "luxon": "^3.6.1",
     "node-html-parser": "^7.0.1",

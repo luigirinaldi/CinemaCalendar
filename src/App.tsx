@@ -83,17 +83,17 @@ function App() {
 
   const formatTime = (datetime: string) => {
     const date = new Date(datetime);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-UK', { hour: '2-digit', minute: '2-digit' });
   };
 
   const formatDate = (datetime: string) => {
     const date = new Date(datetime);
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-UK', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const formatDateRange = (start: Date, end: Date) => {
-    const startStr = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const startStr = start.toLocaleDateString('en-UK', { month: 'short', day: 'numeric', year: 'numeric' });
+    const endStr = end.toLocaleDateString('en-UK', { month: 'short', day: 'numeric', year: 'numeric' });
     return `${startStr} - ${endStr}`;
   };
 
@@ -175,7 +175,7 @@ function App() {
     const todayStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
     
     if (dateRange === 'today') {
-      return todayStart.toLocaleDateString('en-US', { 
+      return todayStart.toLocaleDateString('en-UK', { 
         weekday: 'long', 
         month: 'long', 
         day: 'numeric', 

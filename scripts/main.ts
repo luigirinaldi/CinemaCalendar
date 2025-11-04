@@ -34,14 +34,10 @@ async function scrapeAndStore(
     }
     const cinema_id = cinema_insert.data[0].id;
 
-    // console.log(cinema_insert)
-
     const film_data = await db.from('films').select();
     if (!film_data.data) {
       throw new Error('No film data returned');
     }
-
-    // console.log(film_data.data)
 
     const unique_movies = new Map(
       cinema.showings.map((f) => [
@@ -65,8 +61,6 @@ async function scrapeAndStore(
         movies_added.set(movie_key, movie_exists.id);
       }
     }
-    // console.log(movies_to_add)
-    // console.log(movies_added)
 
     console.log(`[${cinema.cinema}] Found ${unique_movies.size} unique movies`);
     if (movies_to_add.length > 0) {

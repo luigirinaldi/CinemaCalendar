@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "getData": "npx tsx scripts/main.ts",
+    "get_data": "npx tsx scripts/main.ts",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",

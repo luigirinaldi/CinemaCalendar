@@ -21,8 +21,8 @@ type Screening = Tables<'film_showings'>;
 function App() {
     const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
     const [groupBy, setGroupBy] = useState<GroupBy>('movie');
-    const [customStartDate, setCustomStartDate] = useState('');
-    const [customEndDate, setCustomEndDate] = useState('');
+    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString());
+    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString());
     const [currentDate, setCurrentDate] = useState(new Date());
     const [movies, setMovies] = useState<Tables<'films'>[]>([]);
     const [cinemas, setCinemas] = useState<Tables<'cinemas'>[]>([]);
@@ -51,8 +51,6 @@ function App() {
     useEffect(() => {
         // Compute the range of dates for the query to db
         const fetchData = async () => {
-            setLoading(true);
-
             const get_date_range = () : [Date, Date] | null => {
                 switch (dateRange) {
                     // for the day, return going from today to the next day until 4 am (account for movies starting really late)
@@ -65,8 +63,6 @@ function App() {
 
             const screenings = await fetchScreenings(get_date_range());
             setScreenings(screenings);
-
-            setLoading(false);
         };
         fetchData();
     }, [dateRange, currentDate, customStartDate, customEndDate]);

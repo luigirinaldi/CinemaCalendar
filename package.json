@@ -1,12 +1,12 @@
 {
   "name": "allcinemas",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "getData": "npm run cleanData && cd public && mkdir data && cd .. && npx tsx scripts/main.ts",
+    "getData": "npx tsx scripts/main.ts",
     "dev": "vite",
-    "build": "npm run getData && tsc && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "format": "prettier --write .",
     "clean": "rimraf dist && npm run cleanData",

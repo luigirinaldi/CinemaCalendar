@@ -2,36 +2,36 @@
 name: Scrape information from cinemas and store it on the database
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ['main']
-  # Run every day at 7.47 in the morning
-  schedule:
-    - cron: '47 7 * * *'
+    # Runs on pushes targeting the default branch
+    push:
+        branches: ['main']
+    # Run every day at 7.47 in the morning
+    schedule:
+        - cron: '47 7 * * *'
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
 
 # Allow one concurrent deployment
 concurrency:
-  group: 'pages'
-  cancel-in-progress: true
+    group: 'pages'
+    cancel-in-progress: true
 
 jobs:
-  scraper:
-    runs-on: ubuntu-latest
-    env:
-      API_KEY: ${{ secrets.PROD_API_KEY }}
-      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run Scraping
-        run: npm run get_data
+    scraper:
+        runs-on: ubuntu-latest
+        env:
+            API_KEY: ${{ secrets.PROD_API_KEY }}
+            SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: lts/*
+                  cache: 'npm'
+            - name: Install dependencies
+              run: npm ci
+            - name: Run Scraping
+              run: npm run get_data

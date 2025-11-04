@@ -28,6 +28,7 @@ function App() {
     const [cinemas, setCinemas] = useState<Tables<'cinemas'>[]>([]);
     const [screenings, setScreenings] = useState<Tables<'film_showings'>[]>([]);
     const [loading, setLoading] = useState(true);
+    const [city, setCity] = useState<string>('');
 
     useEffect(() => {
         // Fetch movie and cinema information once at the website load
@@ -43,6 +44,8 @@ function App() {
 
             const cinemas_data = await fetchCinemas();
             setCinemas(cinemas_data);
+            // console.log(getCities(cinemas_data));
+            setCity(getCities(cinemas_data).filter(c => c !== null)[0])
             setLoading(false);
         };
         fetchData();
@@ -69,6 +72,8 @@ function App() {
 
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
+
+    const getCities = (cinemas: Tables<'cinemas'>[]) => [...new Set(cinemas.map((c) => c.location))];
 
     const formatTime = (datetime: string) => {
         const date = new Date(datetime);
@@ -182,9 +187,26 @@ function App() {
         <div className="min-h-screen bg-neutral-900 text-white">
             <header className="bg-neutral-950 border-b border-red-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-6">
-                    <div className="flex items-center gap-3 mb-6">
-                        <Film className="w-8 h-8 text-red-600" />
-                        <h1 className="text-3xl font-bold">CineView</h1>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <Film className="w-8 h-8 text-red-600" />
+                            <h1 className="text-3xl font-bold">CineView</h1>
+                        </div>
+                        <div>
+                            <select
+                                value={city}
+                                onChange={(e) => setCity(e.target.value)}
+                                className="bg-neutral-800 text-white px-4 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none w-48"
+                            >
+                                {getCities(cinemas)
+                                    .filter((cityName): cityName is string => cityName !== null)
+                                    .map((cityName) => (
+                                        <option key={cityName} value={cityName}>
+                                            {cityName}
+                                        </option>
+                                    ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="space-y-4">

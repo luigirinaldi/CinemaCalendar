@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Calendar, Film, MapPin, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 
+import supabase from './supabase';
+
 // Types
 interface Movie {
   id: string;
@@ -70,6 +72,8 @@ function App() {
     const fetchData = async () => {
       setLoading(true);
       await new Promise(resolve => setTimeout(resolve, 500));
+      const data = await supabase.from('films').select();
+      console.log(data);
       setMovies(mockMovies);
       setCinemas(mockCinemas);
       setScreenings(mockScreenings);

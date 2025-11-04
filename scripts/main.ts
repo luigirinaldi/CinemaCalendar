@@ -1,8 +1,8 @@
 import { readdirSync } from 'fs';
-import { ScraperFunction, FilmShowing } from '../src/types';
+import { ScraperFunction, FilmShowing } from './types';
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from './database.types';
+import { Database } from '../database.types';
 
 import 'dotenv/config';
 
@@ -46,8 +46,8 @@ async function scrapeAndStore(
       ])
     );
 
-    let movies_to_add: any = [];
-    let movies_added: Map<String, number> = new Map();
+    const movies_to_add: any = [];
+    const movies_added: Map<string, number> = new Map();
 
     for (const [movie_key, movie] of unique_movies) {
       const movie_exists = film_data.data.find(
@@ -91,7 +91,7 @@ async function scrapeAndStore(
       );
     }
 
-    let showings_data = await db
+    const showings_data = await db
       .from('film_showings')
       .select()
       .eq('cinema_id', cinema_id);
@@ -102,7 +102,7 @@ async function scrapeAndStore(
 
     const new_showings_data = cinema.showings
       .map((f) => {
-        let film_id = movies_added.get(movie_hash(f));
+        const film_id = movies_added.get(movie_hash(f));
         if (film_id === undefined) {
           throw new Error(`No Id found for '${f.name}'`);
         }
@@ -183,7 +183,7 @@ async function main() {
       try {
         await scrapeAndStore(fun, supabase);
       } catch (e) {
-        console.log(`‼️ Scraper \'${name}\' threw an error:\n ${e}`);
+        console.log(`‼️ Scraper '${name}' threw an error:\n ${e}`);
         // console.log(e);
       }
     })

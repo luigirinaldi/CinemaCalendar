@@ -18,8 +18,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
+  scraper:
     runs-on: ubuntu-latest
     env:
       API_KEY: ${{ secrets.PROD_API_KEY }}

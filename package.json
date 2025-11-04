@@ -10,18 +10,22 @@
     "preview": "vite preview",
     "format": "prettier --write .",
     "clean": "rimraf dist && npm run cleanData",
-    "cleanData": "rimraf public/data"
+    "cleanData": "rimraf public/data",
+    "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./scripts/database.types.ts'"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/luxon": "^3.6.2",
     "@types/node": "^22.14.1",
+    "dotenv-cli": "^11.0.0",
     "prettier": "^3.5.3",
+    "supabase": "^2.54.11",
     "tsx": "^4.19.4",
     "typescript": "~5.7.2",
     "vite": "^6.3.1"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.2",
     "better-sqlite3": "^11.9.1",
     "env-cmd": "^11.0.0",
     "fullcalendar": "^6.1.17",

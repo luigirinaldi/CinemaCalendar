@@ -16,14 +16,15 @@ export const fetchCinemas = async (): Promise<Tables<'cinemas'>[]> => {
 };
 
 export const fetchScreenings = async (
-    date_range: [Date, Date] | null
+    date_range: [Date, Date] | null,
+    cinema_ids: number[]
 ): Promise<Tables<'film_showings'>[]> => {
     let response;
     if (date_range === null) {
-        response = await supabase.from('film_showings').select();
+        response = await supabase.from('film_showings').select().in('cinema_id', cinema_ids);
     } else {
         const [start, end] = date_range;
-        response = await supabase.from('film_showings').select().lte("start_time", end.toISOString()).gte('start_time', start.toISOString());
+        response = await supabase.from('film_showings').select().in('cinema_id', cinema_ids).lte("start_time", end.toISOString()).gte('start_time', start.toISOString());
     }
     if (response.error !== null || response.data === null) throw new Error(`Failed to fetch screenings: ${response.error}`)
     console.log(date_range, response.data.length);

@@ -64,16 +64,17 @@ function App() {
                 }
             }
 
-            const screenings = await fetchScreenings(get_date_range());
+            const screenings = await fetchScreenings(get_date_range(), getCityCinemaIds(cinemas, city));
             setScreenings(screenings);
         };
         fetchData();
-    }, [dateRange, currentDate, customStartDate, customEndDate]);
+    }, [dateRange, currentDate, customStartDate, customEndDate, city, cinemas]);
 
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     const getCities = (cinemas: Tables<'cinemas'>[]) => [...new Set(cinemas.map((c) => c.location))];
+    const getCityCinemaIds = (cinemas : Tables<'cinemas'>[], city : string) => cinemas.filter(c => c.location === city).map(c => c.id);
 
     const formatTime = (datetime: string) => {
         const date = new Date(datetime);

@@ -9,143 +9,14 @@ import {
 } from 'lucide-react';
 
 import supabase from './supabase';
+import { fetchCinemas, fetchMovies, fetchScreenings } from './api';
 
-// Types
-interface Movie {
-    id: string;
-    title: string;
-    duration: number;
-    genre: string;
-    rating: string;
-}
-
-interface Cinema {
-    id: string;
-    name: string;
-    location: string;
-}
-
-interface Screening {
-    id: string;
-    movieId: string;
-    cinemaId: string;
-    datetime: string;
-    price: number;
-}
+import type { Tables } from '../database.types';
 
 type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
 type GroupBy = 'movie' | 'cinema';
 
-// Mock data - Replace with actual database queries
-const mockMovies: Movie[] = [
-    {
-        id: '1',
-        title: 'The Stellar Voyage',
-        duration: 142,
-        genre: 'Sci-Fi',
-        rating: 'PG-13',
-    },
-    {
-        id: '2',
-        title: 'Midnight in Paris Redux',
-        duration: 118,
-        genre: 'Drama',
-        rating: 'PG',
-    },
-    {
-        id: '3',
-        title: 'Action Heroes',
-        duration: 135,
-        genre: 'Action',
-        rating: 'R',
-    },
-    {
-        id: '4',
-        title: 'The Last Garden',
-        duration: 156,
-        genre: 'Drama',
-        rating: 'PG-13',
-    },
-];
-
-const mockCinemas: Cinema[] = [
-    { id: '1', name: 'Grand Cinema', location: 'Downtown' },
-    { id: '2', name: 'Riverside Theater', location: 'Riverside District' },
-    { id: '3', name: 'Metro Cineplex', location: 'City Center' },
-];
-
-const mockScreenings: Screening[] = [
-    {
-        id: '1',
-        movieId: '1',
-        cinemaId: '1',
-        datetime: '2025-11-04T14:30:00',
-        price: 12,
-    },
-    {
-        id: '2',
-        movieId: '1',
-        cinemaId: '1',
-        datetime: '2025-11-04T19:00:00',
-        price: 15,
-    },
-    {
-        id: '3',
-        movieId: '2',
-        cinemaId: '2',
-        datetime: '2025-11-04T16:00:00',
-        price: 11,
-    },
-    {
-        id: '4',
-        movieId: '3',
-        cinemaId: '3',
-        datetime: '2025-11-04T20:30:00',
-        price: 14,
-    },
-    {
-        id: '5',
-        movieId: '1',
-        cinemaId: '2',
-        datetime: '2025-11-05T15:00:00',
-        price: 12,
-    },
-    {
-        id: '6',
-        movieId: '4',
-        cinemaId: '1',
-        datetime: '2025-11-06T18:00:00',
-        price: 13,
-    },
-    {
-        id: '7',
-        movieId: '2',
-        cinemaId: '3',
-        datetime: '2025-11-07T17:30:00',
-        price: 12,
-    },
-    {
-        id: '8',
-        movieId: '3',
-        cinemaId: '2',
-        datetime: '2025-11-08T21:00:00',
-        price: 15,
-    },
-    {
-        id: '9',
-        movieId: '4',
-        cinemaId: '3',
-        datetime: '2025-11-10T19:30:00',
-        price: 13,
-    },
-    {
-        id: '10',
-        movieId: '1',
-        cinemaId: '3',
-        datetime: '2025-11-15T20:00:00',
-        price: 14,
-    },
-];
+type Screening = Tables<'film_showings'>;
 
 function App() {
     const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
@@ -153,28 +24,55 @@ function App() {
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [movies, setMovies] = useState<Movie[]>([]);
-    const [cinemas, setCinemas] = useState<Cinema[]>([]);
-    const [screenings, setScreenings] = useState<Screening[]>([]);
+    const [movies, setMovies] = useState<Tables<'films'>[]>([]);
+    const [cinemas, setCinemas] = useState<Tables<'cinemas'>[]>([]);
+    const [screenings, setScreenings] = useState<Tables<'film_showings'>[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Replace with actual database queries
+        // Fetch movie and cinema information once at the website load
+        // Can assume that they won't change while the user is browsing
         const fetchData = async () => {
             setLoading(true);
             await new Promise((resolve) => setTimeout(resolve, 500));
             const data = await supabase.from('films').select();
             console.log(data);
-            setMovies(mockMovies);
-            setCinemas(mockCinemas);
-            setScreenings(mockScreenings);
+
+            const movie_data = await fetchMovies();
+            setMovies(movie_data);
+
+            const cinemas_data = await fetchCinemas();
+            setCinemas(cinemas_data);
             setLoading(false);
         };
         fetchData();
     }, []);
 
-    const getMovie = (id: string) => movies.find((m) => m.id === id);
-    const getCinema = (id: string) => cinemas.find((c) => c.id === id);
+    useEffect(() => {
+        // Compute the range of dates for the query to db
+        const fetchData = async () => {
+            setLoading(true);
+
+            const get_date_range = () : [Date, Date] | null => {
+                switch (dateRange) {
+                    // for the day, return going from today to the next day until 4 am (account for movies starting really late)
+                    case 'today': return [currentDate, new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1, 4, 0)] 
+                    case 'thisWeek': return [currentDate, new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7, 4, 0)] 
+                    case 'custom': return [new Date(customStartDate), new Date(customEndDate)]
+                    case 'anytime': return null
+                }
+            }
+
+            const screenings = await fetchScreenings(get_date_range());
+            setScreenings(screenings);
+
+            setLoading(false);
+        };
+        fetchData();
+    }, [dateRange, currentDate, customStartDate, customEndDate]);
+
+    const getMovie = (id: number) => movies.find((m) => m.id === id);
+    const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     const formatTime = (datetime: string) => {
         const date = new Date(datetime);
@@ -225,63 +123,20 @@ function App() {
         setCurrentDate(new Date());
     };
 
-    const getFilteredScreenings = () => {
-        const baseDate = new Date(currentDate);
-        const todayStart = new Date(
-            baseDate.getFullYear(),
-            baseDate.getMonth(),
-            baseDate.getDate()
-        );
-        const todayEnd = new Date(todayStart);
-        todayEnd.setDate(todayEnd.getDate() + 1);
-
-        const weekEnd = new Date(todayStart);
-        weekEnd.setDate(weekEnd.getDate() + 7);
-
-        return screenings.filter((s) => {
-            const screeningDate = new Date(s.datetime);
-
-            switch (dateRange) {
-                case 'today':
-                    return (
-                        screeningDate >= todayStart && screeningDate < todayEnd
-                    );
-                case 'thisWeek':
-                    return (
-                        screeningDate >= todayStart && screeningDate <= weekEnd
-                    );
-                case 'anytime':
-                    return true;
-                case 'custom':
-                    if (!customStartDate && !customEndDate) return true;
-                    const start = customStartDate
-                        ? new Date(customStartDate)
-                        : new Date(0);
-                    const end = customEndDate
-                        ? new Date(customEndDate)
-                        : new Date('2100-01-01');
-                    end.setHours(23, 59, 59, 999);
-                    return screeningDate >= start && screeningDate <= end;
-                default:
-                    return true;
-            }
-        });
-    };
-
     const groupByMovie = (screeningsList: Screening[]) => {
-        const grouped: { [key: string]: Screening[] } = {};
+        const grouped: { [key: number]: Screening[] } = {};
         screeningsList.forEach((s) => {
-            if (!grouped[s.movieId]) grouped[s.movieId] = [];
-            grouped[s.movieId].push(s);
+            if (!grouped[s.film_id]) grouped[s.film_id] = [];
+            grouped[s.film_id].push(s);
         });
         return grouped;
     };
 
     const groupByCinema = (screeningsList: Screening[]) => {
-        const grouped: { [key: string]: Screening[] } = {};
+        const grouped: { [key: number]: Screening[] } = {};
         screeningsList.forEach((s) => {
-            if (!grouped[s.cinemaId]) grouped[s.cinemaId] = [];
-            grouped[s.cinemaId].push(s);
+            if (!grouped[s.cinema_id]) grouped[s.cinema_id] = [];
+            grouped[s.cinema_id].push(s);
         });
         return grouped;
     };
@@ -293,8 +148,6 @@ function App() {
             </div>
         );
     }
-
-    const filteredScreenings = getFilteredScreenings();
 
     const getDateRangeDisplay = () => {
         const baseDate = new Date(currentDate);
@@ -503,7 +356,7 @@ function App() {
             </header>
 
             <main className="max-w-7xl mx-auto px-4 py-8">
-                {filteredScreenings.length === 0 ? (
+                {screenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />
                         <p className="text-xl text-neutral-400">
@@ -512,9 +365,9 @@ function App() {
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {Object.entries(groupByMovie(filteredScreenings)).map(
+                        {Object.entries(groupByMovie(screenings)).map(
                             ([movieId, movieScreenings]) => {
-                                const movie = getMovie(movieId);
+                                const movie = getMovie(Number(movieId));
                                 return (
                                     <div
                                         key={movieId}
@@ -524,8 +377,7 @@ function App() {
                                             {movie?.title}
                                         </h3>
                                         <p className="text-neutral-400 mb-4">
-                                            {movie?.genre} • {movie?.rating} •{' '}
-                                            {movie?.duration} min
+                                            {movie?.duration_minutes} min
                                         </p>
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold text-neutral-300">
@@ -539,15 +391,15 @@ function App() {
                                                 .sort(
                                                     (a, b) =>
                                                         new Date(
-                                                            a.datetime
+                                                            a.start_time
                                                         ).getTime() -
                                                         new Date(
-                                                            b.datetime
+                                                            b.start_time
                                                         ).getTime()
                                                 )
                                                 .map((screening) => {
                                                     const cinema = getCinema(
-                                                        screening.cinemaId
+                                                        screening.cinema_id
                                                     );
                                                     return (
                                                         <div
@@ -563,22 +415,22 @@ function App() {
                                                                     </p>
                                                                     <p className="text-neutral-400">
                                                                         {formatDate(
-                                                                            screening.datetime
+                                                                            screening.start_time
                                                                         )}
                                                                     </p>
                                                                 </div>
                                                                 <div className="text-right">
-                                                                    <p className="text-neutral-300">
+                                                                    <p className="text-red-500 text-neutral-300">
                                                                         {formatTime(
-                                                                            screening.datetime
+                                                                            screening.start_time
                                                                         )}
                                                                     </p>
-                                                                    <p className="text-red-500 font-semibold">
+                                                                    {/* <p className="text-red-500 font-semibold">
                                                                         $
                                                                         {
                                                                             screening.price
                                                                         }
-                                                                    </p>
+                                                                    </p> */}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -592,9 +444,9 @@ function App() {
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        {Object.entries(groupByCinema(filteredScreenings)).map(
+                        {Object.entries(groupByCinema(screenings)).map(
                             ([cinemaId, cinemaScreenings]) => {
-                                const cinema = getCinema(cinemaId);
+                                const cinema = getCinema(Number(cinemaId));
                                 return (
                                     <div
                                         key={cinemaId}
@@ -612,15 +464,15 @@ function App() {
                                                 .sort(
                                                     (a, b) =>
                                                         new Date(
-                                                            a.datetime
+                                                            a.start_time
                                                         ).getTime() -
                                                         new Date(
-                                                            b.datetime
+                                                            b.start_time
                                                         ).getTime()
                                                 )
                                                 .map((screening) => {
                                                     const movie = getMovie(
-                                                        screening.movieId
+                                                        screening.film_id
                                                     );
                                                     return (
                                                         <div
@@ -635,15 +487,7 @@ function App() {
                                                                 </h3>
                                                                 <p className="text-neutral-400 text-sm">
                                                                     {
-                                                                        movie?.genre
-                                                                    }{' '}
-                                                                    •{' '}
-                                                                    {
-                                                                        movie?.rating
-                                                                    }{' '}
-                                                                    •{' '}
-                                                                    {
-                                                                        movie?.duration
+                                                                        movie?.duration_minutes
                                                                     }{' '}
                                                                     min
                                                                 </p>
@@ -652,19 +496,13 @@ function App() {
                                                                 <div className="text-neutral-300 flex items-center gap-2">
                                                                     <Clock className="w-4 h-4" />
                                                                     {formatTime(
-                                                                        screening.datetime
+                                                                        screening.start_time
                                                                     )}
                                                                 </div>
                                                                 <div className="text-sm text-neutral-400">
                                                                     {formatDate(
-                                                                        screening.datetime
+                                                                        screening.start_time
                                                                     )}
-                                                                </div>
-                                                                <div className="text-red-500 font-semibold mt-1">
-                                                                    $
-                                                                    {
-                                                                        screening.price
-                                                                    }
                                                                 </div>
                                                             </div>
                                                         </div>

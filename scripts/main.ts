@@ -1,42 +1,110 @@
-import fs from 'fs';
-import { readdirSync } from 'fs';
-import { CinemaShowing, ScraperFunction } from '../src/types';
+import { readdirSync } from 'fs'
+import { ScraperFunction, FilmShowing } from '../src/types'
 
-import Database from 'better-sqlite3';
-import { Database as DatabaseT } from 'better-sqlite3';
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { Database } from './database.types'
 
-async function scrapeAndStore(fun: ScraperFunction, db: DatabaseT) {
+import 'dotenv/config'
+
+function movie_hash(f: FilmShowing) {
+  return `${f.name}|${f.duration}|${f.tmdbId}`
+}
+
+async function scrapeAndStore(
+  fun: ScraperFunction,
+  db: SupabaseClient<Database>
+) {
   const result = await fun();
-  const insertCinema = db.prepare(
-    'INSERT INTO cinemas (name, location) VALUES (@name, @location)'
-  );
-  const getFilmId = db.prepare('SELECT id FROM films WHERE title=@title');
-  const insertFilm = db.prepare(
-    'INSERT OR IGNORE INTO films (title, duration_minutes, tmdb_id) VALUES (?, ? ,?)'
-  );
-  const insertFilmShowing = db.prepare(
-    'INSERT INTO film_showings (cinema_id, film_id, start_time, end_time, url) VALUES (?,?,?,?,?)'
-  );
-  Object.entries(result).forEach(([_, cinema]) => {
-    const { changes, lastInsertRowid: cinema_id } = insertCinema.run({
+  Object.entries(result).forEach(async ([_, cinema]) => {
+    // Upsert, if row exists update it
+    const cinema_insert = await db.from('cinemas').upsert({
       name: cinema.cinema,
       location: cinema.location,
-    });
-    const insertAll = db.transaction(() => {
-      cinema.showings.forEach((film) => {
-        insertFilm.run(film.name, film.duration, film.tmdbId);
-        const film_id: any = getFilmId.get({ title: film.name });
-        insertFilmShowing.run(
-          cinema_id,
-          film_id.id,
-          film.startTime,
-          film.endTime,
-          film.url
-        );
-      });
-    });
-    insertAll();
-    console.log(`🎦 Inserted movies for ${cinema.cinema}`);
+      last_updated: new Date().toISOString()
+    }, {onConflict: "name,location"})
+    .select();
+    
+    if (!cinema_insert.data || cinema_insert.data.length === 0) {
+      throw new Error(`Upserted cinema returned no data for ${cinema.cinema}`);
+    }
+    const cinema_id = cinema_insert.data[0].id;
+
+    // console.log(cinema_insert)
+
+    const film_data = await db.from('films').select();
+    if (!film_data.data) {
+      throw new Error('No film data returned');
+    }
+
+    // console.log(film_data.data)
+
+    const unique_movies = new Map(
+        cinema.showings.map(f => [movie_hash(f), {title: f.name, duration_minutes: f.duration, tmdb_id: f.tmdbId}])
+      )
+
+    let movies_to_add : any = [];
+    let movies_added : Map<String, number> = new Map;
+
+    for (const [movie_key, movie] of unique_movies) {
+      const movie_exists = film_data.data.find((val) => val.title == movie.title && val.duration_minutes == movie.duration_minutes);
+      if (movie_exists === undefined) {
+        movies_to_add.push(movie)
+      } else {
+        movies_added.set(movie_key, movie_exists.id);
+      }
+    }
+    // console.log(movies_to_add)
+    // console.log(movies_added)
+
+    console.log(`[${cinema.cinema}] Found ${unique_movies.size} unique movies`)
+    if (movies_to_add.length > 0) {
+        // Insert the new movies and request the inserted rows back with .select()
+        const insert_films = await db.from('films').insert(movies_to_add).select();
+        if (insert_films.error !== null) {
+            throw new Error(`[${cinema.cinema}] Insert produced an error: ${insert_films.error}`);
+        }
+        if (!insert_films.data) {
+            throw new Error(`[${cinema.cinema}] Insert returned no movie data`);
+        }
+
+        // Populate the movies_added map with the newly inserted rows so later
+        // showings can reference their film IDs. We build the same key used
+        // earlier: title|duration_minutes|tmdb_id
+        insert_films.data.forEach((row: any) => {
+            const key = `${row.title}|${row.duration_minutes}|${row.tmdb_id}`;
+            movies_added.set(key, row.id);
+        });
+
+        console.log(`🎦 [${cinema.cinema}] Inserted ${movies_to_add.length} new movies`);
+    }
+
+
+    let showings_data = await db.from('film_showings').select().eq('cinema_id', cinema_id)
+
+    console.log(`[${cinema.cinema}] Found ${showings_data.data?.length} existing showings`)
+
+    const new_showings_data = cinema.showings.map(f => {
+        let film_id = movies_added.get(movie_hash(f))
+        if (film_id === undefined) {
+            throw new Error(`No Id found for '${f.name}'`);
+        }
+        return {
+        start_time: f.startTime,
+        end_time: f.endTime,
+        url: f.url,
+        cinema_id: cinema_id,
+        film_id: film_id,
+    }
+    }).filter(f => showings_data.data?.find(val => val.film_id == f.film_id && val.cinema_id == f.cinema_id && val.start_time == f.start_time && val.end_time == f.end_time) === undefined)
+
+    
+    if (new_showings_data.length > 0) {
+        const insert_showings = await db.from("film_showings").insert(new_showings_data)
+        if (insert_showings.error !== null) {
+            throw new Error(`[${cinema.cinema}] Insert produced an error: ${insert_showings.error}`);
+        }
+        console.log(`🎦 [${cinema.cinema}] Inserted ${new_showings_data.length} new showings`);
+    }
   });
 }
 
@@ -56,42 +124,32 @@ async function main() {
     }
   }
 
-  const db = new Database('./public/data/my.db');
 
-  // Make cinema table
-  db.prepare(
-    `CREATE TABLE IF NOT EXISTS cinemas (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      location TEXT NOT NULL)`
-  ).run();
-  // Make film table
-  db.prepare(
-    `CREATE TABLE IF NOT EXISTS films (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT UNIQUE NOT NULL,
-        duration_minutes INTEGER,
-        tmdb_id INTEGER)`
-  ).run();
+  if (process.env.SUPABASE_PROJECT_ID === undefined) {
+    throw new Error('Missing Supabase Project ID')
+  }
 
-  // Make showings table
-  db.prepare(
-    `CREATE TABLE IF NOT EXISTS film_showings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cinema_id INTEGER NOT NULL,
-        film_id INTEGER NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT,
-        url TEXT,
+  if (process.env.API_KEY === undefined) {
+    throw new Error('Missing Supabase database API Key')
+  }
 
-        FOREIGN KEY (cinema_id) REFERENCES cinemas(id),
-        FOREIGN KEY (film_id) REFERENCES films(id))`
-  ).run();
+  // Create a single supabase client for interacting with your database
+  const supabase = createClient<Database>(
+    `https://${process.env.SUPABASE_PROJECT_ID}.supabase.co`,
+    process.env.API_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    }
+  );
 
   await Promise.all(
     scrapers.map(async ([name, fun]) => {
       try {
-        await scrapeAndStore(fun, db);
+        await scrapeAndStore(fun, supabase);
       } catch (e) {
         console.log(`‼️ Scraper \'${name}\' threw an error:\n ${e}`);
         // console.log(e);
@@ -99,7 +157,7 @@ async function main() {
     })
   );
 
-  db.close();
+  // db.close();
 }
 
 main();

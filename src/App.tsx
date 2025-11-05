@@ -406,23 +406,12 @@ function App() {
                                                     ? 's'
                                                     : ''}
                                             </h4>
-                                            {movieScreenings
-                                                .sort(
-                                                    (a, b) =>
-                                                        new Date(
-                                                            a.start_time
-                                                        ).getTime() -
-                                                        new Date(
-                                                            b.start_time
-                                                        ).getTime()
-                                                )
-                                                .map((screening) => {
-                                                    const cinema = getCinema(
-                                                        screening.cinema_id
-                                                    );
+                                            {Object.entries(groupByCinema(movieScreenings)).map(
+                                                ([cinemaId, cinemaMovieScreening]) => {
+                                                    const cinema = getCinema(Number(cinemaId));
                                                     return (
                                                         <div
-                                                            key={screening.id}
+                                                            key={cinemaId}
                                                             className="bg-neutral-700 rounded p-3 text-sm"
                                                         >
                                                             <div className="flex justify-between items-start">
@@ -432,29 +421,40 @@ function App() {
                                                                             cinema?.name
                                                                         }
                                                                     </p>
-                                                                    <p className="text-neutral-400">
-                                                                        {formatDate(
-                                                                            screening.start_time
-                                                                        )}
-                                                                    </p>
-                                                                </div>
-                                                                <div className="text-right">
-                                                                    <p className="text-red-500 text-neutral-300">
-                                                                        {formatTime(
-                                                                            screening.start_time
-                                                                        )}
-                                                                    </p>
-                                                                    {/* <p className="text-red-500 font-semibold">
-                                                                        $
-                                                                        {
-                                                                            screening.price
-                                                                        }
-                                                                    </p> */}
+                                                            {cinemaMovieScreening.sort(
+                                                                (a, b) =>
+                                                                    new Date(
+                                                                        a.start_time
+                                                                    ).getTime() -
+                                                                    new Date(
+                                                                        b.start_time
+                                                                    ).getTime()
+                                                            )
+                                                            .map((screening) => {
+                                                                    return (
+                                                                        <div>
+                                                                            <div>
+                                                                                <p className="text-neutral-400">
+                                                                                    {formatDate(
+                                                                                        screening.start_time
+                                                                                    )}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <p className="text-red-500 text-neutral-300">
+                                                                                    {formatTime(
+                                                                                        screening.start_time
+                                                                                    )}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                }
+                                                            )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
+                                                    )})}
                                         </div>
                                     </div>
                                 );

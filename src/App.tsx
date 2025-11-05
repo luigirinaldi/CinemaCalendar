@@ -306,17 +306,33 @@ function App() {
                                                                     ) => {
                                                                         return (
                                                                             <div>
-                                                                                <p
-                                                                                    key={
-                                                                                        screening.id
-                                                                                    }
-                                                                                    className="text-red-500 text-neutral-300 inline"
-                                                                                >
-                                                                                    {formatTime(
-                                                                                        screening.start_time
-                                                                                    )}
-                                                                                </p>
-                                                                                {/* {index != array.length - 1 ? ',' : ''} */}
+                                                                                {screening.url ? (
+                                                                                    <a
+                                                                                        key={
+                                                                                            screening.id
+                                                                                        }
+                                                                                        className="text-red-500 text-neutral-300 inline underline"
+                                                                                        href={
+                                                                                            screening.url
+                                                                                        }
+                                                                                        target="_blank"
+                                                                                    >
+                                                                                        {formatTime(
+                                                                                            screening.start_time
+                                                                                        )}
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <p
+                                                                                        key={
+                                                                                            screening.id
+                                                                                        }
+                                                                                        className="text-red-500 text-neutral-300 inline"
+                                                                                    >
+                                                                                        {formatTime(
+                                                                                            screening.start_time
+                                                                                        )}
+                                                                                    </p>
+                                                                                )}
                                                                             </div>
                                                                         );
                                                                     }

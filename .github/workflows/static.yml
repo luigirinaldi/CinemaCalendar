@@ -39,6 +39,9 @@ jobs:
               run: npm ci
             - name: Build
               run: npm run build
+              env:
+                  VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+                  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
             - name: Setup Pages
               uses: actions/configure-pages@v4
             - name: Upload artifact

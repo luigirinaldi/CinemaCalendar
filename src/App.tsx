@@ -235,7 +235,12 @@ function App() {
         );
     };
 
-    const sortGroupedByStartTime = ([_k_a, a] : [unknown, Screening[]], [_k_b, b] : [unknown, Screening[]]) => Math.min(... a.map(s => new Date(s.start_time).getTime())) - Math.min(... b.map(s => new Date(s.start_time).getTime()))
+    const sortGroupedByStartTime = (
+        [_k_a, a]: [unknown, Screening[]],
+        [_k_b, b]: [unknown, Screening[]]
+    ) =>
+        Math.min(...a.map((s) => new Date(s.start_time).getTime())) -
+        Math.min(...b.map((s) => new Date(s.start_time).getTime()));
 
     const makeByMovieCard = ([movieId, movieScreenings]: [
         string,
@@ -253,9 +258,10 @@ function App() {
                         {movieScreenings.length} Screening
                         {movieScreenings.length !== 1 ? 's' : ''}
                     </h4>
-                            
-                    {Object.entries(groupByCinema(movieScreenings)).sort(sortGroupedByStartTime).map(
-                        ([cinemaId, cinemaMovieScreening]) => {
+
+                    {Object.entries(groupByCinema(movieScreenings))
+                        .sort(sortGroupedByStartTime)
+                        .map(([cinemaId, cinemaMovieScreening]) => {
                             const cinema = getCinema(Number(cinemaId));
                             return (
                                 <div
@@ -269,46 +275,60 @@ function App() {
                                     </div>
                                     <div className="flex flex-col justify-between">
                                         {Object.entries(
-                                            groupByDay(cinemaMovieScreening.sort(
-                                                            sortScreeningByStartTime
-                                                        ))
-                                        ).sort(sortGroupedByStartTime).map(([_day, dayScreenings]) => {
-                                            return (
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-shrink-0 align-right">
-                                                        <p className="text-neutral-400">
-                                                            {formatDate(
-                                                                dayScreenings[0]
-                                                                    .start_time
-                                                            )}
-                                                        </p>
+                                            groupByDay(
+                                                cinemaMovieScreening.sort(
+                                                    sortScreeningByStartTime
+                                                )
+                                            )
+                                        )
+                                            .sort(sortGroupedByStartTime)
+                                            .map(([_day, dayScreenings]) => {
+                                                return (
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex-shrink-0 align-right">
+                                                            <p className="text-neutral-400">
+                                                                {formatDate(
+                                                                    dayScreenings[0]
+                                                                        .start_time
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex gap-x-2 flex-wrap justify-end">
+                                                            {dayScreenings
+                                                                .sort(
+                                                                    sortScreeningByStartTime
+                                                                )
+                                                                .map(
+                                                                    (
+                                                                        screening,
+                                                                        _index,
+                                                                        _array
+                                                                    ) => {
+                                                                        return (
+                                                                            <div>
+                                                                                <p
+                                                                                    key={
+                                                                                        screening.id
+                                                                                    }
+                                                                                    className="text-red-500 text-neutral-300 inline"
+                                                                                >
+                                                                                    {formatTime(
+                                                                                        screening.start_time
+                                                                                    )}
+                                                                                </p>
+                                                                                {/* {index != array.length - 1 ? ',' : ''} */}
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                )}
+                                                        </div>
                                                     </div>
-                                                    <div className='flex gap-x-2 flex-wrap justify-end'>
-                                                    {dayScreenings
-                                                        .sort(
-                                                            sortScreeningByStartTime
-                                                        )
-                                                        .map((screening, index, array) => {
-                                                            return (
-                                                                <div>
-                                                                    <p key={screening.id} className="text-red-500 text-neutral-300 inline">
-                                                                        {formatTime(
-                                                                            screening.start_time
-                                                                        )}
-                                                                    </p>
-                                                                    {/* {index != array.length - 1 ? ',' : ''} */}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
+                                                );
+                                            })}
                                     </div>
                                 </div>
                             );
-                        }
-                    )}
+                        })}
                 </div>
             </div>
         );
@@ -519,9 +539,7 @@ function App() {
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {Object.entries(groupByMovie(screenings))
                             .sort(sortGroupedByStartTime)
-                            .map(
-                            makeByMovieCard
-                        )}
+                            .map(makeByMovieCard)}
                     </div>
                 ) : (
                     <div className="space-y-8">

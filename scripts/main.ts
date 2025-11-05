@@ -2,7 +2,7 @@ import { readdirSync } from 'fs';
 import { ScraperFunction, FilmShowing } from './types';
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '../database.types';
+import { Database, Tables } from '../database.types';
 
 import 'dotenv/config';
 
@@ -91,8 +91,8 @@ async function scrapeAndStore(
             // Populate the movies_added map with the newly inserted rows so later
             // showings can reference their film IDs. We build the same key used
             // earlier: title|duration_minutes|tmdb_id
-            insert_films.data.forEach((row: any) => {
-                const key = `${row.title}|${row.duration_minutes}|${row.tmdb_id}`;
+            insert_films.data.forEach((row: Tables<'films'>) => {
+                const key = `${row.title}|${row.duration_minutes === null ? 0 : row.duration_minutes}|${row.tmdb_id === null ? 'null' : row.tmdb_id}`;
                 movies_added.set(key, row.id);
             });
 
@@ -140,9 +140,8 @@ async function scrapeAndStore(
                 .from('film_showings')
                 .insert(new_showings_data);
             if (insert_showings.error !== null) {
-                throw new Error(
-                    `[${cinema.cinema}] Insert produced an error: ${insert_showings.error}`
-                );
+                console.error(insert_showings.error);
+                throw new Error(`[${cinema.cinema}] Insert produced an error`);
             }
             console.log(
                 `🎦 [${cinema.cinema}] Inserted ${new_showings_data.length} new showings`

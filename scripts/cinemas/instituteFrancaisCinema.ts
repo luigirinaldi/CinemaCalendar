@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import { CinemaShowing, FilmShowing } from '../types';
 import { parse } from 'node-html-parser';
-import { format } from 'path';
 
 const CINEMA_NAME = 'Ciné Lumière';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -14,11 +13,11 @@ function hasNoUndefined<T extends Record<string, any>>(
 }
 
 export async function scraper(): Promise<CinemaShowing[]> {
-    let response = await fetch(
+    const response = await fetch(
         'https://www.institut-francais.org.uk/whats-on/?type=72&period=any&location=onsite'
     );
 
-    let html = await response.text();
+    const html = await response.text();
     const root = parse(html);
 
     // Select all article elements with a specific class
@@ -60,6 +59,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
             movie_info.map(async (movie) => {
                 const movie_response = await fetch(movie.url);
                 const parsed_page = parse(await movie_response.text());
+                // console.log(movie.url)
 
                 let showings = parsed_page
                     .getElementById('more-dates')
@@ -128,24 +128,36 @@ export async function scraper(): Promise<CinemaShowing[]> {
                 }
 
                 const metadata_raw: Record<string, string> = Object.fromEntries(
-                    parsed_page
-                        .querySelector('ul.metadata')
-                        ?.querySelectorAll('li')
-                        .map((li) => {
-                            // remove the ':' at the end of the string
-                            const key_string = li
-                                .querySelector('strong')
-                                ?.innerText.trim()
-                                ?.slice(0, -1);
-                            const value_string = li.childNodes
-                                .at(li.childNodes.length - 1)
-                                ?.innerText.trim();
-                            return [key_string, value_string];
-                        })
-                        // filter out any undefined values
-                        .filter((val) =>
-                            val.every((val) => val != undefined)
-                        ) as string[][]
+                    ((res: string[][] | null) => {
+                        if (res != null) return res;
+                        else {
+                            console.warn(
+                                LOG_PREFIX,
+                                `No metadata available for ${movie.title}`,
+                                movie.url
+                            );
+                            return [[''], ['']];
+                        }
+                    })(
+                        parsed_page
+                            .querySelector('ul.metadata')
+                            ?.querySelectorAll('li')
+                            ?.map((li) => {
+                                // remove the ':' at the end of the string
+                                const key_string = li
+                                    .querySelector('strong')
+                                    ?.innerText.trim()
+                                    ?.slice(0, -1);
+                                const value_string = li.childNodes
+                                    .at(li.childNodes.length - 1)
+                                    ?.innerText.trim();
+                                return [key_string, value_string];
+                            })
+                            // filter out any undefined values
+                            ?.filter((val) =>
+                                val.every((val) => val != undefined)
+                            ) as string[][]
+                    )
                 );
 
                 let duration: number | null = null;
@@ -207,4 +219,15 @@ export async function scraper(): Promise<CinemaShowing[]> {
             }),
         },
     ];
+}
+
+// main.ts
+async function main() {
+    const result = await scraper();
+    console.log(result);
+    console.log('Running as main script');
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main();
 }

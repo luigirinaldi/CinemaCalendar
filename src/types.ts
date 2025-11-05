@@ -1,33 +1,20 @@
-export interface FilmShowing {
-  name: string;
-  tmdbId: number | string | null;
-  startTime: string;
-  endTime?: string;
-  duration: number;
-  url?: string;
+// Types
+export interface Movie {
+    id: string;
+    title: string;
+    duration: number;
 }
 
-export interface CinemaShowing {
-  cinema: string;
-  location: string; // string (city name) for now can be gps coordinate or both
-  showings: FilmShowing[];
+export interface Cinema {
+    id: string;
+    name: string;
+    location: string;
 }
 
-// represents the schema in the sqlite, should be generated automatically
-export interface CinemaDB {
-  id: number;
-  name: string;
-  location: string;
+export interface Screening {
+    id: string;
+    movieId: string;
+    cinemaId: string;
+    datetime: string;
+    price: number;
 }
-
-export interface FilmShowingDB {
-  title: string;
-  start_time: string;
-  end_time?: string;
-  duration: number;
-  cinema_name: string;
-  cinema_id: number;
-  url?: string;
-}
-
-export type ScraperFunction = () => Promise<CinemaShowing[]>;

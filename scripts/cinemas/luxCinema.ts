@@ -23,32 +23,32 @@ import type { CinemaShowing, FilmShowing } from '../../src/types';
  * @returns A FilmShowing object with the parsed data.
  */
 function parseEvent(event: ICAL.Event): FilmShowing {
-  const res = event.summary.split(/[\s–-][\s–-]/, 2); // regex matches every word in { ,–,-}^2
-  const title = res[0];
-  const desc = res[res.length - 1];
-  const durations = desc ? desc.match(/(?<=[\(+])\d+(?=′)/) : null; // regex matches (x′) where x is a number
-  let duration: number = 0;
-  durations?.forEach((minutes) => {
-    duration += +minutes;
-  }); // The '+' operator converts the string to a number
-  return {
-    name: title,
-    tmdbId: event.uid,
-    startTime: event.startDate.toString(),
-    duration: duration,
-  };
+    const res = event.summary.split(/[\s–-][\s–-]/, 2); // regex matches every word in { ,–,-}^2
+    const title = res[0];
+    const desc = res[res.length - 1];
+    const durations = desc ? desc.match(/(?<=[\(+])\d+(?=′)/) : null; // regex matches (x′) where x is a number
+    let duration: number = 0;
+    durations?.forEach((minutes) => {
+        duration += +minutes;
+    }); // The '+' operator converts the string to a number
+    return {
+        name: title,
+        tmdbId: event.uid,
+        startTime: event.startDate.toString(),
+        duration: duration,
+    };
 }
 
 export async function scraper(): Promise<CinemaShowing[]> {
-  return [
-    {
-      cinema: 'LuxCinema',
-      location: 'Padova',
-      showings: await fetchAndParseICS(
-        'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',
-        parseEvent,
-        true
-      ),
-    },
-  ];
+    return [
+        {
+            cinema: 'LuxCinema',
+            location: 'Padova',
+            showings: await fetchAndParseICS(
+                'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',
+                parseEvent,
+                true
+            ),
+        },
+    ];
 }

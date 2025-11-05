@@ -21,8 +21,12 @@ type Screening = Tables<'film_showings'>;
 function App() {
     const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
     const [groupBy, setGroupBy] = useState<GroupBy>('movie');
-    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString());
-    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString());
+    const [customStartDate, setCustomStartDate] = useState(
+        new Date().toISOString()
+    );
+    const [customEndDate, setCustomEndDate] = useState(
+        new Date().toISOString()
+    );
     const [currentDate, setCurrentDate] = useState(new Date());
     const [movies, setMovies] = useState<Tables<'films'>[]>([]);
     const [cinemas, setCinemas] = useState<Tables<'cinemas'>[]>([]);
@@ -45,7 +49,7 @@ function App() {
             const cinemas_data = await fetchCinemas();
             setCinemas(cinemas_data);
             // console.log(getCities(cinemas_data));
-            setCity(getCities(cinemas_data).filter(c => c !== null)[0])
+            setCity(getCities(cinemas_data).filter((c) => c !== null)[0]);
             setLoading(false);
         };
         fetchData();
@@ -54,17 +58,45 @@ function App() {
     useEffect(() => {
         // Compute the range of dates for the query to db
         const fetchData = async () => {
-            const get_date_range = () : [Date, Date] | null => {
+            const get_date_range = (): [Date, Date] | null => {
                 switch (dateRange) {
                     // for the day, return going from today to the next day until 4 am (account for movies starting really late)
-                    case 'today': return [currentDate, new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1, 4, 0)] 
-                    case 'thisWeek': return [currentDate, new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7, 4, 0)] 
-                    case 'custom': return [new Date(customStartDate), new Date(customEndDate)]
-                    case 'anytime': return null
+                    case 'today':
+                        return [
+                            currentDate,
+                            new Date(
+                                currentDate.getFullYear(),
+                                currentDate.getMonth(),
+                                currentDate.getDate() + 1,
+                                4,
+                                0
+                            ),
+                        ];
+                    case 'thisWeek':
+                        return [
+                            currentDate,
+                            new Date(
+                                currentDate.getFullYear(),
+                                currentDate.getMonth(),
+                                currentDate.getDate() + 7,
+                                4,
+                                0
+                            ),
+                        ];
+                    case 'custom':
+                        return [
+                            new Date(customStartDate),
+                            new Date(customEndDate),
+                        ];
+                    case 'anytime':
+                        return null;
                 }
-            }
+            };
 
-            const screenings = await fetchScreenings(get_date_range(), getCityCinemaIds(cinemas, city));
+            const screenings = await fetchScreenings(
+                get_date_range(),
+                getCityCinemaIds(cinemas, city)
+            );
             setScreenings(screenings);
         };
         fetchData();
@@ -73,8 +105,11 @@ function App() {
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
-    const getCities = (cinemas: Tables<'cinemas'>[]) => [...new Set(cinemas.map((c) => c.location))];
-    const getCityCinemaIds = (cinemas : Tables<'cinemas'>[], city : string) => cinemas.filter(c => c.location === city).map(c => c.id);
+    const getCities = (cinemas: Tables<'cinemas'>[]) => [
+        ...new Set(cinemas.map((c) => c.location)),
+    ];
+    const getCityCinemaIds = (cinemas: Tables<'cinemas'>[], city: string) =>
+        cinemas.filter((c) => c.location === city).map((c) => c.id);
 
     const formatTime = (datetime: string) => {
         const date = new Date(datetime);
@@ -143,6 +178,16 @@ function App() {
         return grouped;
     };
 
+    const groupByDay = (screeningsList: Screening[]) => {
+        const grouped: { [key: number]: Screening[] } = {};
+        screeningsList.forEach((s) => {
+            const showingDay = new Date(s.start_time).getDay();
+            if (!grouped[showingDay]) grouped[showingDay] = [];
+            grouped[showingDay].push(s);
+        });
+        return grouped;
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -184,6 +229,91 @@ function App() {
         );
     };
 
+    const sortScreeningByStartTime = (a: Screening, b: Screening) => {
+        return (
+            new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        );
+    };
+
+    const sortGroupedByStartTime = ([_k_a, a] : [unknown, Screening[]], [_k_b, b] : [unknown, Screening[]]) => Math.min(... a.map(s => new Date(s.start_time).getTime())) - Math.min(... b.map(s => new Date(s.start_time).getTime()))
+
+    const makeByMovieCard = ([movieId, movieScreenings]: [
+        string,
+        Screening[],
+    ]) => {
+        const movie = getMovie(Number(movieId));
+        return (
+            <div key={movieId} className="bg-neutral-800 rounded-lg p-6">
+                <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
+                <p className="text-neutral-400 mb-4">
+                    {movie?.duration_minutes} min
+                </p>
+                <div className="space-y-2">
+                    <h4 className="text-sm font-semibold text-neutral-300">
+                        {movieScreenings.length} Screening
+                        {movieScreenings.length !== 1 ? 's' : ''}
+                    </h4>
+                            
+                    {Object.entries(groupByCinema(movieScreenings)).sort(sortGroupedByStartTime).map(
+                        ([cinemaId, cinemaMovieScreening]) => {
+                            const cinema = getCinema(Number(cinemaId));
+                            return (
+                                <div
+                                    key={cinemaId}
+                                    className="bg-neutral-700 rounded p-3 text-sm"
+                                >
+                                    <div>
+                                        <p className="font-medium">
+                                            {cinema?.name}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col justify-between">
+                                        {Object.entries(
+                                            groupByDay(cinemaMovieScreening.sort(
+                                                            sortScreeningByStartTime
+                                                        ))
+                                        ).sort(sortGroupedByStartTime).map(([_day, dayScreenings]) => {
+                                            return (
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-shrink-0 align-right">
+                                                        <p className="text-neutral-400">
+                                                            {formatDate(
+                                                                dayScreenings[0]
+                                                                    .start_time
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <div className='flex gap-x-2 flex-wrap justify-end'>
+                                                    {dayScreenings
+                                                        .sort(
+                                                            sortScreeningByStartTime
+                                                        )
+                                                        .map((screening, index, array) => {
+                                                            return (
+                                                                <div>
+                                                                    <p key={screening.id} className="text-red-500 text-neutral-300 inline">
+                                                                        {formatTime(
+                                                                            screening.start_time
+                                                                        )}
+                                                                    </p>
+                                                                    {/* {index != array.length - 1 ? ',' : ''} */}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        }
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-neutral-900 text-white">
             <header className="bg-neutral-950 border-b border-red-900/30">
@@ -200,7 +330,10 @@ function App() {
                                 className="bg-neutral-800 text-white px-4 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none w-48"
                             >
                                 {getCities(cinemas)
-                                    .filter((cityName): cityName is string => cityName !== null)
+                                    .filter(
+                                        (cityName): cityName is string =>
+                                            cityName !== null
+                                    )
                                     .map((cityName) => (
                                         <option key={cityName} value={cityName}>
                                             {cityName}
@@ -384,81 +517,10 @@ function App() {
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {Object.entries(groupByMovie(screenings)).map(
-                            ([movieId, movieScreenings]) => {
-                                const movie = getMovie(Number(movieId));
-                                return (
-                                    <div
-                                        key={movieId}
-                                        className="bg-neutral-800 rounded-lg p-6"
-                                    >
-                                        <h3 className="text-xl font-bold mb-2">
-                                            {movie?.title}
-                                        </h3>
-                                        <p className="text-neutral-400 mb-4">
-                                            {movie?.duration_minutes} min
-                                        </p>
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold text-neutral-300">
-                                                {movieScreenings.length}{' '}
-                                                Screening
-                                                {movieScreenings.length !== 1
-                                                    ? 's'
-                                                    : ''}
-                                            </h4>
-                                            {Object.entries(groupByCinema(movieScreenings)).map(
-                                                ([cinemaId, cinemaMovieScreening]) => {
-                                                    const cinema = getCinema(Number(cinemaId));
-                                                    return (
-                                                        <div
-                                                            key={cinemaId}
-                                                            className="bg-neutral-700 rounded p-3 text-sm"
-                                                        >
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <p className="font-medium">
-                                                                        {
-                                                                            cinema?.name
-                                                                        }
-                                                                    </p>
-                                                            {cinemaMovieScreening.sort(
-                                                                (a, b) =>
-                                                                    new Date(
-                                                                        a.start_time
-                                                                    ).getTime() -
-                                                                    new Date(
-                                                                        b.start_time
-                                                                    ).getTime()
-                                                            )
-                                                            .map((screening) => {
-                                                                    return (
-                                                                        <div>
-                                                                            <div>
-                                                                                <p className="text-neutral-400">
-                                                                                    {formatDate(
-                                                                                        screening.start_time
-                                                                                    )}
-                                                                                </p>
-                                                                            </div>
-                                                                            <div className="text-right">
-                                                                                <p className="text-red-500 text-neutral-300">
-                                                                                    {formatTime(
-                                                                                        screening.start_time
-                                                                                    )}
-                                                                                </p>
-                                                                            </div>
-                                                                        </div>
-                                                                    )
-                                                                }
-                                                            )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )})}
-                                        </div>
-                                    </div>
-                                );
-                            }
+                        {Object.entries(groupByMovie(screenings))
+                            .sort(sortGroupedByStartTime)
+                            .map(
+                            makeByMovieCard
                         )}
                     </div>
                 ) : (

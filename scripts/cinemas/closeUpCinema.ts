@@ -13,14 +13,14 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const root = parse(html);
 
     // Select all article elements with a specific class
-    const movies = root.querySelectorAll('.inner_block_3')
+    const movies = root.querySelectorAll('.inner_block_3');
 
-    const children = movies[0].children.filter(e => e.rawTagName != 'br');
-    children.forEach(c => console.log(c.tagName))
+    const children = movies[0].children.filter((e) => e.rawTagName != 'br');
+    children.forEach((c) => console.log(c.tagName));
     let i = 0;
     let date_str = '';
 
-    let film_showings: FilmShowing[] = [];
+    const film_showings: FilmShowing[] = [];
     while (i < children.length) {
         if (children[i].tagName == 'H2') {
             date_str = children[i].innerHTML;
@@ -29,25 +29,29 @@ export async function scraper(): Promise<CinemaShowing[]> {
             while (i < children.length && children[i].tagName == 'A') {
                 // console.log(children[i])
                 const url = children[i].getAttribute('href');
-                const innerText = children[i].querySelector('span')?.innerHTML
+                const innerText = children[i].querySelector('span')?.innerHTML;
                 const regex = /(\d{1,2}:\d{2}\s*[ap]m)\s*:\s*(.+)/gi;
 
                 if (innerText === undefined) {
-                    console.error(`${LOG_PREFIX} Skipping element since no inner text: ${children[i]}`)
-                    i+=1
-                    continue
+                    console.error(
+                        `${LOG_PREFIX} Skipping element since no inner text: ${children[i]}`
+                    );
+                    i += 1;
+                    continue;
                 }
                 const matches = [...innerText.matchAll(regex)];
 
                 const results = matches.map(([, time, title]) => ({
-                time,
-                title: title.trim(),
+                    time,
+                    title: title.trim(),
                 }));
 
                 if (results.length != 1) {
-                    console.error(`${LOG_PREFIX} Error in parsing html with regex: ${innerText}`);
-                    i+=1;
-                    continue
+                    console.error(
+                        `${LOG_PREFIX} Error in parsing html with regex: ${innerText}`
+                    );
+                    i += 1;
+                    continue;
                 }
 
                 const regex_res = results[0];
@@ -59,16 +63,16 @@ export async function scraper(): Promise<CinemaShowing[]> {
                     tmdbId: null,
                     startTime: new Date(date_time).toISOString(),
                     duration: 0,
-                    url: url
-                })
-                i +=1 ;
+                    url: url,
+                });
+                i += 1;
             }
         } else {
             i += 1;
         }
     }
 
-    console.log(film_showings)
+    console.log(film_showings);
 
     // .forEach(e => console.log(e.tagName, e.innerHTML))
     // console.log(movies.filter(e => e.innerHTML !== 'br'))
@@ -103,13 +107,12 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
     // console.debug(LOG_PREFIX,`Obtained a total of ${movie_info.length} movies`);
 
-
     return [
         {
             cinema: CINEMA_NAME,
             location: 'London',
-            showings: film_showings
-        }
+            showings: film_showings,
+        },
     ];
 }
 

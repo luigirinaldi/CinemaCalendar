@@ -127,39 +127,38 @@ export async function scraper(): Promise<CinemaShowing[]> {
                     }
                 }
 
-                const metadata_raw: Record<string, string> =
-                    Object.fromEntries(
-                        ((res: string[][] | null) => {
-                            if (res != null) return res;
-                            else {
-                                console.warn(
-                                    LOG_PREFIX,
-                                    `No metadata available for ${movie.title}`,
-                                    movie.url
-                                );
-                                return [[''], ['']];
-                            }
-                        })(
-                            parsed_page
-                                .querySelector('ul.metadata')
-                                ?.querySelectorAll('li')
-                                ?.map((li) => {
-                                    // remove the ':' at the end of the string
-                                    const key_string = li
-                                        .querySelector('strong')
-                                        ?.innerText.trim()
-                                        ?.slice(0, -1);
-                                    const value_string = li.childNodes
-                                        .at(li.childNodes.length - 1)
-                                        ?.innerText.trim();
-                                    return [key_string, value_string];
-                                })
-                                // filter out any undefined values
-                                ?.filter((val) =>
-                                    val.every((val) => val != undefined)
-                                ) as string[][]
-                        )
-                    );
+                const metadata_raw: Record<string, string> = Object.fromEntries(
+                    ((res: string[][] | null) => {
+                        if (res != null) return res;
+                        else {
+                            console.warn(
+                                LOG_PREFIX,
+                                `No metadata available for ${movie.title}`,
+                                movie.url
+                            );
+                            return [[''], ['']];
+                        }
+                    })(
+                        parsed_page
+                            .querySelector('ul.metadata')
+                            ?.querySelectorAll('li')
+                            ?.map((li) => {
+                                // remove the ':' at the end of the string
+                                const key_string = li
+                                    .querySelector('strong')
+                                    ?.innerText.trim()
+                                    ?.slice(0, -1);
+                                const value_string = li.childNodes
+                                    .at(li.childNodes.length - 1)
+                                    ?.innerText.trim();
+                                return [key_string, value_string];
+                            })
+                            // filter out any undefined values
+                            ?.filter((val) =>
+                                val.every((val) => val != undefined)
+                            ) as string[][]
+                    )
+                );
 
                 let duration: number | null = null;
                 if ('Duration' in metadata_raw) {

@@ -140,10 +140,8 @@ async function scrapeAndStore(
                 .from('film_showings')
                 .insert(new_showings_data);
             if (insert_showings.error !== null) {
-                console.error(insert_showings.error)
-                throw new Error(
-                    `[${cinema.cinema}] Insert produced an error`
-                );
+                console.error(insert_showings.error);
+                throw new Error(`[${cinema.cinema}] Insert produced an error`);
             }
             console.log(
                 `🎦 [${cinema.cinema}] Inserted ${new_showings_data.length} new showings`

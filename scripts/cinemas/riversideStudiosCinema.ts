@@ -19,32 +19,42 @@ export async function scraper(): Promise<CinemaShowing[]> {
         .flatMap((event) => {
             let duration: number;
             try {
-                const durationMatch = event['run_time'].match(/(\d+)([ mins]*)/);
+                const durationMatch =
+                    event['run_time'].match(/(\d+)([ mins]*)/);
                 if (!durationMatch) {
-                    throw new Error(`Could not parse duration from: '${event['run_time']}'`);
+                    throw new Error(
+                        `Could not parse duration from: '${event['run_time']}'`
+                    );
                 }
                 duration = +durationMatch[1];
             } catch (error) {
-                console.error(`${LOG_PREFIX} Failed to parse duration for movie "${event['title']}":`, error);
+                console.error(
+                    `${LOG_PREFIX} Failed to parse duration for movie "${event['title']}":`,
+                    error
+                );
                 duration = 0; // fallback value
             }
-            return Object.entries(event['performances'] as Record<string, Array<{ timestamp: string }>>).flatMap(
-                ([, performances]) => {
-                    return performances.flatMap((perf) => {
-                        const startTime = DateTime.fromSeconds(
-                                +perf['timestamp']
-                            ).toISO();
-                        if (startTime) return {
+            return Object.entries(
+                event['performances'] as Record<
+                    string,
+                    Array<{ timestamp: string }>
+                >
+            ).flatMap(([, performances]) => {
+                return performances.flatMap((perf) => {
+                    const startTime = DateTime.fromSeconds(
+                        +perf['timestamp']
+                    ).toISO();
+                    if (startTime)
+                        return {
                             name: event['title'].trim(),
                             startTime: startTime,
                             duration: duration,
                             url: event['url'],
                             tmdbId: null,
                         } as FilmShowing;
-                        else return []
-                    });
-                }
-            );
+                    else return [];
+                });
+            });
         });
     return [
         {

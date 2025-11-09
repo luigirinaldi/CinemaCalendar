@@ -1,3 +1,10 @@
+export interface Film {
+    name: string;
+    duration: number | null;
+    director: string | null;
+    releaseDate: string | null;
+}
+
 export interface FilmShowing {
     name: string;
     tmdbId: number | string | null;

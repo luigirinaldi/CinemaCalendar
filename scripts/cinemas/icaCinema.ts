@@ -1,7 +1,8 @@
+import { DateTime } from 'luxon';
 import { CinemaShowing } from '../types';
 import { parse } from 'node-html-parser';
 
-const CINEMA_NAME = 'Close-UP';
+const CINEMA_NAME = 'ICA';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://www.ica.art';
 
@@ -58,7 +59,16 @@ async function getUpcomingShowings(): Promise<MovieShowing[]> {
 
             // Extract the time
             const timeElement = element.querySelector('.time-slot');
-            const startTime = currentDate + timeElement?.text.trim();
+
+            const parseDate = DateTime.fromFormat(
+                currentDate + ' ' + timeElement?.text.trim(),
+                'cccc, d LLLL h:mm a'
+            );
+            if (!parseDate.isValid)
+                throw new Error(
+                    `${LOG_PREFIX} Failed to parse datetime: ${currentDate} ${timeElement?.text.trim()}, \n${name}`
+                );
+            const startTime = parseDate.toISO()?.toString();
 
             // Extract the URL
             const linkElement = element.children.find((c) => c.tagName === 'A');
@@ -148,13 +158,22 @@ async function getMovieInfo(url: string): Promise<MovieShowing | null> {
             const dateElement = perf.querySelector('.date.sans');
             const theatreElement = perf.querySelector('.venue');
 
-            const time = timeElement?.text.trim() || '';
-            const date = dateElement?.text.trim() || '';
+            const time = timeElement?.text.trim();
+            const date = dateElement?.text.trim();
             const theatre = theatreElement?.text.trim();
+            const parseDate = DateTime.fromFormat(
+                date + ' ' + time,
+                'ccc, d LLL yyyy h:mm a'
+            );
+            if (!parseDate.isValid)
+                throw new Error(
+                    `${LOG_PREFIX} Failed to parse datetime: ${date} ${time}, \n${returnVal.movie}`
+                );
+            const startTime = parseDate.toISO()?.toString();
 
-            if (time && date && theatre) {
+            if (startTime && theatre) {
                 returnVal.showings.push({
-                    startTime: date + time,
+                    startTime,
                     theatre,
                     url: BASE_URL + bookingUrl,
                 });

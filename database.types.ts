@@ -112,6 +112,7 @@ export type Database = {
                     coordinates: Json | null;
                     created_at: string;
                     id: number;
+                    last_updated: string;
                     location: string;
                     name: string;
                 };
@@ -119,6 +120,7 @@ export type Database = {
                     coordinates?: Json | null;
                     created_at?: string;
                     id?: number;
+                    last_updated: string;
                     location: string;
                     name: string;
                 };
@@ -126,6 +128,7 @@ export type Database = {
                     coordinates?: Json | null;
                     created_at?: string;
                     id?: number;
+                    last_updated?: string;
                     location?: string;
                     name?: string;
                 };

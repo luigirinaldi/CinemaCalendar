@@ -4,171 +4,142 @@ import { DateTime } from 'luxon';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
-const BASE_URL = "https://www.ica.art";
+const BASE_URL = 'https://www.ica.art';
 
-async function getUpcomingShowings() : Promise<FilmShowing[]> {
-    const response = await fetch(
-        BASE_URL + '/upcoming'
-    );
+async function getUpcomingShowings(): Promise<FilmShowing[]> {
+    const response = await fetch(BASE_URL + '/upcoming');
 
     const html = await response.text();
     const root = parse(html);
 
     // Get all children of the ladder/viewport to process in order
     const viewport = root.querySelector('#viewport')?.querySelector('#ladder');
-    if (!viewport) throw new Error(
-                                        `${LOG_PREFIX} Couldn't find the root of the website`
-                                    );
+    if (!viewport)
+        throw new Error(`${LOG_PREFIX} Couldn't find the root of the website`);
     // Traverse all child elements in order
     const allElements = viewport.querySelectorAll('*');
 
     let currentDate = '';
-    const movies : FilmShowing[] = [];
-
+    const movies: FilmShowing[] = [];
 
     allElements.forEach((element) => {
         // Check if this is a date element
         if (element.classList.contains('docket-date')) {
             currentDate = element.text.trim();
         }
-        
+
         // Check if this is a film item
-        if (element.classList.contains('item') && element.classList.contains('films')) {
+        if (
+            element.classList.contains('item') &&
+            element.classList.contains('films')
+        ) {
             // Extract the movie title
             const titleElement = element.querySelector('.title');
             const name = titleElement?.innerText.trim();
-            
+
             // Extract the time
             const timeElement = element.querySelector('.time-slot');
             const startTime = currentDate + timeElement?.text.trim();
-            
+
             // Extract the URL
-            const linkElement = element.children.find(c => c.tagName === 'A');
+            const linkElement = element.children.find((c) => c.tagName === 'A');
             const url = linkElement?.getAttribute('href');
-            
+
             if (name && startTime) {
                 movies.push({
-                name, startTime, url: url ? (BASE_URL + url) : undefined, duration: 0, tmdbId: null
+                    name,
+                    startTime,
+                    url: url ? BASE_URL + url : undefined,
+                    duration: 0,
+                    tmdbId: null,
                 });
             }
         }
-
     });
-    return movies
+    return movies;
 }
 
 interface extraInfo {
-    title: string,
-    director?: string,
-    duration?: string,
-    language?: string,
-    releaseDate?: string,
+    title: string;
+    director?: string;
+    duration?: number;
+    language?: string;
+    year?: number;
+    country?: string;
     showtimes: {
-        startTime: string,
-        url: string,
-        cinema: string,
-    }[]
-
+        startTime: string;
+        url: string;
+        theatre: string;
+    }[];
 }
 
-async function getMovieInfo(url : string) : Promise<extraInfo>{
+async function getMovieInfo(url: string): Promise<extraInfo | null> {
     const response = await fetch(url);
     const html = await response.text();
     const root = parse(html);
 
-     const detail: Partial<MovieDetail> = {
-    futureShowings: []
-  };
-  
-  // Extract title from the caption's italics
-  const captionElement = root.querySelector('#colophon.caption i');
-  detail.title = captionElement?.text.trim() || '';
-  
-  // Extract full caption text to parse director, country, year, language, duration
-  const fullCaption = root.querySelector('#colophon.caption');
-  if (fullCaption) {
-    const captionText = fullCaption.text.trim();
-    
-    // Parse the caption text
-    // Format: "Title, dir. Director Name, Country/Country YEAR, Language, duration min."
-    const parts = captionText.split(',').map(p => p.trim());
-    
-    if (parts.length >= 4) {
-      // Extract director (after "dir.")
-      const directorPart = parts.find(p => p.includes('dir.'));
-      if (directorPart) {
-        detail.director = directorPart.replace('dir.', '').trim();
-      }
-      
-      // Extract country and year (format: "UK/US 2025")
-      const countryYearPart = parts.find(p => /\d{4}/.test(p));
-      if (countryYearPart) {
-        const match = countryYearPart.match(/(.*?)\s+(\d{4})/);
-        if (match) {
-          detail.country = match[1].trim();
-          detail.year = match[2].trim();
+    const returnVal: Partial<extraInfo> = {
+        showtimes: [],
+    };
+
+    // Extract full caption text to parse director, country, year, language, duration
+    const fullCaption = root.querySelector('#colophon.caption');
+    if (fullCaption) {
+        const captionText = fullCaption.text.trim();
+
+        // Parse the caption text
+        // Format: "Title, dir. Director Name, Country/Country YEAR, Language, duration min."
+        const parts = captionText.split(',').map((p) => p.trim());
+
+        const title = parts.at(0);
+        if (!title) return null;
+        returnVal.title = title;
+        returnVal.director = parts.at(1)?.replace('dir.', '').trim();
+        returnVal.year = Number(parts.at(2)?.split(' ').at(-1));
+        returnVal.country = parts.at(2)?.replace(returnVal.year?.toString(), '').trim();
+        returnVal.duration = Number(parts.at(3)?.replace('min.', '').trim());
+        returnVal.language = parts.slice(4).join(', ');
+        
+        // Extract booking URL
+        const bookingElement = root.querySelector('.row-mobile.row.select');
+        const bookingHref = bookingElement?.getAttribute('onclick');
+        
+        let bookingUrl = '';
+        if (bookingHref) {
+            const match = bookingHref.match(/location\.href="([^"]+)"/);
+            if (match) {
+                bookingUrl = match[1];
+            }
         }
-      }
-      
-      // Extract language
-      const languagePart = parts.find(p => 
-        !p.includes('dir.') && 
-        !p.includes('min.') && 
-        !/\d{4}/.test(p) &&
-        p !== detail.title
-      );
-      if (languagePart) {
-        detail.language = languagePart.trim();
-      }
-      
-      // Extract duration (format: "92 min.")
-      const durationPart = parts.find(p => p.includes('min.'));
-      if (durationPart) {
-        const match = durationPart.match(/(\d+)\s*min\./);
-        if (match) {
-          detail.duration = match[1];
+
+        // Extract future showings from performance-list
+        const performances = root.querySelectorAll(
+        '.performance-list .performance.future'
+    );
+
+    performances.forEach((perf) => {
+        const timeElement = perf.querySelector('.time');
+        const dateElement = perf.querySelector('.date.sans');
+        const theatreElement = perf.querySelector('.venue');
+        
+        const time = timeElement?.text.trim() || '';
+        const date = dateElement?.text.trim() || '';
+        const theatre = theatreElement?.text.trim();
+        
+        if (time && date && theatre) {
+            returnVal.showtimes!.push({
+                startTime: date + time,
+                theatre,
+                url: BASE_URL + bookingUrl,
+            });
         }
-      }
-    }
-  }
-  
-  // Extract image URL
-  const imageElement = root.querySelector('#films-image img');
-  detail.imageUrl = imageElement?.getAttribute('src') || '';
-  
-  // Extract booking URL
-  const bookingElement = root.querySelector('.row-mobile.row.select');
-  const bookingHref = bookingElement?.getAttribute('onclick');
-  if (bookingHref) {
-    const match = bookingHref.match(/location\.href="([^"]+)"/);
-    if (match) {
-      detail.bookingUrl = match[1];
-    }
-  }
-  
-  // Extract future showings from performance-list
-  const performances = root.querySelectorAll('.performance-list .performance.future');
-  
-  performances.forEach((perf) => {
-    const timeElement = perf.querySelector('.time');
-    const dateElement = perf.querySelector('.date.sans');
-    const venueElement = perf.querySelector('.venue');
-    
-    const time = timeElement?.text.trim() || '';
-    const date = dateElement?.text.trim() || '';
-    const venue = venueElement?.text.trim() || '';
-    
-    if (time && date) {
-      detail.futureShowings!.push({
-        time,
-        date,
-        venue
-      });
-    }
-  });
-    
+    });
+    return returnVal as extraInfo
+} else {
+    return null;
 }
 
+}
 
 export async function scraper(): Promise<CinemaShowing[]> {
     const firstPass = await getUpcomingShowings();
@@ -195,9 +166,9 @@ export async function scraper(): Promise<CinemaShowing[]> {
             []
         );
 
-    console.log(uniqueFilms)
+    console.log(uniqueFilms);
 
-
+    console.log(await getMovieInfo(uniqueFilms[1].url));
 
     // const filmMoreInfo = (
     //     await Promise.all(

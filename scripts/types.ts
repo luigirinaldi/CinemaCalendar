@@ -1,23 +1,36 @@
 export interface Film {
-    name: string;
-    duration: number | null;
-    director: string | null;
-    releaseDate: string | null;
+    title: string;
+    url: string;
+    director?: string;
+    duration?: number;
+    language?: string;
+    year?: number;
+    country?: string;
 }
 
-export interface FilmShowing {
-    name: string;
-    tmdbId: number | string | null;
+export interface Showing {
     startTime: string;
-    endTime?: string;
-    duration: number;
-    url?: string;
+    bookingUrl?: string;
+    theatre?: string;
+}
+
+export interface FilmShowings {
+    film: Film;
+    showings: Showing[];
+}
+
+export interface Cinema {
+    name: string;
+    location: string; // string (city name)
+    coordinates: [string, string];
 }
 
 export interface CinemaShowing {
-    cinema: string;
-    location: string; // string (city name) for now can be gps coordinate or both
-    showings: FilmShowing[];
+    cinema: Cinema;
+    showings: FilmShowings[];
 }
 
+// Type of the scraper function
+// Each scraper may scrape multiple cinemas,
+// each containing a cinema and the showings for that cinema
 export type ScraperFunction = () => Promise<CinemaShowing[]>;

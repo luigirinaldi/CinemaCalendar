@@ -135,6 +135,7 @@ export type Database = {
                 Row: {
                     cinema_id: number;
                     country: string | null;
+                    cover_url: string | null;
                     created_at: string;
                     director: string | null;
                     duration: number | null;
@@ -143,10 +144,12 @@ export type Database = {
                     release_year: number | null;
                     title: string;
                     tmdb_id: number | null;
+                    url: string | null;
                 };
                 Insert: {
                     cinema_id: number;
                     country?: string | null;
+                    cover_url?: string | null;
                     created_at?: string;
                     director?: string | null;
                     duration?: number | null;
@@ -155,10 +158,12 @@ export type Database = {
                     release_year?: number | null;
                     title: string;
                     tmdb_id?: number | null;
+                    url?: string | null;
                 };
                 Update: {
                     cinema_id?: number;
                     country?: string | null;
+                    cover_url?: string | null;
                     created_at?: string;
                     director?: string | null;
                     duration?: number | null;
@@ -167,6 +172,7 @@ export type Database = {
                     release_year?: number | null;
                     title?: string;
                     tmdb_id?: number | null;
+                    url?: string | null;
                 };
                 Relationships: [
                     {

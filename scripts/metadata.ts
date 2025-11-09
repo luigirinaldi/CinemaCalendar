@@ -1,16 +1,5 @@
-type Movie = {
-    release_date?: string;
-    title: string;
-    review?: string;
-};
-
-type Product = {
-    product:Movie,
-    user_product_info:{
-        modified_at: string;
-        rate?: number;
-    }
-};
+import 'dotenv/config';
+import type { Movie } from '../src/types';
 
 type TMDBObj = {
     id: number;
@@ -18,7 +7,6 @@ type TMDBObj = {
     release_date: string;
     popularity: number;
 };
-
 type TMDBSearch = {
     page: number;
     results: TMDBObj[];
@@ -30,49 +18,47 @@ const OPTIONS = {
     method: 'GET',
     headers: {
         accept: 'application/json',
-        Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJiMWRiNjExNzc2OTdhMjA2MzBiMmMzMmQyMDA5ODY5YyIsIm5iZiI6MTcyOTAyMjAxOS4xODkwMywic3ViIjoiNjRjYTYxMTgwYjc0ZTkwMGFjNjZjMmE5Iiwic2NvcGVzIjpbImFwaV9yZWFkIl0sInZlcnNpb24iOjF9.rslpnPCxpGLXcdYfTyNAuL9Qbd9Zrhy0FjSZG-HRwTw'
+        Authorization: 'Bearer ' + process.env.TMDB_API_KEY
     }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
 };
 
-async function getTMDB(film : Movie) {
-    if (!film.release_date) {
+async function getTMDB(film : Movie) : Promise<TMDBObj|null> {
+    if (!film.release_date) { // if there is no release date, set the current year as fallback
         film.release_date = (new Date).getFullYear().toString();
     }
     let search = await searchOnTMDB(film);
-    if (!search || search.results.length == 0) {
+    if (!search || search.total_results == 0) {
         console.error(`No TMDB results for ${film.title} (${film.release_date})`);
         return null;
     }
     let TMDBMovie = search.results[0];
-    if (search.results.length > 1) {
-        TMDBMovie = await guessMovie(search, film);
-    }
-    return ;
+    // try to find the best match among multiple results
+    // if (search.results.length > 1) {
+    //     TMDBMovie = await guessMovie(search, film);
+    // }
+    return TMDBMovie;
 }
 
-async function searchOnTMDB (film:Movie) : Promise<TMDBSearch|undefined> {
+async function searchOnTMDB (film:Movie) : Promise<TMDBSearch|null> {
     let title = film.title;
-    let search:TMDBSearch;
     for (let i = 0; i < 3; i++) {
         // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
         // if it doesn't work, it could be useful retrying with primary_release_year instead of year
         let res = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&year=${film.release_date}&page=1`, OPTIONS);
-        let search = await res.json();
+        let search : TMDBSearch = await res.json();
         if (typeof search !== 'undefined') {
-            if (search.results.length == 0) {
-                // If there are no results, we try to match the release date.
+            if (search.total_results == 0) { // found no results
+                // If there are no results, we try to match without the release date.
                 res = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&page=1`, OPTIONS);
                 search = await res.json();
             }
-            // Assuming a title with less than 4 characters has to return some results.
-            if (search.results.length != 0) {
+            if (search.total_results != 0) {
                 return search;
             }
-            // This is a bit dangerous as it may hide mismatches, consider to remove.
-            title = title.substring(0, title.length - 1); // remove last character
         }
     }
     console.error(`Failed to get TMDB results for ${film.title} (${film.release_date}) after 3 attempts`);
+    return null;
 }
 
 /**

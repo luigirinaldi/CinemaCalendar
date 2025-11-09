@@ -1,35 +1,35 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const FilmSchema = z.object({
-  title: z.string(),
-  url: z.string(),
-  director: z.string().optional(),
-  duration: z.number().optional(),
-  language: z.string().optional(),
-  year: z.number().optional(),
-  country: z.string().optional(),
+    title: z.string(),
+    url: z.string(),
+    director: z.string().optional(),
+    duration: z.number().optional(),
+    language: z.string().optional(),
+    year: z.number().optional(),
+    country: z.string().optional(),
 });
 
 export const ShowingSchema = z.object({
-  startTime: z.string(),
-  bookingUrl: z.string().optional(),
-  theatre: z.string().optional(),
+    startTime: z.string(),
+    bookingUrl: z.string().optional(),
+    theatre: z.string().optional(),
 });
 
 export const FilmShowingsSchema = z.object({
-  film: FilmSchema,
-  showings: z.array(ShowingSchema),
+    film: FilmSchema,
+    showings: z.array(ShowingSchema),
 });
 
 export const CinemaSchema = z.object({
-  name: z.string(),
-  location: z.string(),
-  coordinates: z.object({ lat: z.string(), lng: z.string()}).optional(),
+    name: z.string(),
+    location: z.string(),
+    coordinates: z.object({ lat: z.string(), lng: z.string() }).optional(),
 });
 
 export const CinemaShowingSchema = z.object({
-  cinema: CinemaSchema,
-  showings: z.array(FilmShowingsSchema),
+    cinema: CinemaSchema,
+    showings: z.array(FilmShowingsSchema),
 });
 
 export const CinemaShowingsSchema = z.array(CinemaShowingSchema);
@@ -40,7 +40,6 @@ export type FilmShowings = z.infer<typeof FilmShowingsSchema>;
 export type Cinema = z.infer<typeof CinemaSchema>;
 export type CinemaShowing = z.infer<typeof CinemaShowingSchema>;
 export type CinemaShowings = z.infer<typeof CinemaShowingsSchema>;
-
 
 // Type of the scraper function
 // Each scraper may scrape multiple cinemas,

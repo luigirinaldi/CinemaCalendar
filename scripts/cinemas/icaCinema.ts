@@ -151,10 +151,20 @@ async function getMovieInfo(url: string): Promise<FilmShowings | null> {
         if (!title) return null;
 
         const movieYear = Number(parts.at(2)?.split(' ').at(-1));
-        let duration = parseDuration(parts.at(3), ['min.', 'mins.', 'min', 'mins']);
-        let language : string | undefined = parts.slice(4).join(', ');
+        let duration = parseDuration(parts.at(3), [
+            'min.',
+            'mins.',
+            'min',
+            'mins',
+        ]);
+        let language: string | undefined = parts.slice(4).join(', ');
         if (duration === undefined) {
-            duration = parseDuration(parts.at(-1), ['min.', 'mins.', 'min', 'mins']);
+            duration = parseDuration(parts.at(-1), [
+                'min.',
+                'mins.',
+                'min',
+                'mins',
+            ]);
             language = parts.slice(3, -1).join(', ');
         }
         language = language === '' ? undefined : language;
@@ -224,28 +234,30 @@ async function getMovieInfo(url: string): Promise<FilmShowings | null> {
 export async function scraper(): Promise<CinemaShowings> {
     const firstPass = await getUpcomingShowings();
 
-    const filmShowings = (await Promise.all(
-        firstPass.map(async (movieShowing) => {
-            try {
-                const moreInfo = await getMovieInfo(movieShowing.film.url);
+    const filmShowings = (
+        await Promise.all(
+            firstPass.map(async (movieShowing) => {
+                try {
+                    const moreInfo = await getMovieInfo(movieShowing.film.url);
 
-                if (moreInfo) {
-                    return moreInfo;
-                } else {
-                    console.warn(
-                        `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title}, ${movieShowing.film.url}`
+                    if (moreInfo) {
+                        return moreInfo;
+                    } else {
+                        console.warn(
+                            `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title}, ${movieShowing.film.url}`
+                        );
+                        return movieShowing;
+                    }
+                } catch (e) {
+                    console.error(
+                        `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
                     );
+                    console.error(e);
                     return movieShowing;
                 }
-            } catch (e) {
-                console.error(
-                    `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
-                );
-                console.error(e);
-                return movieShowing;
-            }
-        })
-    )).filter(fs => fs.showings.length > 0);
+            })
+        )
+    ).filter((fs) => fs.showings.length > 0);
 
     return [
         {
@@ -254,10 +266,10 @@ export async function scraper(): Promise<CinemaShowings> {
                 location: 'London',
                 coordinates: {
                     lat: `51º30'14.39" N`,
-                    lng: `0º07'30" W`
-                }
+                    lng: `0º07'30" W`,
+                },
             },
-            showings: filmShowings
+            showings: filmShowings,
         },
     ];
 }

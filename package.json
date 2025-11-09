@@ -10,7 +10,7 @@
         "lint": "eslint .",
         "preview": "vite preview",
         "format": "prettier --write .",
-        "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts'"
+        "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format"
     },
     "devDependencies": {
         "@eslint/js": "^9.36.0",

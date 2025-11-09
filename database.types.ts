@@ -107,6 +107,125 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            new_cinemas: {
+                Row: {
+                    coordinates: Json | null;
+                    created_at: string;
+                    id: number;
+                    location: string;
+                    name: string;
+                };
+                Insert: {
+                    coordinates?: Json | null;
+                    created_at?: string;
+                    id?: number;
+                    location: string;
+                    name: string;
+                };
+                Update: {
+                    coordinates?: Json | null;
+                    created_at?: string;
+                    id?: number;
+                    location?: string;
+                    name?: string;
+                };
+                Relationships: [];
+            };
+            new_films: {
+                Row: {
+                    cinema_id: number;
+                    country: string | null;
+                    created_at: string;
+                    director: string | null;
+                    duration: number | null;
+                    id: number;
+                    language: string | null;
+                    release_year: number | null;
+                    title: string;
+                    tmdb_id: number | null;
+                };
+                Insert: {
+                    cinema_id: number;
+                    country?: string | null;
+                    created_at?: string;
+                    director?: string | null;
+                    duration?: number | null;
+                    id?: number;
+                    language?: string | null;
+                    release_year?: number | null;
+                    title: string;
+                    tmdb_id?: number | null;
+                };
+                Update: {
+                    cinema_id?: number;
+                    country?: string | null;
+                    created_at?: string;
+                    director?: string | null;
+                    duration?: number | null;
+                    id?: number;
+                    language?: string | null;
+                    release_year?: number | null;
+                    title?: string;
+                    tmdb_id?: number | null;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: 'new_films_cinema_id_fkey';
+                        columns: ['cinema_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'new_cinemas';
+                        referencedColumns: ['id'];
+                    },
+                ];
+            };
+            new_showings: {
+                Row: {
+                    booking_url: string | null;
+                    cinema_id: number;
+                    created_at: string;
+                    end_time: string | null;
+                    film_id: number;
+                    id: number;
+                    start_time: string;
+                    tmdb_id: number | null;
+                };
+                Insert: {
+                    booking_url?: string | null;
+                    cinema_id: number;
+                    created_at?: string;
+                    end_time?: string | null;
+                    film_id: number;
+                    id?: number;
+                    start_time: string;
+                    tmdb_id?: number | null;
+                };
+                Update: {
+                    booking_url?: string | null;
+                    cinema_id?: number;
+                    created_at?: string;
+                    end_time?: string | null;
+                    film_id?: number;
+                    id?: number;
+                    start_time?: string;
+                    tmdb_id?: number | null;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: 'new_showings_cinema_id_fkey';
+                        columns: ['cinema_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'new_cinemas';
+                        referencedColumns: ['id'];
+                    },
+                    {
+                        foreignKeyName: 'new_showings_film_id_fkey';
+                        columns: ['film_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'new_films';
+                        referencedColumns: ['id'];
+                    },
+                ];
+            };
         };
         Views: {
             [_ in never]: never;

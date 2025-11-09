@@ -5,6 +5,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database, Tables } from '../database.types';
 
 import 'dotenv/config';
+import { DateTime } from 'luxon';
 
 function movie_hash(f: FilmShowing) {
     return `${f.name}|${f.duration}|${f.tmdbId}`;
@@ -52,7 +53,7 @@ async function scrapeAndStore(
             ])
         );
 
-        const movies_to_add: any = [];
+        const movies_to_add = [];
         const movies_added: Map<string, number> = new Map();
 
         for (const [movie_key, movie] of unique_movies) {
@@ -112,21 +113,29 @@ async function scrapeAndStore(
 
         const new_showings_data = cinema.showings
             .map((f) => {
-                const film_id = movies_added.get(movie_hash(f));
-                if (film_id === undefined) {
-                    throw new Error(`No Id found for '${f.name}'`);
+                try {
+                    const film_id = movies_added.get(movie_hash(f));
+                    if (film_id === undefined) {
+                        throw new Error(`No Id found for '${f.name}'`);
+                    }
+    
+                    if (!DateTime.fromISO(f.startTime).isValid) throw new Error(`Invalid ISO string ${f.startTime} for ${f.name}, ${cinema.cinema}`);
+                    return {
+                        start_time: f.startTime,
+                        end_time: f.endTime,
+                        url: f.url,
+                        cinema_id: cinema_id,
+                        film_id: film_id,
+                    };
+                } catch (e) {
+                    console.error(`Skipping ${cinema.cinema}, ${f.name}`)
+                    console.error(e)
+                    return undefined
                 }
-                return {
-                    start_time: f.startTime,
-                    end_time: f.endTime,
-                    url: f.url,
-                    cinema_id: cinema_id,
-                    film_id: film_id,
-                };
             })
             .filter(
                 (f) =>
-                    showings_data.data?.find(
+                    f && showings_data.data?.find(
                         (val) =>
                             val.film_id == f.film_id &&
                             val.cinema_id == f.cinema_id &&

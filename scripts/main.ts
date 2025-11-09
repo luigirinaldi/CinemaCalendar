@@ -23,21 +23,30 @@ async function storeCinemaData(
 ) {
     console.log(cinemaShowing)
 
+    const now = DateTime.now().toISO().toString()
     const res = await trx
         .insertInto('new_cinemas')
-        .values({ ...cinemaShowing.cinema, last_updated: DateTime.now().toISO().toString()})
-        .onConflict((oc) => oc.column('name').doUpdateSet({last_updated: DateTime.now().toISO().toString()}))
+        .values({ ...cinemaShowing.cinema, last_updated: now})
+        .onConflict((oc) => oc.column('name').doUpdateSet({last_updated: now}))
         .execute();
 
     console.log(res);
 }
 
-async function scrapeAndStore(fun: ScraperFunction, db: Kysely<DB>) {
+async function scrapeAndStore(name: string, fun: ScraperFunction, db: Kysely<DB>) {
     const rawResult = await fun();
+    try {
+        const trustedResult = CinemaShowingsSchema.parse(rawResult);
+        console.log(`Successfully scraped and parsed data from ${name}`)
+        for await (const cinema of trustedResult) {
+            await db.transaction().execute((trx) => storeCinemaData(trx, cinema));
+        }
+        console.log(`DB update for ${name} completed`)
+    } catch (e) {
+        console.log("wrong data format for function", name);
+        console.log(e)
+    }
 
-    const trustedResult = CinemaShowingsSchema.parse(rawResult);
-
-    await db.transaction().execute((trx) => storeCinemaData(trx, trustedResult[0]));
 
     // db.transaction().execute()
 
@@ -214,8 +223,7 @@ async function main() {
     }
 
     // const supabase_db_url = `postgresql://postgres:${process.env.API_KEY}@db..supabase.co:5432/postgres`
-    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres
-`;
+    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
 
     // Create new Database object pool
     const db = new Kysely<DB>({
@@ -227,15 +235,15 @@ async function main() {
     await Promise.all(
         scrapers.map(async ([name, fun]) => {
             try {
-                await scrapeAndStore(fun, db);
+                if (name === 'icaCinema.ts') {
+                    await scrapeAndStore(name, fun, db);
+                }
             } catch (e) {
                 console.error(`‼️ Scraper '${name}' threw an error:`);
                 console.error(e);
             }
         })
     );
-
-    await db.destroy();
 }
 
 main();

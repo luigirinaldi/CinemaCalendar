@@ -26,18 +26,56 @@ async function storeCinemaData(
     trx: Transaction<DB>,
     cinemaShowing: CinemaShowing
 ) {
-    console.log(cinemaShowing);
-
+    // Insert cinema into 
     const now = DateTime.now().toISO().toString();
-    const res = await trx
+    const { id : cinemaId } = await trx
         .insertInto('new_cinemas')
         .values({ ...cinemaShowing.cinema, last_updated: now })
         .onConflict((oc) =>
             oc.column('name').doUpdateSet({ last_updated: now })
         )
-        .execute();
+        .returning('id')
+        .executeTakeFirstOrThrow(() => new Error(`Couldn't get cinema information for ${cinemaShowing.cinema.name}`));
 
-    console.log(res);
+    // Get Films corresponding to this cinema
+    let films = await trx.selectFrom('new_films').selectAll().where('cinema_id', '=', cinemaId).execute();
+    console.log(films.length)
+    
+    // if (films === undefined) throw new Error(`Couldn't get films corresponding to ${cinemaShowing.cinema.name}`);
+
+    const filmsToInsert = cinemaShowing.showings
+        .map(s => s.film)
+        .filter(film => 
+            films.find(f => 
+                film.title === f.title
+                && film.url === f.url
+            ) === undefined
+        ).map(film => {
+            return {
+            cinema_id: cinemaId,
+            country: film.country,
+            cover_url: null,
+            director: film.director,
+            duration: film.duration,
+            language: film.language,
+            release_year: film.year,
+            title: film.title,
+            url: film.url,
+        }}
+    )
+    
+    console.log(`need to insert ${filmsToInsert.length} movies`)
+
+    if (filmsToInsert.length > 0) {
+        const newlyAddedFilms = await trx.insertInto('new_films').values(filmsToInsert).returningAll().execute();
+        films = films.concat(newlyAddedFilms)
+        console.log(`Added ${newlyAddedFilms.length} new films`);
+    }
+
+    console.log(films)
+    // console.log(allFilms)
+
+
 }
 
 async function scrapeAndStore(

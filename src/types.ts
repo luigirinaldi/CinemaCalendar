@@ -3,6 +3,7 @@ export interface Movie {
     id: string;
     title: string;
     duration: number;
+    release_date?: string;
 }
 
 export interface Cinema {

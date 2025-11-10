@@ -4,7 +4,7 @@ import { ScraperFunction } from './types';
 import 'dotenv/config';
 import { ZodError } from 'zod';
 import { connectDB } from './database';
-import { scrapeAndStore } from './scrapeUpload';
+import { scrapeAndStore } from './utils';
 
 async function main() {
     const stepFiles = readdirSync('./scripts/cinemas');

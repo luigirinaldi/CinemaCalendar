@@ -1,23 +1,7 @@
 import { ZodError } from 'zod';
-import { connectDB, DB, storeCinemaData } from './database';
-import { CinemaShowingsSchema, ScraperFunction } from './types';
-import { Kysely } from 'kysely';
-
-export async function scrapeAndStore(
-    name: string,
-    fun: ScraperFunction,
-    db: Kysely<DB>
-) {
-    const rawResult = await fun();
-    const trustedResult = CinemaShowingsSchema.parse(rawResult);
-    console.log(`[main] Successfully scraped and parsed data from ${name}`);
-    for (const cinema of trustedResult) {
-        await db
-            .transaction()
-            .execute(async (trx) => await storeCinemaData(trx, cinema));
-    }
-    console.log(`[main] DB update for ${name} completed`);
-}
+import { scrapeAndStore } from './utils';
+import { ScraperFunction } from './types';
+import { connectDB } from './database';
 
 async function main() {
     const scraperName = process.env.SCRAPER;

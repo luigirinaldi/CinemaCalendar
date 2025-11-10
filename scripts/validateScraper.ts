@@ -33,10 +33,12 @@ async function main() {
     } catch (e) {
         if (e instanceof ZodError) {
             console.error(e);
-            console.error(`📜 Scraper failed to return data in correct format`);
+            throw new Error(
+                `📜 Scraper failed to return data in correct format`
+            );
         } else {
             console.error(`‼️ Scraper '${scraperName}' threw an error:`);
-            console.error(e);
+            throw e;
         }
     }
 }

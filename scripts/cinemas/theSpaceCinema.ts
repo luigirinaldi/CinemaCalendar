@@ -11,7 +11,7 @@ interface SpaceFilmData extends Film {
 interface SpaceShowingData extends Showing {
     language?: string;
     format?: string;
-    _price?: number;  // Stored for future use
+    _price?: number; // Stored for future use
 }
 
 // Interfaces for the API response
@@ -83,15 +83,17 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
     // Transform API response into FilmShowings format (group by film)
     const filmShowings: FilmShowings[] = data.result.map((film: SpaceFilm) => {
         // Extract year from release date if available
-        const releaseYear = film.releaseDate 
+        const releaseYear = film.releaseDate
             ? new Date(film.releaseDate).getFullYear()
             : undefined;
 
         // Find a default language from the first showing that has one
         const defaultLanguage = film.showingGroups
-            .flatMap(g => g.sessions)
-            .find(s => s.attributes?.some(a => a.attributeType === 'Language'))
-            ?.attributes.find(a => a.attributeType === 'Language')?.value;
+            .flatMap((g) => g.sessions)
+            .find((s) =>
+                s.attributes?.some((a) => a.attributeType === 'Language')
+            )
+            ?.attributes.find((a) => a.attributeType === 'Language')?.value;
 
         const filmObj: SpaceFilmData = {
             title: film.filmTitle,
@@ -114,18 +116,22 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
                     const showing: SpaceShowingData = {
                         startTime: show.startTime,
                         theatre: show.screenName,
-                        bookingUrl: show.bookingUrl 
+                        bookingUrl: show.bookingUrl
                             ? `https://www.thespacecinema.it${show.bookingUrl}`
                             : undefined,
                     };
 
                     // Extract language and format from attributes if present
-                    const languageAttr = show.attributes?.find(a => a.attributeType === 'Language');
+                    const languageAttr = show.attributes?.find(
+                        (a) => a.attributeType === 'Language'
+                    );
                     if (languageAttr) {
                         showing.language = languageAttr.value;
                     }
 
-                    const formatAttr = show.attributes?.find(a => a.attributeType === 'Session');
+                    const formatAttr = show.attributes?.find(
+                        (a) => a.attributeType === 'Session'
+                    );
                     if (formatAttr) {
                         showing.format = formatAttr.value;
                     }
@@ -133,9 +139,12 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
                     // Store price information if available (for future use)
                     if (show.formattedPrice && show.isPriceVisible) {
                         // Remove currency symbol and convert to number
-                        const priceMatch = show.formattedPrice.match(/(\d+)[,.](\d+)/);
+                        const priceMatch =
+                            show.formattedPrice.match(/(\d+)[,.](\d+)/);
                         if (priceMatch) {
-                            const price = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
+                            const price = parseFloat(
+                                `${priceMatch[1]}.${priceMatch[2]}`
+                            );
                             // Store in an underscore-prefixed field to indicate it's for future use
                             showing._price = price;
                         }

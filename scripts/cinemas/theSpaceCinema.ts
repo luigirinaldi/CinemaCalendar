@@ -1,15 +1,49 @@
-import type { CinemaShowing, FilmShowings } from '../types';
+import type { CinemaShowing, FilmShowings, Film, Showing } from '../types';
 
-// Interface for the API response
+// Extended interfaces for additional fields
+interface SpaceFilmData extends Film {
+    genres?: string[];
+    originalTitle?: string;
+    cast?: string;
+    description?: string;
+}
+
+interface SpaceShowingData extends Showing {
+    language?: string;
+    format?: string;
+    _price?: number;  // Stored for future use
+}
+
+// Interfaces for the API response
+interface SpaceAttribute {
+    name: string;
+    value: string;
+    attributeType: string;
+}
+
+interface SpaceSession {
+    startTime: string;
+    endTime?: string;
+    bookingUrl?: string;
+    screenName?: string;
+    attributes: SpaceAttribute[];
+    formattedPrice?: string;
+    isPriceVisible?: boolean;
+}
+
 interface SpaceFilm {
     filmTitle: string;
     filmId: string;
     runningTime?: number;
+    director?: string;
+    posterImageSrc?: string;
+    originalTitle?: string;
+    cast?: string;
+    synopsisShort?: string;
+    genres?: string[];
+    releaseDate?: string;
     showingGroups: Array<{
-        sessions: Array<{
-            startTime: string;
-            endTime?: string;
-        }>;
+        sessions: SpaceSession[];
     }>;
 }
 
@@ -47,18 +81,71 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
     const data = await response.json();
 
     // Transform API response into FilmShowings format (group by film)
-    const filmShowings: FilmShowings[] = data.result.map((film: SpaceFilm) => ({
-        film: {
+    const filmShowings: FilmShowings[] = data.result.map((film: SpaceFilm) => {
+        // Extract year from release date if available
+        const releaseYear = film.releaseDate 
+            ? new Date(film.releaseDate).getFullYear()
+            : undefined;
+
+        // Find a default language from the first showing that has one
+        const defaultLanguage = film.showingGroups
+            .flatMap(g => g.sessions)
+            .find(s => s.attributes?.some(a => a.attributeType === 'Language'))
+            ?.attributes.find(a => a.attributeType === 'Language')?.value;
+
+        const filmObj: SpaceFilmData = {
             title: film.filmTitle,
             url: `https://www.thespacecinema.it/film/${film.filmId}`,
             duration: film.runningTime,
-        },
-        showings: film.showingGroups.flatMap((day) =>
-            day.sessions.map((show) => ({
-                startTime: show.startTime,
-            }))
-        ),
-    }));
+            director: film.director,
+            coverUrl: film.posterImageSrc,
+            genres: film.genres,
+            originalTitle: film.originalTitle,
+            cast: film.cast,
+            description: film.synopsisShort,
+            year: releaseYear,
+            language: defaultLanguage,
+        };
+
+        return {
+            film: filmObj,
+            showings: film.showingGroups.flatMap((day) =>
+                day.sessions.map((show) => {
+                    const showing: SpaceShowingData = {
+                        startTime: show.startTime,
+                        theatre: show.screenName,
+                        bookingUrl: show.bookingUrl 
+                            ? `https://www.thespacecinema.it${show.bookingUrl}`
+                            : undefined,
+                    };
+
+                    // Extract language and format from attributes if present
+                    const languageAttr = show.attributes?.find(a => a.attributeType === 'Language');
+                    if (languageAttr) {
+                        showing.language = languageAttr.value;
+                    }
+
+                    const formatAttr = show.attributes?.find(a => a.attributeType === 'Session');
+                    if (formatAttr) {
+                        showing.format = formatAttr.value;
+                    }
+
+                    // Store price information if available (for future use)
+                    if (show.formattedPrice && show.isPriceVisible) {
+                        // Remove currency symbol and convert to number
+                        const priceMatch = show.formattedPrice.match(/(\d+)[,.](\d+)/);
+                        if (priceMatch) {
+                            const price = parseFloat(`${priceMatch[1]}.${priceMatch[2]}`);
+                            // Store in an underscore-prefixed field to indicate it's for future use
+                            showing._price = price;
+                        }
+                    }
+
+                    return showing;
+                })
+            ),
+        };
+    });
 
     return [
         {

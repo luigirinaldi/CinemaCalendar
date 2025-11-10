@@ -68,7 +68,7 @@ async function searchOnTMDB (film:Movie) : Promise<TMDBSearch|null> {
             }
         }
     }
-    console.error(`Failed to get TMDB results for ${film.title} (${film.release_date}) after 3 attempts`);
+    console.error(`Failed to get TMDB results for ${film.title} (${film.release_date})`);
     return null;
 }
 

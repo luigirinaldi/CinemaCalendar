@@ -3,8 +3,7 @@ import { ScraperFunction, FilmShowing } from './types';
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database, Tables } from '../database.types';
-import { getTMDB } from './metadata';
-import type { TMDBObj } from './metadata';
+import { getTMDB, TMDBObj } from './metadata';
 
 import 'dotenv/config';
 
@@ -162,18 +161,22 @@ async function updateFilmMetadata(db: SupabaseClient<Database>) {
         .is('tmdb_id', null)
         .limit(CHUNK_DEFAULT_SIZE);
     
-    if (film_data.error !== null) {
-        throw new Error(film_data.error.toString());
+    if (film_data.error) { // !== null
+        throw new Error(film_data.error.message);
     }
 
     let cursor = CHUNK_DEFAULT_SIZE;
+    const tmdb_objs : TMDBObj[] = [];
+    const tmdb_ids = new Set(); // update TMDB metadata only once (avoid useless multiple updates on the same row)
+    const updated_films : {id:number, title:string, tmdb_id:number|null}[] = [];
 
     while (film_data.data.length > 0) {
         // ask to the TMDB API
         const tmdb_update = await Promise.all(film_data.data.map(async film => {
             const tmdbData = await getTMDB({ id: film.id, title: film.title, release_date: undefined, duration: film.duration_minutes ?? 0 });
-            if (!tmdbData) {
-                console.log(`No TMDB data found for film ${film.title} (${film.id})`);
+            if (tmdbData && !tmdb_ids.has(tmdbData.id)) {
+                tmdb_objs.push(tmdbData);
+                tmdb_ids.add(tmdbData.id);
             }
             return {
                 id : film.id,
@@ -182,19 +185,35 @@ async function updateFilmMetadata(db: SupabaseClient<Database>) {
             };
         }));
 
-        // Update the films with their TMDB IDs in a single batch operation
-        await db.from('films').upsert(tmdb_update);
-
+        updated_films.push(...tmdb_update);
+        
         film_data = await db
-            .from('films')
-            .select('id, title, duration_minutes')
-            .is('tmdb_id', null)
-            .range(cursor, cursor + 99);
+        .from('films')
+        .select('id, title, duration_minutes')
+        .is('tmdb_id', null)
+        .range(cursor, cursor + 99);
         cursor += CHUNK_DEFAULT_SIZE;
-
-        if (film_data.error !== null) {
-            throw new Error(film_data.error.name + ': ' + film_data.error.message);
+        
+        if (film_data.error) { // !== null
+            throw new Error(film_data.error.message);
         }
+    }
+
+    // Update entries in TMDB table
+    const { error } = await db.from('tmdb_films').upsert(tmdb_objs);
+    if (error) {
+        console.error('TMDB metadata error:', error);
+        return; // avoid updating TMDB ids on film rows without first updating TMDB metadata
+    } else {
+        console.log('TMDB metadata update: SUCCESS');
+    }
+
+    // Update the films with their TMDB IDs in a single batch operation
+    const { error:error_id } = await db.from('films').upsert(updated_films);
+    if (error_id) {
+        console.error('TMDB id update error:', error_id);
+    } else {
+        console.log('TMDB id update: SUCCESS');
     }
 }
 
@@ -234,10 +253,7 @@ async function main() {
             },
         }
     );
-
-    updateFilmMetadata(supabase);
-    return;
-
+    
     await Promise.all(
         scrapers.map(async ([name, fun]) => {
             try {
@@ -249,6 +265,8 @@ async function main() {
         })
     );
 
+    await updateFilmMetadata(supabase);
+    
     // db.close();
 }
 

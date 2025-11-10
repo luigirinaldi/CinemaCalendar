@@ -1,8 +1,21 @@
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import type { CinemaShowing, FilmShowings } from '../types';
 import { DateTime } from 'luxon';
 
 const CINEMA_NAME = 'Riverside Studios';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
+
+// Minimal typing for the JSON returned by Riverside
+interface RiversidePerf {
+    timestamp: string;
+}
+
+interface RiversideEvent {
+    event_type?: string | string[];
+    run_time?: string;
+    title?: string;
+    url?: string;
+    performances?: Record<string, RiversidePerf[]>;
+}
 
 export async function scraper(): Promise<CinemaShowing[]> {
     const response = await fetch(
@@ -12,55 +25,92 @@ export async function scraper(): Promise<CinemaShowing[]> {
         }
     );
 
-    const result = await response.json();
+    const result: RiversideEvent[] =
+        (await response.json()) as RiversideEvent[];
 
-    const movie_info_out: FilmShowing[] = result
-        .filter((event) => event.event_type && event.event_type.includes('101'))
+    // Collect flat list of (title, url, startTime, duration)
+    const flatShowings = result
+        .filter(
+            (event) =>
+                !!event.event_type &&
+                // event_type can be a string or array; normalize to string
+                (Array.isArray(event.event_type)
+                    ? event.event_type.includes('101')
+                    : String(event.event_type).includes('101'))
+        )
         .flatMap((event) => {
-            let duration: number;
+            let duration: number | undefined;
             try {
-                const durationMatch =
-                    event['run_time'].match(/(\d+)([ mins]*)/);
-                if (!durationMatch) {
+                const durationMatch = (event.run_time ?? '').match(
+                    /(\d+)([ mins]*)/
+                );
+                if (!durationMatch)
                     throw new Error(
-                        `Could not parse duration from: '${event['run_time']}'`
+                        `Could not parse duration from: '${event.run_time}'`
                     );
-                }
                 duration = +durationMatch[1];
             } catch (error) {
                 console.error(
-                    `${LOG_PREFIX} Failed to parse duration for movie "${event['title']}":`,
+                    `${LOG_PREFIX} Failed to parse duration for movie "${event.title}":`,
                     error
                 );
-                duration = 0; // fallback value
+                duration = undefined; // fallback value
             }
-            return Object.entries(
-                event['performances'] as Record<
-                    string,
-                    Array<{ timestamp: string }>
-                >
-            ).flatMap(([, performances]) => {
-                return performances.flatMap((perf) => {
+
+            const performancesEntries = Object.entries(
+                event.performances ?? {}
+            );
+            return performancesEntries.flatMap(([, performances]) =>
+                performances.flatMap((perf: RiversidePerf) => {
                     const startTime = DateTime.fromSeconds(
-                        +perf['timestamp']
+                        +perf.timestamp
                     ).toISO();
-                    if (startTime)
-                        return {
-                            name: event['title'].trim(),
-                            startTime: startTime,
-                            duration: duration,
-                            url: event['url'],
-                            tmdbId: null,
-                        } as FilmShowing;
-                    else return [];
-                });
-            });
+                    if (!startTime) return [] as Array<never>;
+                    return [
+                        {
+                            title: (event.title ?? '').trim(),
+                            url: event.url ?? '',
+                            startTime,
+                            duration,
+                        },
+                    ];
+                })
+            );
         });
+
+    // Group by title+url into FilmShowings schema: { film: {...}, showings: [...] }
+    const grouped = new Map<string, FilmShowings>();
+    for (const s of flatShowings) {
+        const key = `${s.title}::${s.url}`;
+        const filmObj = {
+            title: s.title,
+            url: s.url,
+            duration: s.duration,
+        };
+
+        const showing = {
+            startTime: s.startTime,
+        };
+
+        if (!grouped.has(key)) {
+            grouped.set(key, {
+                film: filmObj,
+                showings: [showing],
+            });
+        } else {
+            grouped.get(key)!.showings.push(showing);
+        }
+    }
+
+    const filmShowings = Array.from(grouped.values());
+
     return [
         {
-            cinema: 'RiverSideStudios',
-            location: 'London',
-            showings: movie_info_out,
+            cinema: {
+                name: CINEMA_NAME,
+                location: 'London',
+            },
+            showings: filmShowings,
         },
     ];
 }

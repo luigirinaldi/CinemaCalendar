@@ -8,7 +8,7 @@ export const FilmSchema = z.object({
     language: z.string().optional(),
     year: z.number().optional(),
     country: z.string().optional(),
-    coverUrl: z.string().optional()
+    coverUrl: z.string().optional(),
 });
 
 export const ShowingSchema = z.object({

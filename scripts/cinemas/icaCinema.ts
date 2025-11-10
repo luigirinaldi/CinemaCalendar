@@ -1,5 +1,10 @@
 import { DateTime } from 'luxon';
-import { CinemaShowings, CinemaShowingsSchema, FilmShowings, Showing } from '../types';
+import {
+    CinemaShowings,
+    CinemaShowingsSchema,
+    FilmShowings,
+    Showing,
+} from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'ICA';

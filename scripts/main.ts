@@ -85,36 +85,35 @@ async function storeCinemaData(
         .where('cinema_id', '=', cinemaId)
         .execute();
 
-    const showingsToInsert = cinemaShowing.showings
-        .flatMap((filmShowing) => {
-            const film = filmShowing.film;
-            const filmId = films.find((f) => f.title === film.title)?.id;
+    const showingsToInsert = cinemaShowing.showings.flatMap((filmShowing) => {
+        const film = filmShowing.film;
+        const filmId = films.find((f) => f.title === film.title)?.id;
 
-            if (filmId === undefined)
-                throw new Error(
-                    `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
-                );
+        if (filmId === undefined)
+            throw new Error(
+                `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
+            );
 
-            return filmShowing.showings
-                .filter(
-                    (show) =>
-                        showings.find(
-                            (s) =>
-                                new Date(show.startTime).getTime() ===
+        return filmShowing.showings
+            .filter(
+                (show) =>
+                    showings.find(
+                        (s) =>
+                            new Date(show.startTime).getTime() ===
                                 new Date(s.start_time).getTime() &&
-                                s.film_id === filmId &&
-                                s.cinema_id === cinemaId
-                        ) === undefined
-                )
-                .map((showing) => {
-                    return {
-                        booking_url: showing.bookingUrl,
-                        cinema_id: cinemaId,
-                        film_id: filmId,
-                        start_time: showing.startTime,
-                    };
-                });
-        });
+                            s.film_id === filmId &&
+                            s.cinema_id === cinemaId
+                    ) === undefined
+            )
+            .map((showing) => {
+                return {
+                    booking_url: showing.bookingUrl,
+                    cinema_id: cinemaId,
+                    film_id: filmId,
+                    start_time: showing.startTime,
+                };
+            });
+    });
 
     if (showingsToInsert.length > 0) {
         const newlyAddedShowings = await trx

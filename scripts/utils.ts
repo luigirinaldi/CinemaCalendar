@@ -3,7 +3,7 @@ import type { FilmShowing } from '../src/types';
 
 export async function fetchAndParseICS(
     url: string,
-    parseEvent: Function,
+    parseEvent: (event: ICAL.Event) => FilmShowing,
     filter: boolean = false
 ): Promise<FilmShowing[]> {
     const res = await fetch(url);
@@ -25,7 +25,7 @@ export async function fetchAndParseICS(
 
     const events: FilmShowing[] = vevents.map((vevent) => {
         const event = new ICAL.Event(vevent);
-        return parseEvent(event, vevent);
+        return parseEvent(event);
     });
 
     return events;

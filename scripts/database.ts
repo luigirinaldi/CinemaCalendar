@@ -1,5 +1,4 @@
-import { readdirSync } from 'fs';
-import { ScraperFunction, CinemaShowing, CinemaShowingsSchema } from './types';
+import { CinemaShowing } from './types';
 
 import { Database } from '../database.types';
 
@@ -9,11 +8,32 @@ import { Pool } from 'pg';
 
 import 'dotenv/config';
 import { DateTime } from 'luxon';
-import { ZodError } from 'zod';
 
-type DB = KyselifyDatabase<Database>;
+export type DB = KyselifyDatabase<Database>;
 
-async function storeCinemaData(
+export async function connectDB() {
+    if (process.env.SUPABASE_PROJECT_ID === undefined) {
+        throw new Error('Missing Supabase Project ID');
+    }
+
+    if (process.env.API_KEY === undefined) {
+        throw new Error('Missing Supabase database API Key');
+    }
+
+    // const supabase_db_url = `postgresql://postgres:${process.env.DB_PASSWORD}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`
+    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
+
+    // Create new Database object pool
+    return new Kysely<DB>({
+        dialect: new PostgresDialect({
+            pool: new Pool({
+                connectionString: supabase_db_url,
+            }),
+        }),
+    });
+}
+
+export async function storeCinemaData(
     trx: Transaction<DB>,
     cinemaShowing: CinemaShowing
 ) {
@@ -128,76 +148,3 @@ async function storeCinemaData(
         console.log(`${LOG_PREFIX} No new showings to insert`);
     }
 }
-
-async function scrapeAndStore(
-    name: string,
-    fun: ScraperFunction,
-    db: Kysely<DB>
-) {
-    const rawResult = await fun();
-    const trustedResult = CinemaShowingsSchema.parse(rawResult);
-    console.log(`[main] Successfully scraped and parsed data from ${name}`);
-    for (const cinema of trustedResult) {
-        await db
-            .transaction()
-            .execute(async (trx) => await storeCinemaData(trx, cinema));
-    }
-    console.log(`[main] DB update for ${name} completed`);
-}
-
-async function main() {
-    const stepFiles = readdirSync('./scripts/cinemas');
-
-    const scrapers: [string, ScraperFunction][] = [];
-
-    // Dynamically import all scraper scripts
-    for (const file of stepFiles) {
-        const module = await import('./cinemas/' + file); // dynamic import
-        if (typeof module.scraper === 'function') {
-            scrapers.push([file, module.scraper as ScraperFunction]);
-            console.log(`☑️ Loaded scraper from ${file}`);
-        } else {
-            console.warn(`❌ No 'scraper' function found in ${file}`);
-        }
-    }
-
-    if (process.env.SUPABASE_PROJECT_ID === undefined) {
-        throw new Error('Missing Supabase Project ID');
-    }
-
-    if (process.env.API_KEY === undefined) {
-        throw new Error('Missing Supabase database API Key');
-    }
-
-    // const supabase_db_url = `postgresql://postgres:${process.env.DB_PASSWORD}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`
-    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
-
-    // Create new Database object pool
-    const db = new Kysely<DB>({
-        dialect: new PostgresDialect({
-            pool: new Pool({
-                connectionString: supabase_db_url,
-            }),
-        }),
-    });
-
-    await Promise.all(
-        scrapers.map(async ([name, fun]) => {
-            try {
-                await scrapeAndStore(name, fun, db);
-            } catch (e) {
-                if (e instanceof ZodError) {
-                    console.log(`📜 Scraper '${name}' parsing error`);
-                } else {
-                    console.error(`‼️ Scraper '${name}' threw an error:`);
-                    console.error(e);
-                }
-            }
-        })
-    );
-
-    // await pool.end();
-    await db.destroy();
-}
-
-main();

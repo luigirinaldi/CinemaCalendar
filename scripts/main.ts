@@ -1,13 +1,7 @@
 import { readdirSync } from 'fs';
-import {
-    ScraperFunction,
-    FilmShowing,
-    CinemaShowing,
-    CinemaShowingsSchema,
-} from './types';
+import { ScraperFunction, CinemaShowing, CinemaShowingsSchema } from './types';
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database, Tables } from '../database.types';
+import { Database } from '../database.types';
 
 import { Kysely, PostgresDialect, Transaction } from 'kysely';
 import { KyselifyDatabase } from 'kysely-supabase';
@@ -18,10 +12,6 @@ import { DateTime } from 'luxon';
 import { ZodError } from 'zod';
 
 type DB = KyselifyDatabase<Database>;
-
-function movie_hash(f: FilmShowing) {
-    return `${f.name}|${f.duration}|${f.tmdbId}`;
-}
 
 async function storeCinemaData(
     trx: Transaction<DB>,
@@ -94,35 +84,38 @@ async function storeCinemaData(
         .where('cinema_id', '=', cinemaId)
         .execute();
 
-    const showingsToInsert = cinemaShowing.showings.flatMap((filmShowing) => {
-        const film = filmShowing.film;
-        const filmId = films.find((f) => f.title === film.title)?.id;
+    const showingsToInsert = cinemaShowing.showings
+        .slice(0, 2)
+        .flatMap((filmShowing) => {
+            const film = filmShowing.film;
+            const filmId = films.find((f) => f.title === film.title)?.id;
 
-        if (filmId === undefined)
-            throw new Error(
-                `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
-            );
+            if (filmId === undefined)
+                throw new Error(
+                    `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
+                );
 
-        return filmShowing.showings
-            .filter(
-                (show) =>
-                    showings.find(
-                        (s) =>
-                            show.startTime === s.start_time &&
-                            s.film_id === filmId &&
-                            (s.booking_url === undefined ||
-                                show.bookingUrl === s.booking_url)
-                    ) === undefined
-            )
-            .map((showing) => {
-                return {
-                    booking_url: showing.bookingUrl,
-                    cinema_id: cinemaId,
-                    film_id: filmId,
-                    start_time: showing.startTime,
-                };
-            });
-    });
+            return filmShowing.showings
+                .slice(0, 10)
+                .filter(
+                    (show) =>
+                        showings.find(
+                            (s) =>
+                                new Date(show.startTime).getTime() ===
+                                    new Date(s.start_time).getTime() &&
+                                s.film_id === filmId &&
+                                s.cinema_id === cinemaId
+                        ) === undefined
+                )
+                .map((showing) => {
+                    return {
+                        booking_url: showing.bookingUrl,
+                        cinema_id: cinemaId,
+                        film_id: filmId,
+                        start_time: showing.startTime,
+                    };
+                });
+        });
 
     if (showingsToInsert.length > 0) {
         const newlyAddedShowings = await trx

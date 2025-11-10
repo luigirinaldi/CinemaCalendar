@@ -1,5 +1,6 @@
 import { ZodError } from 'zod';
 import { CinemaShowingsSchema, ScraperFunction } from './types';
+import { printCinemaStats } from './utils';
 
 async function main() {
     const scraperName = process.env.SCRAPER;
@@ -32,6 +33,12 @@ async function main() {
             for (const film of cinema.showings.slice(0, 3)) {
                 console.log(film.film)
                 console.log(film.showings.slice(0,3))
+            }
+            // print aggregated statistics for this cinema
+            try {
+                printCinemaStats(cinema);
+            } catch (err) {
+                console.warn('[validateScraper] Failed to compute stats for', cinema.cinema.name, err);
             }
         }
     } catch (e) {

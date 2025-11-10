@@ -80,7 +80,7 @@ async function scrapeAndStore(
                 .select();
             if (insert_films.error !== null) {
                 throw new Error(
-                    `[${cinema.cinema}] Insert produced an error: ${insert_films.error}`
+                    `[${cinema.cinema}] Insert produced an error: ${JSON.stringify(insert_films.error)}`
                 );
             }
             if (!insert_films.data) {

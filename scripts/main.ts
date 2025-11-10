@@ -3,6 +3,8 @@ import { ScraperFunction, FilmShowing } from './types';
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database, Tables } from '../database.types';
+import { getTMDB } from './metadata';
+import type { TMDBObj } from './metadata';
 
 import 'dotenv/config';
 
@@ -150,6 +152,52 @@ async function scrapeAndStore(
     });
 }
 
+async function updateFilmMetadata(db: SupabaseClient<Database>) {
+    // pick a lower number if TMDB API blocks some requests
+    const CHUNK_DEFAULT_SIZE = 100;
+
+    let film_data = await db
+        .from('films')
+        .select('id, title, duration_minutes')
+        .is('tmdb_id', null)
+        .limit(CHUNK_DEFAULT_SIZE);
+    
+    if (film_data.error !== null) {
+        throw new Error(film_data.error.toString());
+    }
+
+    let cursor = CHUNK_DEFAULT_SIZE;
+
+    while (film_data.data.length > 0) {
+        // ask to the TMDB API
+        const tmdb_update = await Promise.all(film_data.data.map(async film => {
+            const tmdbData = await getTMDB({ id: film.id, title: film.title, release_date: undefined, duration: film.duration_minutes ?? 0 });
+            if (!tmdbData) {
+                console.log(`No TMDB data found for film ${film.title} (${film.id})`);
+            }
+            return {
+                id : film.id,
+                title: film.title,
+                tmdb_id: tmdbData?.id || null
+            };
+        }));
+
+        // Update the films with their TMDB IDs in a single batch operation
+        await db.from('films').upsert(tmdb_update);
+
+        film_data = await db
+            .from('films')
+            .select('id, title, duration_minutes')
+            .is('tmdb_id', null)
+            .range(cursor, cursor + 99);
+        cursor += CHUNK_DEFAULT_SIZE;
+
+        if (film_data.error !== null) {
+            throw new Error(film_data.error.name + ': ' + film_data.error.message);
+        }
+    }
+}
+
 async function main() {
     const stepFiles = readdirSync('./scripts/cinemas');
 
@@ -186,6 +234,9 @@ async function main() {
             },
         }
     );
+
+    updateFilmMetadata(supabase);
+    return;
 
     await Promise.all(
         scrapers.map(async ([name, fun]) => {

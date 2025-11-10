@@ -2,10 +2,20 @@ import 'dotenv/config';
 import type { Movie } from '../src/types';
 
 type TMDBObj = {
+    adult: boolean;
+    backdrop_path: string|null;
+    genre_ids: number[];
     id: number;
-    title: string;
-    release_date: string;
+    original_language: string;
+    original_title: string;
+    overview: string;
     popularity: number;
+    poster_path: string|null;
+    release_date: string;
+    title: string;
+    video: boolean;
+    vote_average: number;
+    vote_count: number;
 };
 type TMDBSearch = {
     page: number;
@@ -22,6 +32,7 @@ const OPTIONS = {
     }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
 };
 
+// TODO: add search by director
 async function getTMDB(film : Movie) : Promise<TMDBObj|null> {
     if (!film.release_date) { // if there is no release date, set the current year as fallback
         film.release_date = (new Date).getFullYear().toString();
@@ -89,3 +100,12 @@ async function guessMovie(search:TMDBSearch, film:Movie) : Promise<TMDBObj> {
     }
     return results[0];
 }
+
+export { getTMDB, TMDBObj };
+
+// (async () => {
+//     // Example usage
+//     const film: Movie = { id: '1', title: `ADRA`, release_date: '', duration: 148 };
+//     const tmdbData = await getTMDB(film);
+//     console.log(tmdbData);
+// })();

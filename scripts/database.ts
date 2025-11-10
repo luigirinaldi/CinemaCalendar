@@ -74,7 +74,7 @@ export async function storeCinemaData(
             return {
                 cinema_id: cinemaId,
                 country: film.country,
-                cover_url: null,
+                cover_url: film.coverUrl,
                 director: film.director,
                 duration: film.duration,
                 language: film.language,

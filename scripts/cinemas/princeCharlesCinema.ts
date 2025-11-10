@@ -68,6 +68,10 @@ type ScrapedShowing = {
     description?: string | null;
     filmUrl?: string | null;
     soldOut?: boolean;
+    filmDirector?: string | null;
+    filmYear?: number | null;
+    filmCountry?: string | null;
+    coverUrl?: string | null;
 };
 
 // allow using happy-dom's document without fighting the linter/type rules here
@@ -77,15 +81,27 @@ function scrape(page: any, callback: (s: ScrapedShowing) => void) {
         const title = (eventEl.querySelector('.liveeventtitle')?.textContent || '').trim();
         const filmUrl = (eventEl.querySelector('.film_img > a[href]') as HTMLAnchorElement | null)?.href;
         const description = (eventEl.querySelector('.jacrofilm-list-content > .jacro-formatted-text')?.textContent) || null;
-        const runtime = Array.from(
+        const metaSpans = Array.from(
             eventEl.querySelectorAll('.running-time > span'),
-            (span: Element) => {
-                return (span.textContent || '').trim();
-            }
-        ).find((text) => {
-            const match = text.match(/^(\d+)\s*mins$/);
-            if (match) return match[1];
-        });
+            (span: Element) => (span.textContent || '').trim()
+        );
+
+        // duration like "130mins"
+        const durationMatch = metaSpans
+            .map((t) => t.match(/^(\d+)\s*mins$/))
+            .find(Boolean)?.[1];
+        const durationNum = durationMatch ? parseInt(durationMatch) : 0;
+
+        // year typically a 4-digit span
+        const yearText = metaSpans.find((s) => /^\d{4}$/.test(s));
+        const yearNum = yearText ? parseInt(yearText) : null;
+
+        // country often appears as uppercase (e.g. "USA")
+        const countryText = metaSpans.find((s) => /^[A-Z]{2,}(?:\s+[A-Z]+)*$/.test(s));
+
+        const coverUrl = (eventEl.querySelector('.film_img > a > img') as HTMLImageElement | null)?.src || null;
+        const filmInfoText = (eventEl.querySelector('.film-info span')?.textContent || '').trim();
+        const filmDirector = filmInfoText.match(/Directed by\s*(.*)/i)?.[1] || null;
 
         let day: string | null = null;
         eventEl
@@ -103,7 +119,6 @@ function scrape(page: any, callback: (s: ScrapedShowing) => void) {
                     const url = buttonEl.href;
                     try {
                         const start = parseDate(day, time);
-                        const durationNum: number = parseInt(runtime || '') || 0;
                         const end = start.plus({ minutes: durationNum });
                         const soldOut = listEl.matches('.soldfilm_book_button');
                         callback({
@@ -115,11 +130,15 @@ function scrape(page: any, callback: (s: ScrapedShowing) => void) {
                             description,
                             soldOut,
                             filmUrl,
+                            filmDirector,
+                            filmYear: yearNum,
+                            filmCountry: countryText || null,
+                            coverUrl,
                         });
                     } catch (err) {
                         console.error(
                             'Error while processing',
-                            { title, filmUrl, description, runtime, day, time },
+                            { title, filmUrl, description, duration: durationNum, day, time },
                             err
                         );
                     }
@@ -149,7 +168,7 @@ export const scraper: ScraperFunction = async () => {
     // Map films by a key (prefer filmUrl, fall back to title)
     const filmsMap = new Map<string, { film: Film; showings: Showing[] }>();
 
-    scrape(page.mainFrame.document, ({ title, start, duration, url, filmUrl }) => {
+    scrape(page.mainFrame.document, ({ title, start, duration, url, filmUrl, filmDirector, filmYear, filmCountry, coverUrl }) => {
         const key = filmUrl || title;
         const filmUrlFinal = (filmUrl || url || '').toString();
 
@@ -169,7 +188,11 @@ export const scraper: ScraperFunction = async () => {
             // theatre is not available in this scraper
         };
         // attach duration to film if available and not already set
-        if (duration && !entry.film.duration) entry.film.duration = duration;
+        if (typeof duration === 'number' && duration > 0 && !entry.film.duration) entry.film.duration = duration;
+        if (filmDirector && !entry.film.director) entry.film.director = filmDirector;
+        if (typeof filmYear === 'number' && !entry.film.year) entry.film.year = filmYear;
+        if (filmCountry && !entry.film.country) entry.film.country = filmCountry;
+        if (coverUrl && !entry.film.coverUrl) entry.film.coverUrl = coverUrl;
 
         entry.showings.push(showing);
     });

@@ -33,13 +33,13 @@ const OPTIONS = {
 };
 
 // TODO: add search by director
-async function getTMDB(film : Movie) : Promise<TMDBObj|null> {
+async function getTMDB(film : Movie, verbose : boolean = false) : Promise<TMDBObj|null> {
     if (!film.release_date) { // if there is no release date, set the current year as fallback
         film.release_date = (new Date).getFullYear().toString();
     }
-    let search = await searchOnTMDB(film);
+    let search = await searchOnTMDB(film, verbose);
     if (!search || search.total_results == 0) {
-        console.error(`No TMDB results for ${film.title} (${film.release_date})`);
+        if (verbose) console.error(`No TMDB results for ${film.title} (${film.release_date})`);
         return null;
     }
     let TMDBMovie = search.results[0];
@@ -50,7 +50,7 @@ async function getTMDB(film : Movie) : Promise<TMDBObj|null> {
     return TMDBMovie;
 }
 
-async function searchOnTMDB (film:Movie) : Promise<TMDBSearch|null> {
+async function searchOnTMDB (film:Movie, verbose:boolean) : Promise<TMDBSearch|null> {
     let title = film.title;
     for (let i = 0; i < 3; i++) {
         // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
@@ -68,7 +68,7 @@ async function searchOnTMDB (film:Movie) : Promise<TMDBSearch|null> {
             }
         }
     }
-    console.error(`Failed to get TMDB results for ${film.title} (${film.release_date})`);
+    if (verbose) console.error(`Failed to get TMDB results for ${film.title} (${film.release_date})`);
     return null;
 }
 

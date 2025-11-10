@@ -39,3 +39,49 @@ jobs:
               run: npx prettier --check . # make sure everything is formatted
             - name: Build
               run: npm run build
+
+    generate-matrix:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
+        steps:
+            - uses: actions/checkout@v4
+
+            - id: set-matrix
+              run: |
+                  json=$(./generate_matrix.sh)
+                  echo "matrix=$json" >> $GITHUB_OUTPUT
+
+    run-scripts:
+        needs: generate-matrix
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: lts/*
+                  cache: 'npm'
+            # Restore node_modules cache
+            - name: Cache node_modules
+              id: node-modules-cache
+              uses: actions/cache@v4
+              with:
+                  path: node_modules
+                  key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-node-modules-
+            # Install dependencies ONLY if cache miss
+            - name: Install dependencies
+              if: steps.node-modules-cache.outputs.cache-hit != 'true'
+              run: npm ci
+
+            - name: Run script
+              run: |
+                  echo "Running script: ${{ matrix.name }} at path ${{ matrix.path }}"

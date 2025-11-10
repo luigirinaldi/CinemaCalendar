@@ -1,5 +1,5 @@
-# Workflow to build the website when a PR is opened
-name: Check-Build
+# Workflow to run all scrapers and ensure they are working when a PR is opened
+name: Check Scraper
 
 on:
     # Runs on pushes targeting the default branch

@@ -1,5 +1,5 @@
 # Workflow to build the website when a PR is opened
-name: Check-Build
+name: Check Build
 
 on:
     pull_request:

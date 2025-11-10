@@ -52,7 +52,7 @@ jobs:
                   json=$(./generate_matrix.sh)
                   echo "matrix=$json" >> $GITHUB_OUTPUT
 
-    run-scripts:
+    test-scraper:
         needs: generate-matrix
         runs-on: ubuntu-latest
         strategy:
@@ -82,6 +82,10 @@ jobs:
               if: steps.node-modules-cache.outputs.cache-hit != 'true'
               run: npm ci
 
-            - name: Run script
+            - name: Run test
+              env:
+                    SCRAPER: ${{ matrix.path }}
               run: |
-                  echo "Running script: ${{ matrix.name }} at path ${{ matrix.path }}"
+                  echo "Running test on: ${{ matrix.name }}"
+                  npm run testScraper
+

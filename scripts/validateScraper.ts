@@ -29,6 +29,10 @@ async function main() {
             console.log(
                 `Cinema: ${cinema.cinema.name}, ${cinema.showings.length} Films and ${cinema.showings.reduce((acc, s) => acc + s.showings.length, 0)} total showings`
             );
+            for (const film of cinema.showings.slice(0, 3)) {
+                console.log(film.film)
+                console.log(film.showings.slice(0,3))
+            }
         }
     } catch (e) {
         if (e instanceof ZodError) {

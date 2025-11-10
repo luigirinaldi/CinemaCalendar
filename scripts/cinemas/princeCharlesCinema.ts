@@ -3,10 +3,16 @@
 // Modified by: @luigirinaldi
 
 import { Browser } from 'happy-dom';
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import type {
+    ScraperFunction,
+    CinemaShowing,
+    FilmShowings,
+    Film,
+    Showing,
+} from '../types';
 import { DateTime } from 'luxon';
 
-const months = [
+const months: Record<string, number> = [
     'January',
     'February',
     'March',
@@ -19,11 +25,11 @@ const months = [
     'October',
     'November',
     'December',
-].reduce((acc, month, index) => ({ ...acc, [month]: index }), {});
+].reduce((acc, month, index) => ({ ...acc, [month]: index }), {} as Record<string, number>);
 
-function parseDate(day, time) {
-    const [dow, dom, mon] = day.split(' ');
-    const [_, h, m, am] = time.match(/^(\d{1,2}):(\d{2}) (am|pm)$/);
+function parseDate(day: string, time: string): DateTime {
+    const [, dom, mon] = day.split(' ');
+    const [, h, m, am] = time.match(/^(\d{1,2}):(\d{2}) (am|pm)$/) || [];
     const today = new Date();
     const date = parseInt(dom);
     const monthIdx = months[mon] + 1;
@@ -49,54 +55,61 @@ function parseDate(day, time) {
         { zone: 'Europe/London' }
     );
     // console.log(`${day} ${time}`, value, value.toLocal().toISO());
-    if (isNaN(value.valueOf())) throw new Error(`Invalid date: ${day} ${time}`);
+    if (!value.isValid) throw new Error(`Invalid date: ${day} ${time}`);
     return value;
 }
 
-function scrape(page, callback) {
-    page.querySelectorAll('.jacrofilm-list .jacro-event').forEach((eventEl) => {
-        const title = eventEl
-            .querySelector('.liveeventtitle')
-            .textContent.trim();
-        const filmUrl = eventEl.querySelector('.film_img > a[href]')?.href;
-        const description = eventEl.querySelector(
-            '.jacrofilm-list-content > .jacro-formatted-text'
-        )?.innerText;
+type ScrapedShowing = {
+    title: string;
+    start: DateTime;
+    duration?: number | null;
+    end?: DateTime;
+    url?: string;
+    description?: string | null;
+    filmUrl?: string | null;
+    soldOut?: boolean;
+};
+
+// allow using happy-dom's document without fighting the linter/type rules here
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function scrape(page: any, callback: (s: ScrapedShowing) => void) {
+    page.querySelectorAll('.jacrofilm-list .jacro-event').forEach((eventEl: Element) => {
+        const title = (eventEl.querySelector('.liveeventtitle')?.textContent || '').trim();
+        const filmUrl = (eventEl.querySelector('.film_img > a[href]') as HTMLAnchorElement | null)?.href;
+        const description = (eventEl.querySelector('.jacrofilm-list-content > .jacro-formatted-text')?.textContent) || null;
         const runtime = Array.from(
             eventEl.querySelectorAll('.running-time > span'),
-            (span: any) => {
-                return span.textContent.trim();
+            (span: Element) => {
+                return (span.textContent || '').trim();
             }
         ).find((text) => {
             const match = text.match(/^(\d+)\s*mins$/);
             if (match) return match[1];
         });
 
-        let day = null;
+        let day: string | null = null;
         eventEl
             .querySelectorAll('.performance-list-items > *')
-            .forEach((listEl) => {
+            .forEach((listEl: Element) => {
                 if (listEl.matches('.heading')) {
-                    day = listEl.textContent.trim();
+                    day = (listEl.textContent || '').trim();
                 } else if (listEl.matches('li')) {
-                    console.assert(day !== null);
+                    if (!day) return;
                     const buttonEl = listEl.querySelector(
                         '.film_book_button, .soldfilm_book_button'
-                    );
+                    ) as HTMLAnchorElement | null;
                     if (!buttonEl) return;
-                    const time = buttonEl
-                        .querySelector('.time')
-                        .textContent.trim();
+                    const time = (buttonEl.querySelector('.time')?.textContent || '').trim();
                     const url = buttonEl.href;
                     try {
                         const start = parseDate(day, time);
-                        const duration: number = parseInt(runtime) || 0;
-                        const end = start.plus({ minutes: duration });
+                        const durationNum: number = parseInt(runtime || '') || 0;
+                        const end = start.plus({ minutes: durationNum });
                         const soldOut = listEl.matches('.soldfilm_book_button');
                         callback({
                             title,
                             start,
-                            duration,
+                            duration: durationNum,
                             end,
                             url,
                             description,
@@ -115,7 +128,7 @@ function scrape(page, callback) {
     });
 }
 
-export async function scraper() {
+export const scraper: ScraperFunction = async () => {
     const browser = new Browser({
         settings: {
             disableJavaScriptEvaluation: true,
@@ -133,38 +146,49 @@ export async function scraper() {
     await page.goto('https://princecharlescinema.com/whats-on/');
     await page.waitUntilComplete();
 
-    let movie_info_out: Array<FilmShowing> = [];
+    // Map films by a key (prefer filmUrl, fall back to title)
+    const filmsMap = new Map<string, { film: Film; showings: Showing[] }>();
 
-    scrape(
-        page.mainFrame.document,
-        ({
-            title,
-            start,
-            duration,
-            end,
-            url,
-            description,
-            filmUrl,
-            soldOut,
-        }) => {
-            movie_info_out.push({
-                name: title,
-                tmdbId: null,
-                startTime: start.toISO(),
-                endTime: end.toISO(),
-                duration: duration,
-                url: url,
-            });
+    scrape(page.mainFrame.document, ({ title, start, duration, url, filmUrl }) => {
+        const key = filmUrl || title;
+        const filmUrlFinal = (filmUrl || url || '').toString();
+
+        if (!filmsMap.has(key)) {
+            const film: Film = {
+                title: title,
+                url: filmUrlFinal,
+                // Optional fields left undefined when unknown
+            };
+            filmsMap.set(key, { film, showings: [] });
         }
-    );
+
+        const entry = filmsMap.get(key)!;
+        const showing: Showing = {
+            startTime: start.toISO()!,
+            bookingUrl: url || undefined,
+            // theatre is not available in this scraper
+        };
+        // attach duration to film if available and not already set
+        if (duration && !entry.film.duration) entry.film.duration = duration;
+
+        entry.showings.push(showing);
+    });
 
     await browser.close();
 
-    return [
-        {
-            cinema: 'PrinceCharlesCinema',
+    const filmShowingsArray: FilmShowings[] = Array.from(filmsMap.values()).map(({ film, showings }) => ({
+        film,
+        showings,
+    }));
+
+    const result: CinemaShowing = {
+        cinema: {
+            name: 'Prince Charles Cinema',
             location: 'London',
-            showings: movie_info_out,
-        } as CinemaShowing,
-    ];
+        },
+        showings: filmShowingsArray,
+    };
+
+    // Ensure we return the shape declared in scripts/types.ts
+    return [result];
 }

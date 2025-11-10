@@ -18,6 +18,7 @@ async function storeCinemaData(
     cinemaShowing: CinemaShowing
 ) {
     const LOG_PREFIX = '[main][' + cinemaShowing.cinema.name + ']';
+
     // Insert cinema into
     const now = DateTime.now().toISO().toString();
     const { id: cinemaId } = await trx
@@ -85,7 +86,6 @@ async function storeCinemaData(
         .execute();
 
     const showingsToInsert = cinemaShowing.showings
-        .slice(0, 2)
         .flatMap((filmShowing) => {
             const film = filmShowing.film;
             const filmId = films.find((f) => f.title === film.title)?.id;
@@ -96,13 +96,12 @@ async function storeCinemaData(
                 );
 
             return filmShowing.showings
-                .slice(0, 10)
                 .filter(
                     (show) =>
                         showings.find(
                             (s) =>
                                 new Date(show.startTime).getTime() ===
-                                    new Date(s.start_time).getTime() &&
+                                new Date(s.start_time).getTime() &&
                                 s.film_id === filmId &&
                                 s.cinema_id === cinemaId
                         ) === undefined

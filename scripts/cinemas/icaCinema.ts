@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { CinemaShowings, FilmShowings, Showing } from '../types';
+import { CinemaShowings, CinemaShowingsSchema, FilmShowings, Showing } from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'ICA';
@@ -276,9 +276,10 @@ export async function scraper(): Promise<CinemaShowings> {
 
 // main.ts
 async function main() {
-    const result = await scraper();
-    console.log(result);
     console.log('Running as main script');
+    const result = await scraper();
+    const trustedResult = CinemaShowingsSchema.parse(result);
+    console.log(trustedResult);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

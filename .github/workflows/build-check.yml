@@ -84,8 +84,7 @@ jobs:
 
             - name: Run test
               env:
-                    SCRAPER: ${{ matrix.path }}
+                  SCRAPER: ${{ matrix.path }}
               run: |
                   echo "Running test on: ${{ matrix.name }}"
                   npm run testScraper
-

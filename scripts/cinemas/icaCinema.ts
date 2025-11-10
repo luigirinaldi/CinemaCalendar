@@ -244,7 +244,7 @@ export async function scraper(): Promise<CinemaShowings> {
                         return moreInfo;
                     } else {
                         console.warn(
-                            `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title}, ${movieShowing.film.url}`
+                            `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title.replace('\n', '')}, ${movieShowing.film.url}`
                         );
                         return movieShowing;
                     }

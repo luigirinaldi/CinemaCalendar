@@ -15,6 +15,7 @@ import { Pool } from 'pg';
 
 import 'dotenv/config';
 import { DateTime } from 'luxon';
+import { ZodError } from 'zod';
 
 type DB = KyselifyDatabase<Database>;
 
@@ -26,56 +27,115 @@ async function storeCinemaData(
     trx: Transaction<DB>,
     cinemaShowing: CinemaShowing
 ) {
-    // Insert cinema into 
+    const LOG_PREFIX = '[main][' + cinemaShowing.cinema.name + ']';
+    // Insert cinema into
     const now = DateTime.now().toISO().toString();
-    const { id : cinemaId } = await trx
+    const { id: cinemaId } = await trx
         .insertInto('new_cinemas')
         .values({ ...cinemaShowing.cinema, last_updated: now })
         .onConflict((oc) =>
             oc.column('name').doUpdateSet({ last_updated: now })
         )
         .returning('id')
-        .executeTakeFirstOrThrow(() => new Error(`Couldn't get cinema information for ${cinemaShowing.cinema.name}`));
+        .executeTakeFirstOrThrow(
+            () =>
+                new Error(
+                    `Couldn't get cinema information for ${cinemaShowing.cinema.name}`
+                )
+        );
 
     // Get Films corresponding to this cinema
-    let films = await trx.selectFrom('new_films').selectAll().where('cinema_id', '=', cinemaId).execute();
-    console.log(films.length)
-    
-    // if (films === undefined) throw new Error(`Couldn't get films corresponding to ${cinemaShowing.cinema.name}`);
+    let films = await trx
+        .selectFrom('new_films')
+        .selectAll()
+        .where('cinema_id', '=', cinemaId)
+        .execute();
 
     const filmsToInsert = cinemaShowing.showings
-        .map(s => s.film)
-        .filter(film => 
-            films.find(f => 
-                film.title === f.title
-                && film.url === f.url
-            ) === undefined
-        ).map(film => {
+        .map((s) => s.film)
+        .filter(
+            (film) =>
+                films.find(
+                    (f) => film.title === f.title && film.url === f.url
+                ) === undefined
+        )
+        .map((film) => {
             return {
-            cinema_id: cinemaId,
-            country: film.country,
-            cover_url: null,
-            director: film.director,
-            duration: film.duration,
-            language: film.language,
-            release_year: film.year,
-            title: film.title,
-            url: film.url,
-        }}
-    )
-    
-    console.log(`need to insert ${filmsToInsert.length} movies`)
+                cinema_id: cinemaId,
+                country: film.country,
+                cover_url: null,
+                director: film.director,
+                duration: film.duration,
+                language: film.language,
+                release_year: film.year,
+                title: film.title,
+                url: film.url,
+            };
+        });
 
     if (filmsToInsert.length > 0) {
-        const newlyAddedFilms = await trx.insertInto('new_films').values(filmsToInsert).returningAll().execute();
-        films = films.concat(newlyAddedFilms)
-        console.log(`Added ${newlyAddedFilms.length} new films`);
+        const newlyAddedFilms = await trx
+            .insertInto('new_films')
+            .values(filmsToInsert)
+            .returningAll()
+            .execute();
+        films = films.concat(newlyAddedFilms);
+        console.log(
+            `${LOG_PREFIX}🎦 Inserted ${newlyAddedFilms.length} new movies`
+        );
+    } else {
+        console.log(`${LOG_PREFIX} No new movies to insert`);
     }
 
-    console.log(films)
-    // console.log(allFilms)
+    // Get showings
+    const showings = await trx
+        .selectFrom('new_showings')
+        .selectAll()
+        .where('cinema_id', '=', cinemaId)
+        .execute();
 
+    const showingsToInsert = cinemaShowing.showings.flatMap((filmShowing) => {
+        const film = filmShowing.film;
+        const filmId = films.find((f) => f.title === film.title)?.id;
 
+        if (filmId === undefined)
+            throw new Error(
+                `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
+            );
+
+        return filmShowing.showings
+            .filter(
+                (show) =>
+                    showings.find(
+                        (s) =>
+                            show.startTime === s.start_time &&
+                            s.film_id === filmId &&
+                            (s.booking_url === undefined ||
+                                show.bookingUrl === s.booking_url)
+                    ) === undefined
+            )
+            .map((showing) => {
+                return {
+                    booking_url: showing.bookingUrl,
+                    cinema_id: cinemaId,
+                    film_id: filmId,
+                    start_time: showing.startTime,
+                };
+            });
+    });
+
+    if (showingsToInsert.length > 0) {
+        const newlyAddedShowings = await trx
+            .insertInto('new_showings')
+            .values(showingsToInsert)
+            .returning('id')
+            .execute();
+        console.log(
+            `${LOG_PREFIX}🎦 Inserted ${newlyAddedShowings.length} new showings`
+        );
+    } else {
+        console.log(`${LOG_PREFIX} No new showings to insert`);
+    }
 }
 
 async function scrapeAndStore(
@@ -85,11 +145,13 @@ async function scrapeAndStore(
 ) {
     const rawResult = await fun();
     const trustedResult = CinemaShowingsSchema.parse(rawResult);
-    console.log(`Successfully scraped and parsed data from ${name}`);
-    for await (const cinema of trustedResult) {
-        await db.transaction().execute((trx) => storeCinemaData(trx, cinema));
+    console.log(`[main] Successfully scraped and parsed data from ${name}`);
+    for (const cinema of trustedResult) {
+        await db
+            .transaction()
+            .execute(async (trx) => await storeCinemaData(trx, cinema));
     }
-    console.log(`DB update for ${name} completed`);
+    console.log(`[main] DB update for ${name} completed`);
 }
 
 // db.transaction().execute()
@@ -265,28 +327,35 @@ async function main() {
         throw new Error('Missing Supabase database API Key');
     }
 
-    // const supabase_db_url = `postgresql://postgres:${process.env.API_KEY}@db..supabase.co:5432/postgres`
+    // const supabase_db_url = `postgresql://postgres:${process.env.DB_PASSWORD}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`
     const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
 
     // Create new Database object pool
     const db = new Kysely<DB>({
         dialect: new PostgresDialect({
-            pool: new Pool({ connectionString: supabase_db_url }),
+            pool: new Pool({
+                connectionString: supabase_db_url,
+            }),
         }),
     });
 
     await Promise.all(
         scrapers.map(async ([name, fun]) => {
             try {
-                if (name === 'icaCinema.ts') {
-                    await scrapeAndStore(name, fun, db);
-                }
+                await scrapeAndStore(name, fun, db);
             } catch (e) {
-                console.error(`‼️ Scraper '${name}' threw an error:`);
-                console.error(e);
+                if (e instanceof ZodError) {
+                    console.log(`📜 Scraper '${name}' parsing error`);
+                } else {
+                    console.error(`‼️ Scraper '${name}' threw an error:`);
+                    console.error(e);
+                }
             }
         })
     );
+
+    // await pool.end();
+    await db.destroy();
 }
 
 main();

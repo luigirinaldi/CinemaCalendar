@@ -25,7 +25,31 @@ export async function scrapeAndStore(
  * Compute and print human-friendly statistics for a single CinemaShowing.
  * Counts how many films include optional fields (director, year, country, coverUrl, duration)
  */
-export function printCinemaStats(cinema: CinemaShowing, label?: string) {
+export type ColCount = { count: number; pct: number };
+
+export type CinemaStats = {
+    totalFilms: number;
+    totalShowings: number;
+    filmLevel: {
+        director: ColCount;
+        duration: ColCount;
+        language: ColCount;
+        year: ColCount;
+        country: ColCount;
+        coverUrl: ColCount;
+    };
+    showingLevel: {
+        bookingUrl: ColCount;
+        theatre: ColCount;
+    };
+};
+
+/**
+ * Compute and return structured statistics for a single CinemaShowing.
+ * Returns counts and percentages (pct as a float 0..1) so callers can either
+ * print or consume the stats programmatically.
+ */
+export function collectCinemaStats(cinema: CinemaShowing): CinemaStats {
     const totalFilms = cinema.showings.length;
     const totalShowings = cinema.showings.reduce(
         (acc, f) => acc + f.showings.length,
@@ -60,33 +84,46 @@ export function printCinemaStats(cinema: CinemaShowing, label?: string) {
         }
     }
 
-    const pctFilms = (n: number) =>
-        totalFilms === 0 ? '0.0%' : ((n / totalFilms) * 100).toFixed(1) + '%';
-    const pctShowings = (n: number) =>
-        totalShowings === 0
-            ? '0.0%'
-            : ((n / totalShowings) * 100).toFixed(1) + '%';
+    const pct = (n: number, total: number) => (total === 0 ? 0 : n / total);
+
+    return {
+        totalFilms,
+        totalShowings,
+        filmLevel: {
+            director: { count: countDirector, pct: pct(countDirector, totalFilms) },
+            duration: { count: countDuration, pct: pct(countDuration, totalFilms) },
+            language: { count: countLanguage, pct: pct(countLanguage, totalFilms) },
+            year: { count: countYear, pct: pct(countYear, totalFilms) },
+            country: { count: countCountry, pct: pct(countCountry, totalFilms) },
+            coverUrl: { count: countCover, pct: pct(countCover, totalFilms) },
+        },
+        showingLevel: {
+            bookingUrl: { count: countBookingUrl, pct: pct(countBookingUrl, totalShowings) },
+            theatre: { count: countTheatre, pct: pct(countTheatre, totalShowings) },
+        },
+    };
+}
+
+export function printCinemaStats(cinema: CinemaShowing, label?: string) {
+    const s = collectCinemaStats(cinema);
+    const pct = (v: number) => (v * 100).toFixed(1) + '%';
 
     const header = label ?? `${cinema.cinema.name} statistics`;
     console.info(`\n[stats] ${header}`);
-    console.info(`  films:          ${totalFilms}`);
-    console.info(`  total showings: ${totalShowings}`);
+    console.info(`  films:          ${s.totalFilms}`);
+    console.info(`  total showings: ${s.totalShowings}`);
 
     console.info('\n  Film-level fields:');
-    console.info(`    director: ${countDirector} (${pctFilms(countDirector)})`);
-    console.info(`    duration: ${countDuration} (${pctFilms(countDuration)})`);
-    console.info(`    language: ${countLanguage} (${pctFilms(countLanguage)})`);
-    console.info(`    year:     ${countYear} (${pctFilms(countYear)})`);
-    console.info(`    country:  ${countCountry} (${pctFilms(countCountry)})`);
-    console.info(`    coverUrl: ${countCover} (${pctFilms(countCover)})`);
+    console.info(`    director: ${s.filmLevel.director.count} (${pct(s.filmLevel.director.pct)})`);
+    console.info(`    duration: ${s.filmLevel.duration.count} (${pct(s.filmLevel.duration.pct)})`);
+    console.info(`    language: ${s.filmLevel.language.count} (${pct(s.filmLevel.language.pct)})`);
+    console.info(`    year:     ${s.filmLevel.year.count} (${pct(s.filmLevel.year.pct)})`);
+    console.info(`    country:  ${s.filmLevel.country.count} (${pct(s.filmLevel.country.pct)})`);
+    console.info(`    coverUrl: ${s.filmLevel.coverUrl.count} (${pct(s.filmLevel.coverUrl.pct)})`);
 
     console.info('\n  Showing-level fields:');
-    console.info(
-        `    bookingUrl: ${countBookingUrl} (${pctShowings(countBookingUrl)})`
-    );
-    console.info(
-        `    theatre:    ${countTheatre} (${pctShowings(countTheatre)})`
-    );
+    console.info(`    bookingUrl: ${s.showingLevel.bookingUrl.count} (${pct(s.showingLevel.bookingUrl.pct)})`);
+    console.info(`    theatre:    ${s.showingLevel.theatre.count} (${pct(s.showingLevel.theatre.pct)})`);
 }
 
 export async function fetchAndParseICS<T = unknown>(

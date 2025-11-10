@@ -31,14 +31,18 @@ async function main() {
                 `Cinema: ${cinema.cinema.name}, ${cinema.showings.length} Films and ${cinema.showings.reduce((acc, s) => acc + s.showings.length, 0)} total showings`
             );
             for (const film of cinema.showings.slice(0, 3)) {
-                console.log(film.film)
-                console.log(film.showings.slice(0,3))
+                console.log(film.film);
+                console.log(film.showings.slice(0, 3));
             }
             // print aggregated statistics for this cinema
             try {
                 printCinemaStats(cinema);
             } catch (err) {
-                console.warn('[validateScraper] Failed to compute stats for', cinema.cinema.name, err);
+                console.warn(
+                    '[validateScraper] Failed to compute stats for',
+                    cinema.cinema.name,
+                    err
+                );
             }
         }
     } catch (e) {

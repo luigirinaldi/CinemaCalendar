@@ -216,7 +216,9 @@ export const scraper: ScraperFunction = async () => {
         };
 
         const showings: Showing[] = (film.showings || []).map((s) => ({
-            startTime: DateTime.fromISO(s.datetime, { zone: 'Europe/London' }).toISO()!,
+            startTime: DateTime.fromISO(s.datetime, {
+                zone: 'Europe/London',
+            }).toISO()!,
             bookingUrl: s.url ?? undefined,
             theatre: (s.room as string) ?? undefined,
         }));
@@ -236,7 +238,7 @@ export const scraper: ScraperFunction = async () => {
     };
 
     return [result];
-}
+};
 
 // main.ts
 async function main() {

@@ -5,7 +5,6 @@ import { CinemaShowingsSchema } from './types';
 import { Kysely } from 'kysely';
 import type { CinemaShowing } from './types';
 
-
 export async function scrapeAndStore(
     name: string,
     fun: ScraperFunction,
@@ -28,7 +27,10 @@ export async function scrapeAndStore(
  */
 export function printCinemaStats(cinema: CinemaShowing, label?: string) {
     const totalFilms = cinema.showings.length;
-    const totalShowings = cinema.showings.reduce((acc, f) => acc + f.showings.length, 0);
+    const totalShowings = cinema.showings.reduce(
+        (acc, f) => acc + f.showings.length,
+        0
+    );
 
     // Film-level optional fields
     let countDirector = 0;
@@ -48,7 +50,8 @@ export function printCinemaStats(cinema: CinemaShowing, label?: string) {
         if (typeof film.year === 'number') countYear++;
         if (film.country) countCountry++;
         if (film.coverUrl) countCover++;
-        if (typeof film.duration === 'number' && film.duration > 0) countDuration++;
+        if (typeof film.duration === 'number' && film.duration > 0)
+            countDuration++;
         if (film.language) countLanguage++;
 
         for (const s of fs.showings) {
@@ -57,8 +60,12 @@ export function printCinemaStats(cinema: CinemaShowing, label?: string) {
         }
     }
 
-    const pctFilms = (n: number) => (totalFilms === 0 ? '0.0%' : ((n / totalFilms) * 100).toFixed(1) + '%');
-    const pctShowings = (n: number) => (totalShowings === 0 ? '0.0%' : ((n / totalShowings) * 100).toFixed(1) + '%');
+    const pctFilms = (n: number) =>
+        totalFilms === 0 ? '0.0%' : ((n / totalFilms) * 100).toFixed(1) + '%';
+    const pctShowings = (n: number) =>
+        totalShowings === 0
+            ? '0.0%'
+            : ((n / totalShowings) * 100).toFixed(1) + '%';
 
     const header = label ?? `${cinema.cinema.name} statistics`;
     console.info(`\n[stats] ${header}`);
@@ -74,8 +81,12 @@ export function printCinemaStats(cinema: CinemaShowing, label?: string) {
     console.info(`    coverUrl: ${countCover} (${pctFilms(countCover)})`);
 
     console.info('\n  Showing-level fields:');
-    console.info(`    bookingUrl: ${countBookingUrl} (${pctShowings(countBookingUrl)})`);
-    console.info(`    theatre:    ${countTheatre} (${pctShowings(countTheatre)})`);
+    console.info(
+        `    bookingUrl: ${countBookingUrl} (${pctShowings(countBookingUrl)})`
+    );
+    console.info(
+        `    theatre:    ${countTheatre} (${pctShowings(countTheatre)})`
+    );
 }
 
 export async function fetchAndParseICS<T = unknown>(

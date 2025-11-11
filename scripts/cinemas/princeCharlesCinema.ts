@@ -3,7 +3,7 @@
 // Modified by: @luigirinaldi
 
 import { Browser } from 'happy-dom';
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import { CinemaShowing, FilmShowing } from '../types';
 import { DateTime } from 'luxon';
 
 const months = [
@@ -149,7 +149,7 @@ export async function scraper() {
         }) => {
             movie_info_out.push({
                 name: title,
-                tmdbId: null,
+                localId: null,
                 startTime: start.toISO(),
                 endTime: end.toISO(),
                 duration: duration,

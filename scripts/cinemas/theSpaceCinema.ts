@@ -1,4 +1,5 @@
-import type { CinemaShowing } from '../../src/types';
+import { Film } from 'lucide-react';
+import type { CinemaShowing } from '../types';
 
 export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
     // TODO - extend to every the space cinema
@@ -30,15 +31,19 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
 
     const data = await response.json();
 
+    type TheSpaceShow = { startTime: any; endTime: any; };
+    type TheSpaceDay = { sessions: TheSpaceShow[]; }
+    type TheSpaceShowing = { showingGroups: TheSpaceDay[]; filmTitle: string; filmId: string; runningTime: any; };
+
     return [
         {
             cinema: 'TheSpaceCinemaLimena',
             location: 'Padova',
-            showings: data.result.flatMap((film) =>
-                film.showingGroups.flatMap((day) =>
-                    day.sessions.map((show) => ({
+            showings: data.result.flatMap((film: TheSpaceShowing) =>
+                film.showingGroups.flatMap((day: TheSpaceDay) =>
+                    day.sessions.map((show: TheSpaceShow) => ({
                         name: film.filmTitle,
-                        tmdbId: film.filmId,
+                        localId: film.filmId,
                         startTime: show.startTime,
                         endTime: show.endTime,
                         duration: film.runningTime,

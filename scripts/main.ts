@@ -8,7 +8,7 @@ import { getTMDB, TMDBObj } from './metadata';
 import 'dotenv/config';
 
 function movie_hash(f: FilmShowing) {
-    return `${f.name}|${f.duration}|${f.tmdbId}`;
+    return `${f.name}|${f.duration}|${f.localId}`;
 }
 
 async function scrapeAndStore(
@@ -48,7 +48,7 @@ async function scrapeAndStore(
                 {
                     title: f.name,
                     duration_minutes: f.duration,
-                    tmdb_id: f.tmdbId,
+                    local_id: f.localId,
                 },
             ])
         );
@@ -91,9 +91,9 @@ async function scrapeAndStore(
 
             // Populate the movies_added map with the newly inserted rows so later
             // showings can reference their film IDs. We build the same key used
-            // earlier: title|duration_minutes|tmdb_id
+            // earlier: title|duration_minutes|local_id
             insert_films.data.forEach((row: Tables<'films'>) => {
-                const key = `${row.title}|${row.duration_minutes === null ? 0 : row.duration_minutes}|${row.tmdb_id === null ? 'null' : row.tmdb_id}`;
+                const key = `${row.title}|${row.duration_minutes === null ? 0 : row.duration_minutes}|${row.local_id === null ? 'null' : row.local_id}`;
                 movies_added.set(key, row.id);
             });
 

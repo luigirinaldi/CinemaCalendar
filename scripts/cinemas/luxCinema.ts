@@ -1,6 +1,6 @@
 import ICAL from 'ical.js';
 import { fetchAndParseICS } from '../utils';
-import type { CinemaShowing, FilmShowing } from '../../src/types';
+import type { CinemaShowing, FilmShowing } from '../types';
 
 /**
  * Choose how to parse the event data into FilmShowing objects.
@@ -33,7 +33,7 @@ function parseEvent(event: ICAL.Event): FilmShowing {
     }); // The '+' operator converts the string to a number
     return {
         name: title,
-        tmdbId: event.uid,
+        localId: event.uid,
         startTime: event.startDate.toString(),
         duration: duration,
     };

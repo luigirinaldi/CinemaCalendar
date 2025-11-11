@@ -158,13 +158,65 @@ function App() {
         setCurrentDate(new Date());
     };
 
-    const groupByMovie = (screeningsList: ShowingsTable[]) => {
-        const grouped: { [key: number]: ShowingsTable[] } = {};
+    const groupByMovie = (
+        screeningsList: ShowingsTable[]
+    ): Array<[string, ShowingsTable[]]> => {
+        type Group = {
+            key: string;
+            movie?: FilmTable | null;
+            screenings: ShowingsTable[];
+        };
+
+        const groups: Group[] = [];
+
         screeningsList.forEach((s) => {
-            if (!grouped[s.film_id]) grouped[s.film_id] = [];
-            grouped[s.film_id].push(s);
+            const movie = getMovie(s.film_id);
+
+            // Find an existing group for this movie using tmdb_id when present,
+            // otherwise compare title/duration/director when those fields exist.
+            let existing: Group | undefined = undefined;
+
+            if (movie) {
+                if (movie.tmdb_id != null) {
+                    existing = groups.find(
+                        (g) => g.movie?.tmdb_id != null && g.movie!.tmdb_id === movie.tmdb_id
+                    );
+                }
+
+                if (!existing) {
+                    existing = groups.find((g) => {
+                        const gm = g.movie;
+                        if (!gm) return false;
+                        if (movie.title && gm.title !== movie.title) return false;
+                        if (movie.duration != null && gm.duration !== movie.duration)
+                            return false;
+                        if (movie.director && gm.director !== movie.director) return false;
+                        return true;
+                    });
+                }
+            }
+
+            if (existing) {
+                existing.screenings.push(s);
+            } else {
+                let key: string;
+                if (movie && movie.tmdb_id != null) {
+                    key = `tmdb:${movie.tmdb_id}`;
+                } else if (movie) {
+                    const parts: string[] = [];
+                    if (movie.title) parts.push(movie.title.trim());
+                    if (movie.duration != null) parts.push(String(movie.duration));
+                    if (movie.director) parts.push(movie.director.trim());
+                    key = `title:${parts.join('|')}`;
+                } else {
+                    key = `film:${s.film_id}`;
+                }
+
+                groups.push({ key, movie: movie ?? null, screenings: [s] });
+            }
         });
-        return grouped;
+
+        return groups.map((g) => [g.key, g.screenings]);
     };
 
     const groupByCinema = (screeningsList: ShowingsTable[]) => {
@@ -244,7 +296,9 @@ function App() {
         string,
         ShowingsTable[],
     ]) => {
-        const movie = getMovie(Number(movieId));
+        // The group key is either `tmdb:<id>` or `title:...` so lookup the movie
+        // using the first screening's film_id.
+        const movie = getMovie(movieScreenings[0]?.film_id ?? -1);
         return (
             <div key={movieId} className="bg-neutral-800 rounded-lg p-6">
                 <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
@@ -549,7 +603,7 @@ function App() {
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {Object.entries(groupByMovie(screenings))
+                        {groupByMovie(screenings)
                             .sort(sortGroupedByStartTime)
                             .map(makeByMovieCard)}
                     </div>

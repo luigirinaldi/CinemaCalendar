@@ -59,6 +59,7 @@ jobs:
               env:
                   SCRAPER: ${{ matrix.path }}
                   DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
               run: |
                   echo "Running test on: ${{ matrix.name }}"
                   npx tsx ./scripts/scrapeUpload.ts

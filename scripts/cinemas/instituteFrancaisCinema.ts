@@ -1,18 +1,24 @@
 import { DateTime } from 'luxon';
-import { CinemaShowing, FilmShowing } from '../types';
+import type {
+    ScraperFunction,
+    CinemaShowing,
+    FilmShowings,
+    Film,
+    Showing,
+} from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'Ciné Lumière';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 
 // function that performs type restriction, so that the type coming out doesn't have any undefined things
-function hasNoUndefined<T extends Record<string, any>>(
+function hasNoUndefined<T extends Record<string, unknown>>(
     obj: T
 ): obj is { [K in keyof T]-?: Exclude<T[K], undefined> } {
     return Object.values(obj).every((value) => value !== undefined);
 }
 
-export async function scraper(): Promise<CinemaShowing[]> {
+export const scraper: ScraperFunction = async () => {
     const response = await fetch(
         'https://www.institut-francais.org.uk/whats-on/?type=72&period=any&location=onsite'
     );
@@ -201,25 +207,38 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
     // console.log(film_showings)
 
-    return [
-        {
-            cinema: CINEMA_NAME,
+    // Map parsed results to the new schema: FilmShowings[]
+    const filmShowingsArray: FilmShowings[] = film_showings.map((film) => {
+        const filmObj: Film = {
+            title: film.title,
+            url: film.url,
+            duration: film.duration ?? undefined,
+        };
+
+        const showings: Showing[] = (film.showings || []).map((s) => ({
+            startTime: DateTime.fromISO(s.datetime, {
+                zone: 'Europe/London',
+            }).toISO()!,
+            bookingUrl: s.url ?? undefined,
+            theatre: (s.room as string) ?? undefined,
+        }));
+
+        return {
+            film: filmObj,
+            showings,
+        } as FilmShowings;
+    });
+
+    const result: CinemaShowing = {
+        cinema: {
+            name: CINEMA_NAME,
             location: 'London',
-            showings: film_showings.flatMap((film) => {
-                return film.showings.map((showings) => {
-                    return {
-                        name: film.title,
-                        startTime: DateTime.fromISO(showings.datetime, {
-                            zone: 'Europe/London',
-                        }).toISO(),
-                        url: showings.url,
-                        duration: film.duration ?? 0, // sometimes there are movies where the duration is not specified so have to put 0
-                    } as FilmShowing;
-                });
-            }),
         },
-    ];
-}
+        showings: filmShowingsArray,
+    };
+
+    return [result];
+};
 
 // main.ts
 async function main() {

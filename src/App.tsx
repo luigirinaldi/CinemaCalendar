@@ -8,15 +8,17 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
-import supabase from './supabase';
-import { fetchCinemas, fetchMovies, fetchScreenings } from './api';
-
-import type { Tables } from '../database.types';
+import {
+    fetchCinemas,
+    fetchMovies,
+    fetchScreenings,
+    type CinemaTable,
+    type FilmTable,
+    type ShowingsTable,
+} from './api';
 
 type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
 type GroupBy = 'movie' | 'cinema';
-
-type Screening = Tables<'film_showings'>;
 
 function App() {
     const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
@@ -28,9 +30,9 @@ function App() {
         new Date().toISOString()
     );
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [movies, setMovies] = useState<Tables<'films'>[]>([]);
-    const [cinemas, setCinemas] = useState<Tables<'cinemas'>[]>([]);
-    const [screenings, setScreenings] = useState<Tables<'film_showings'>[]>([]);
+    const [movies, setMovies] = useState<FilmTable[]>([]);
+    const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
+    const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
     const [city, setCity] = useState<string>('');
 
@@ -39,16 +41,12 @@ function App() {
         // Can assume that they won't change while the user is browsing
         const fetchData = async () => {
             setLoading(true);
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            const data = await supabase.from('films').select();
-            console.log(data);
 
             const movie_data = await fetchMovies();
             setMovies(movie_data);
-
             const cinemas_data = await fetchCinemas();
             setCinemas(cinemas_data);
-            // console.log(getCities(cinemas_data));
+
             setCity(getCities(cinemas_data).filter((c) => c !== null)[0]);
             setLoading(false);
         };
@@ -105,10 +103,10 @@ function App() {
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
-    const getCities = (cinemas: Tables<'cinemas'>[]) => [
+    const getCities = (cinemas: CinemaTable[]) => [
         ...new Set(cinemas.map((c) => c.location)),
     ];
-    const getCityCinemaIds = (cinemas: Tables<'cinemas'>[], city: string) =>
+    const getCityCinemaIds = (cinemas: CinemaTable[], city: string) =>
         cinemas.filter((c) => c.location === city).map((c) => c.id);
 
     const formatTime = (datetime: string) => {
@@ -160,17 +158,77 @@ function App() {
         setCurrentDate(new Date());
     };
 
-    const groupByMovie = (screeningsList: Screening[]) => {
-        const grouped: { [key: number]: Screening[] } = {};
+    const groupByMovie = (
+        screeningsList: ShowingsTable[]
+    ): Array<[string, ShowingsTable[]]> => {
+        type Group = {
+            key: string;
+            movie?: FilmTable | null;
+            screenings: ShowingsTable[];
+        };
+
+        const groups: Group[] = [];
+
         screeningsList.forEach((s) => {
-            if (!grouped[s.film_id]) grouped[s.film_id] = [];
-            grouped[s.film_id].push(s);
+            const movie = getMovie(s.film_id);
+
+            // Find an existing group for this movie using tmdb_id when present,
+            // otherwise compare title/duration/director when those fields exist.
+            let existing: Group | undefined = undefined;
+
+            if (movie) {
+                if (movie.tmdb_id != null) {
+                    existing = groups.find(
+                        (g) =>
+                            g.movie?.tmdb_id != null &&
+                            g.movie!.tmdb_id === movie.tmdb_id
+                    );
+                }
+
+                if (!existing) {
+                    existing = groups.find((g) => {
+                        const gm = g.movie;
+                        if (!gm) return false;
+                        if (movie.title && gm.title !== movie.title)
+                            return false;
+                        if (
+                            movie.duration != null &&
+                            gm.duration !== movie.duration
+                        )
+                            return false;
+                        if (movie.director && gm.director !== movie.director)
+                            return false;
+                        return true;
+                    });
+                }
+            }
+
+            if (existing) {
+                existing.screenings.push(s);
+            } else {
+                let key: string;
+                if (movie && movie.tmdb_id != null) {
+                    key = `tmdb:${movie.tmdb_id}`;
+                } else if (movie) {
+                    const parts: string[] = [];
+                    if (movie.title) parts.push(movie.title.trim());
+                    if (movie.duration != null)
+                        parts.push(String(movie.duration));
+                    if (movie.director) parts.push(movie.director.trim());
+                    key = `title:${parts.join('|')}`;
+                } else {
+                    key = `film:${s.film_id}`;
+                }
+
+                groups.push({ key, movie: movie ?? null, screenings: [s] });
+            }
         });
-        return grouped;
+
+        return groups.map((g) => [g.key, g.screenings]);
     };
 
-    const groupByCinema = (screeningsList: Screening[]) => {
-        const grouped: { [key: number]: Screening[] } = {};
+    const groupByCinema = (screeningsList: ShowingsTable[]) => {
+        const grouped: { [key: number]: ShowingsTable[] } = {};
         screeningsList.forEach((s) => {
             if (!grouped[s.cinema_id]) grouped[s.cinema_id] = [];
             grouped[s.cinema_id].push(s);
@@ -178,8 +236,8 @@ function App() {
         return grouped;
     };
 
-    const groupByDay = (screeningsList: Screening[]) => {
-        const grouped: { [key: number]: Screening[] } = {};
+    const groupByDay = (screeningsList: ShowingsTable[]) => {
+        const grouped: { [key: number]: ShowingsTable[] } = {};
         screeningsList.forEach((s) => {
             const showingDay = new Date(s.start_time).getDay();
             if (!grouped[showingDay]) grouped[showingDay] = [];
@@ -229,30 +287,30 @@ function App() {
         );
     };
 
-    const sortScreeningByStartTime = (a: Screening, b: Screening) => {
+    const sortScreeningByStartTime = (a: ShowingsTable, b: ShowingsTable) => {
         return (
             new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
         );
     };
 
     const sortGroupedByStartTime = (
-        [_k_a, a]: [unknown, Screening[]],
-        [_k_b, b]: [unknown, Screening[]]
+        [_k_a, a]: [unknown, ShowingsTable[]],
+        [_k_b, b]: [unknown, ShowingsTable[]]
     ) =>
         Math.min(...a.map((s) => new Date(s.start_time).getTime())) -
         Math.min(...b.map((s) => new Date(s.start_time).getTime()));
 
     const makeByMovieCard = ([movieId, movieScreenings]: [
         string,
-        Screening[],
+        ShowingsTable[],
     ]) => {
-        const movie = getMovie(Number(movieId));
+        // The group key is either `tmdb:<id>` or `title:...` so lookup the movie
+        // using the first screening's film_id.
+        const movie = getMovie(movieScreenings[0]?.film_id ?? -1);
         return (
             <div key={movieId} className="bg-neutral-800 rounded-lg p-6">
                 <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
-                <p className="text-neutral-400 mb-4">
-                    {movie?.duration_minutes} min
-                </p>
+                <p className="text-neutral-400 mb-4">{movie?.duration} min</p>
                 <div className="space-y-2">
                     <h4 className="text-sm font-semibold text-neutral-300">
                         {movieScreenings.length} Screening
@@ -306,14 +364,14 @@ function App() {
                                                                     ) => {
                                                                         return (
                                                                             <div>
-                                                                                {screening.url ? (
+                                                                                {screening.booking_url ? (
                                                                                     <a
                                                                                         key={
                                                                                             screening.id
                                                                                         }
                                                                                         className="text-red-500 text-neutral-300 inline underline"
                                                                                         href={
-                                                                                            screening.url
+                                                                                            screening.booking_url
                                                                                         }
                                                                                         target="_blank"
                                                                                     >
@@ -553,7 +611,7 @@ function App() {
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {Object.entries(groupByMovie(screenings))
+                        {groupByMovie(screenings)
                             .sort(sortGroupedByStartTime)
                             .map(makeByMovieCard)}
                     </div>
@@ -602,7 +660,7 @@ function App() {
                                                                 </h3>
                                                                 <p className="text-neutral-400 text-sm">
                                                                     {
-                                                                        movie?.duration_minutes
+                                                                        movie?.duration
                                                                     }{' '}
                                                                     min
                                                                 </p>

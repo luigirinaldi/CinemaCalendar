@@ -1,24 +1,41 @@
-# Workflow to build the website when a PR is opened
-name: Check Build
+# Workflow to run all scrapers and ensure they are working when a PR is opened
+name: Check Scraper
 
 on:
+    # Runs on pushes targeting the default branch
     pull_request:
         branches: ['main']
         paths:
-            - 'src/**'
+            - 'scripts/**'
             - '*.json' # shared trigger (root)
 
     # Allows you to run this workflow manually from the Actions tab
     workflow_dispatch:
 
 jobs:
-    # Single deploy job since we're just deploying
-    build:
-        name: build test
+    generate-matrix:
         runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
+
+            - id: set-matrix
+              run: |
+                  json=$(./generate_matrix.sh)
+                  echo "matrix=$json" >> $GITHUB_OUTPUT
+
+    test-scraper:
+        needs: generate-matrix
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+        steps:
+            - uses: actions/checkout@v4
+
             - name: Set up Node
               uses: actions/setup-node@v4
               with:
@@ -37,7 +54,10 @@ jobs:
             - name: Install dependencies
               if: steps.node-modules-cache.outputs.cache-hit != 'true'
               run: npm ci
-            - name: Check Formatting
-              run: npx prettier --check . # make sure everything is formatted
-            - name: Build
-              run: npm run build
+
+            - name: Run test
+              env:
+                  SCRAPER: ${{ matrix.path }}
+              run: |
+                  echo "Running test on: ${{ matrix.name }}"
+                  npm run testScraper

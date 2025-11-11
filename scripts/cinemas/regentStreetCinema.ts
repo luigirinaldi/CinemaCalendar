@@ -1,8 +1,13 @@
-import fs from 'fs';
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import type {
+    ScraperFunction,
+    CinemaShowing,
+    Film,
+    Showing,
+    FilmShowings,
+} from '../types';
 
-export async function scraper(): Promise<CinemaShowing[]> {
-    let body = {
+export const scraper: ScraperFunction = async () => {
+    const body = {
         variables: {
             date: null,
             ids: [],
@@ -15,10 +20,75 @@ export async function scraper(): Promise<CinemaShowing[]> {
             everyShowingBadgeIds: [null],
             resultVersion: null,
         },
-        query: 'query ($date: String, $ids: [ID], $movieId: ID, $movieIds: [ID], $titleClassId: ID, $titleClassIds: [ID], $siteIds: [ID], $everyShowingBadgeIds: [ID], $anyShowingBadgeIds: [ID], $resultVersion: String) {\n  showingsForDate(\n    date: $date\n    ids: $ids\n    movieId: $movieId\n    movieIds: $movieIds\n    titleClassId: $titleClassId\n    titleClassIds: $titleClassIds\n    siteIds: $siteIds\n    everyShowingBadgeIds: $everyShowingBadgeIds\n    anyShowingBadgeIds: $anyShowingBadgeIds\n    resultVersion: $resultVersion\n  ) {\n    data {\n      id\n      time\n      showingId\n      isMarathon\n      hasMarathon\n      allowSalesInMarathon\n      overrideSeatChart\n      hasSeatChart\n      overridePriceCard\n      overridePostStartTimeBufferMinutes\n      customPostStartTimeBufferMinutes\n      published\n      ticketsSold\n      marathonTicketsSold\n      ticketsPaid\n      current\n      past\n      overrideReservedSeating\n      overrideReservedSeatingValue\n      customHeldSeatCount\n      overrideHeldSeatCount\n      customMarathonSeatCount\n      overrideMarathonSeatCount\n      overrideShowingBadges\n      allowWithoutMembership\n      disableTheaterSeatDelivery\n      qrItemOrderingOnly\n      allowConsumerRefunds\n      allowConsumerQrTabWithoutPaymentMethod\n      allowItemOrdersOnline\n      private\n      isPreview\n      displayMetaData\n      overrideMaxTicketsPerOrderPerShowing\n      maxTicketsPerOrderPerShowing\n      screenId\n      originalScreenId\n      priceCardId\n      customPriceCardId\n      movie {\n        id\n        name\n        showingStatus\n        displayMetaData\n        urlSlug\n        posterImage\n        signageDisplayPoster\n        bannerImage\n        signageDisplayBanner\n        animatedPosterVideo\n        signageDisplayAnimatedPoster\n        signageMessageOverride\n        color\n        synopsis\n        starring\n        directedBy\n        producedBy\n        searchTerms\n        duration\n        genre\n        allGenres\n        rating\n        ratingReason\n        trailerYoutubeId\n        trailerVideo\n        signageDisplayTrailer\n        releaseDate\n        dateOfFirstShowing\n        overrideDateOfFirstShowing\n        hideDateOfFirstShowing\n        embargoShowingLiftedAt\n        embargoPurchaseLiftedAt\n        allowPrivateSalesOnExternal\n        isMarathon\n        predictedWeekOneTicketSales\n        tmdbPopularityScore\n        tmdbId\n        includeInComingSoon\n        includeInFuture\n        overridePriceCard\n        overridePostStartTimeBufferMinutes\n        customPostStartTimeBufferMinutes\n        sendRentrak\n        rentrakName\n        libraryChildrenShowingCount\n        showingCount\n        allowPastSales\n        dcmEdiMovieId\n        dcmEdiMovieName\n        disableOnlineConcessions\n        overrideMaxTicketsPerOrderPerShowing\n        maxTicketsPerOrderPerShowing\n        displayOrder\n        displayOrderNext\n        siteId\n        titleClassId\n        customPriceCardId\n        __typename\n      }\n      showing {\n        id\n        time\n        showingId\n        isMarathon\n        hasMarathon\n        allowSalesInMarathon\n        overrideSeatChart\n        hasSeatChart\n        overridePriceCard\n        overridePostStartTimeBufferMinutes\n        customPostStartTimeBufferMinutes\n        published\n        ticketsSold\n        marathonTicketsSold\n        ticketsPaid\n        current\n        past\n        overrideReservedSeating\n        overrideReservedSeatingValue\n        customHeldSeatCount\n        overrideHeldSeatCount\n        customMarathonSeatCount\n        overrideMarathonSeatCount\n        overrideShowingBadges\n        allowWithoutMembership\n        disableTheaterSeatDelivery\n        qrItemOrderingOnly\n        allowConsumerRefunds\n        allowConsumerQrTabWithoutPaymentMethod\n        allowItemOrdersOnline\n        private\n        isPreview\n        displayMetaData\n        overrideMaxTicketsPerOrderPerShowing\n        maxTicketsPerOrderPerShowing\n        screenId\n        originalScreenId\n        priceCardId\n        customPriceCardId\n        movie {\n          id\n          name\n          showingStatus\n          displayMetaData\n          urlSlug\n          posterImage\n          signageDisplayPoster\n          bannerImage\n          signageDisplayBanner\n          animatedPosterVideo\n          signageDisplayAnimatedPoster\n          signageMessageOverride\n          color\n          synopsis\n          starring\n          directedBy\n          producedBy\n          searchTerms\n          duration\n          genre\n          allGenres\n          rating\n          ratingReason\n          trailerYoutubeId\n          trailerVideo\n          signageDisplayTrailer\n          releaseDate\n          dateOfFirstShowing\n          overrideDateOfFirstShowing\n          hideDateOfFirstShowing\n          embargoShowingLiftedAt\n          embargoPurchaseLiftedAt\n          allowPrivateSalesOnExternal\n          isMarathon\n          predictedWeekOneTicketSales\n          tmdbPopularityScore\n          tmdbId\n          includeInComingSoon\n          includeInFuture\n          overridePriceCard\n          overridePostStartTimeBufferMinutes\n          customPostStartTimeBufferMinutes\n          sendRentrak\n          rentrakName\n          libraryChildrenShowingCount\n          showingCount\n          allowPastSales\n          dcmEdiMovieId\n          dcmEdiMovieName\n          disableOnlineConcessions\n          overrideMaxTicketsPerOrderPerShowing\n          maxTicketsPerOrderPerShowing\n          displayOrder\n          displayOrderNext\n          siteId\n          titleClassId\n          customPriceCardId\n          __typename\n        }\n        seatsRemaining\n        seatsRemainingWithoutSocialDistancing\n        __typename\n      }\n      showings {\n        id\n        time\n        showingId\n        isMarathon\n        hasMarathon\n        allowSalesInMarathon\n        overrideSeatChart\n        hasSeatChart\n        overridePriceCard\n        overridePostStartTimeBufferMinutes\n        customPostStartTimeBufferMinutes\n        published\n        ticketsSold\n        marathonTicketsSold\n        ticketsPaid\n        current\n        past\n        overrideReservedSeating\n        overrideReservedSeatingValue\n        customHeldSeatCount\n        overrideHeldSeatCount\n        customMarathonSeatCount\n        overrideMarathonSeatCount\n        overrideShowingBadges\n        allowWithoutMembership\n        disableTheaterSeatDelivery\n        qrItemOrderingOnly\n        allowConsumerRefunds\n        allowConsumerQrTabWithoutPaymentMethod\n        allowItemOrdersOnline\n        private\n        isPreview\n        displayMetaData\n        overrideMaxTicketsPerOrderPerShowing\n        maxTicketsPerOrderPerShowing\n        screenId\n        originalScreenId\n        priceCardId\n        customPriceCardId\n        movie {\n          id\n          name\n          showingStatus\n          displayMetaData\n          urlSlug\n          posterImage\n          signageDisplayPoster\n          bannerImage\n          signageDisplayBanner\n          animatedPosterVideo\n          signageDisplayAnimatedPoster\n          signageMessageOverride\n          color\n          synopsis\n          starring\n          directedBy\n          producedBy\n          searchTerms\n          duration\n          genre\n          allGenres\n          rating\n          ratingReason\n          trailerYoutubeId\n          trailerVideo\n          signageDisplayTrailer\n          releaseDate\n          dateOfFirstShowing\n          overrideDateOfFirstShowing\n          hideDateOfFirstShowing\n          embargoShowingLiftedAt\n          embargoPurchaseLiftedAt\n          allowPrivateSalesOnExternal\n          isMarathon\n          predictedWeekOneTicketSales\n          tmdbPopularityScore\n          tmdbId\n          includeInComingSoon\n          includeInFuture\n          overridePriceCard\n          overridePostStartTimeBufferMinutes\n          customPostStartTimeBufferMinutes\n          sendRentrak\n          rentrakName\n          libraryChildrenShowingCount\n          showingCount\n          allowPastSales\n          dcmEdiMovieId\n          dcmEdiMovieName\n          disableOnlineConcessions\n          overrideMaxTicketsPerOrderPerShowing\n          maxTicketsPerOrderPerShowing\n          displayOrder\n          displayOrderNext\n          siteId\n          titleClassId\n          customPriceCardId\n          __typename\n        }\n        seatsRemaining\n        seatsRemainingWithoutSocialDistancing\n        __typename\n      }\n      showingBadgeIds\n      predictedAttendance\n      seatsRemaining\n      seatsRemainingWithoutSocialDistancing\n      __typename\n    }\n    count\n    resultVersion\n    __typename\n  }\n}',
+        query: `
+          query (
+            $date: String,
+            $ids: [ID],
+            $movieId: ID,
+            $movieIds: [ID],
+            $titleClassId: ID,
+            $titleClassIds: [ID],
+            $siteIds: [ID],
+            $everyShowingBadgeIds: [ID],
+            $anyShowingBadgeIds: [ID],
+            $resultVersion: String
+          ) {
+            showingsForDate(
+              date: $date
+              ids: $ids
+              movieId: $movieId
+              movieIds: $movieIds
+              titleClassId: $titleClassId
+              titleClassIds: $titleClassIds
+              siteIds: $siteIds
+              everyShowingBadgeIds: $everyShowingBadgeIds
+              anyShowingBadgeIds: $anyShowingBadgeIds
+              resultVersion: $resultVersion
+            ) {
+              data {
+                id
+                time
+                showingId
+                screenId
+                movie {
+                  id
+                  name
+                  urlSlug
+                  posterImage
+                  synopsis
+                  starring
+                  directedBy
+                  producedBy
+                  duration
+                  genre
+                  allGenres
+                  rating
+                  ratingReason
+                  trailerYoutubeId
+                  releaseDate
+                  __typename
+                }
+                seatsRemaining
+                seatsRemainingByTicketTypeId
+                seatsRemainingWithoutSocialDistancing
+                seatChart {
+                  id
+                  name
+                  displayOrder
+                  seatCount
+                  seatChart
+                  __typename
+                }
+                __typename
+              }
+              count
+              resultVersion
+              __typename
+            }
+          }`,
     };
 
-    let headers = {
+    const headers = {
         Host: 'www.regentstreetcinema.com',
         'User-Agent':
             'Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0',
@@ -31,12 +101,11 @@ export async function scraper(): Promise<CinemaShowing[]> {
         'site-id': '85',
         'circuit-id': '19',
         'client-type': 'consumer',
-        'Content-Length': '9082',
         Origin: 'https://www.regentstreetcinema.com',
         'Sec-GPC': '1',
     };
 
-    let response = await fetch('https://www.regentstreetcinema.com/graphql', {
+    const response = await fetch('https://www.regentstreetcinema.com/graphql', {
         method: 'POST',
         body: JSON.stringify(body),
         headers: headers,
@@ -45,27 +114,104 @@ export async function scraper(): Promise<CinemaShowing[]> {
     // 👇️ const result: CreateUserResponse
     const result = await response.json();
 
-    let movie_data: object = result['data']['showingsForDate']['data'];
+    // // Save raw result to file for inspection
+    // try {
+    //     await import('fs').then(fs => {
+    //         fs.writeFileSync('regentStreetCinema_raw.json', JSON.stringify(result, null, 2));
+    //     });
+    //     console.log('Saved raw result to regentStreetCinema_raw.json');
+    // } catch (err) {
+    //     console.warn('Failed to save raw result:', err);
+    // }
 
-    let movie_info_out: Array<FilmShowing> = [];
+    // result payload has a dynamic shape; keep typing loose here
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const movie_data: any = result?.data?.showingsForDate?.data ?? {};
 
-    for (let [_key, movie] of Object.entries(movie_data)) {
-        let movie_info: FilmShowing = {
-            name: movie['movie']['name'],
-            tmdbId: movie['movie']['tmdbId'],
-            startTime: movie['time'],
-            duration: movie['movie']['duration'],
-            url:
-                'https://www.regentstreetcinema.com/checkout/showing/' +
-                movie['id'],
+    const filmsMap = new Map<string, { film: Film; showings: Showing[] }>();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries = Object.values(movie_data) as any[];
+    for (const item of entries) {
+        const movie = item.movie ?? item['movie'];
+        if (!movie) continue;
+
+        const key = movie.id ?? movie.tmdbId ?? movie.name;
+
+        const filmUrl = movie.urlSlug
+            ? `https://www.regentstreetcinema.com/film/${movie.urlSlug}`
+            : `https://www.regentstreetcinema.com/checkout/showing/${item.id}`;
+
+        if (!filmsMap.has(key)) {
+            const film: Film = {
+                title: movie.name || 'Unknown',
+                url: filmUrl,
+                director: movie.directedBy || undefined,
+                duration:
+                    typeof movie.duration === 'number'
+                        ? movie.duration
+                        : undefined,
+                language: undefined,
+                year: movie.releaseDate
+                    ? parseInt(String(movie.releaseDate).slice(0, 4))
+                    : undefined,
+                country: undefined,
+                coverUrl: movie.posterImage
+                    ? `https://indy-systems.imgix.net/${movie.posterImage}?fit=crop&w=400&h=600&fm=jpeg&auto=format,compress&cs=origin`
+                    : undefined,
+                // Store all extra metadata in rawMeta
+                rawMeta: {
+                    genre: movie.genre,
+                    allGenres: movie.allGenres,
+                    rating: movie.rating,
+                    ratingReason: movie.ratingReason,
+                    synopsis: movie.synopsis,
+                    starring: movie.starring,
+                    producedBy: movie.producedBy,
+                    color: movie.color,
+                    trailerYoutubeId: movie.trailerYoutubeId,
+                },
+            } as Film;
+            filmsMap.set(String(key), { film, showings: [] });
+        }
+
+        const entry = filmsMap.get(String(key))!;
+
+        const start = item.time || item.showing?.time || null;
+        const startISO = start ? new Date(start).toISOString() : null;
+
+        // Extra metadata to be used later if cinema screen parsing is
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const rawMeta = {
+            screenId: item.screenId,
+            seatsRemaining: item.seatsRemaining,
+            seatsRemainingByTicketTypeId: item.seatsRemainingByTicketTypeId,
+            seatsRemainingWithoutSocialDistancing:
+                item.seatsRemainingWithoutSocialDistancing,
+            seatChart: {
+                id: item.seatChart?.id,
+                name: item.seatChart?.name,
+                displayOrder: item.seatChart?.displayOrder,
+                seatCount: item.seatChart?.seatCount,
+            },
         };
-        movie_info_out.push(movie_info);
+        const showing: Showing = {
+            startTime: startISO || new Date().toISOString(),
+            bookingUrl: `https://www.regentstreetcinema.com/checkout/showing/${item.id}`,
+            theatre: item.seatChart?.name || 'Unknown Screen',
+        };
+
+        entry.showings.push(showing);
     }
-    return [
-        {
-            cinema: 'RegentStreetCinema',
-            location: 'London',
-            showings: movie_info_out,
-        },
-    ];
-}
+
+    const filmShowingsArray: FilmShowings[] = Array.from(filmsMap.values()).map(
+        ({ film, showings }) => ({ film, showings })
+    );
+
+    const resultOut: CinemaShowing = {
+        cinema: { name: 'RegentStreetCinema', location: 'London' },
+        showings: filmShowingsArray,
+    };
+
+    return [resultOut];
+};

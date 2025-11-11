@@ -1,32 +1,65 @@
 import { DateTime } from 'luxon';
-import { CinemaShowing } from '../types';
+import {
+    CinemaShowings,
+    CinemaShowingsSchema,
+    FilmShowings,
+    Showing,
+} from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'ICA';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://www.ica.art';
 
-interface Movie {
-    title: string;
-    url: string;
-    director?: string;
-    duration?: number;
-    language?: string;
-    year?: number;
-    country?: string;
+/**
+ * Try to parse a duration (in minutes) from a string by attempting several
+ * substring replacements provided in `replacements`. If all attempts fail,
+ * fall back to extracting the first integer found in the string. Returns
+ * a number on success or undefined when nothing reasonable can be parsed.
+ */
+function parseDuration(
+    durationStr: string | undefined,
+    replacements: string[] = ['min.', 'mins.', 'min', 'mins']
+): number | undefined {
+    if (!durationStr) return undefined;
+
+    const trimmed = durationStr.trim();
+
+    // Try each replacement candidate by removing it and parsing the result
+    for (const rep of replacements) {
+        const cleaned = trimmed.replace(rep, '').trim();
+        const parsed = Number(cleaned);
+        if (!isNaN(parsed)) return parsed;
+    }
+
+    // Fallback: extract the first integer found (e.g. "Runs 90 mins" -> 90)
+    const match = trimmed.match(/(\d+)/);
+    if (match) return Number(match[1]);
+
+    return undefined;
 }
 
-interface Showing {
-    startTime: string;
-    url?: string;
-    theatre?: string;
-}
-interface MovieShowing {
-    movie: Movie;
-    showings: Showing[];
-}
+// interface Movie {
+//     title: string;
+//     url: string;
+//     director?: string;
+//     duration?: number;
+//     language?: string;
+//     year?: number;
+//     country?: string;
+// }
 
-async function getUpcomingShowings(): Promise<MovieShowing[]> {
+// interface Showing {
+//     startTime: string;
+//     url?: string;
+//     theatre?: string;
+// }
+// interface MovieShowing {
+//     movie: Movie;
+//     showings: Showing[];
+// }
+
+async function getUpcomingShowings(): Promise<FilmShowings[]> {
     const response = await fetch(BASE_URL + '/upcoming');
 
     const html = await response.text();
@@ -40,7 +73,7 @@ async function getUpcomingShowings(): Promise<MovieShowing[]> {
     const allElements = viewport.querySelectorAll('*');
 
     let currentDate = '';
-    const movies: MovieShowing[] = [];
+    const movies: FilmShowings[] = [];
 
     allElements.forEach((element) => {
         // Check if this is a date element
@@ -77,14 +110,14 @@ async function getUpcomingShowings(): Promise<MovieShowing[]> {
             if (name && startTime && url) {
                 const thisFilm = movies.find(
                     (m) =>
-                        m.movie.title === name && m.movie.url === BASE_URL + url
+                        m.film.title === name && m.film.url === BASE_URL + url
                 );
 
                 if (thisFilm) {
                     thisFilm.showings.push({ startTime } as Showing);
                 } else {
                     movies.push({
-                        movie: {
+                        film: {
                             title: name,
                             url: BASE_URL + url,
                         },
@@ -105,7 +138,7 @@ async function getUpcomingShowings(): Promise<MovieShowing[]> {
     return movies;
 }
 
-async function getMovieInfo(url: string): Promise<MovieShowing | null> {
+async function getMovieInfo(url: string): Promise<FilmShowings | null> {
     const response = await fetch(url);
     const html = await response.text();
     const root = parse(html);
@@ -123,18 +156,36 @@ async function getMovieInfo(url: string): Promise<MovieShowing | null> {
         if (!title) return null;
 
         const movieYear = Number(parts.at(2)?.split(' ').at(-1));
-        const returnVal = {
-            movie: {
+        let duration = parseDuration(parts.at(3), [
+            'min.',
+            'mins.',
+            'min',
+            'mins',
+        ]);
+        let language: string | undefined = parts.slice(4).join(', ');
+        if (duration === undefined) {
+            duration = parseDuration(parts.at(-1), [
+                'min.',
+                'mins.',
+                'min',
+                'mins',
+            ]);
+            language = parts.slice(3, -1).join(', ');
+        }
+        language = language === '' ? undefined : language;
+
+        const returnVal: FilmShowings = {
+            film: {
                 title: title,
                 director: parts.at(1)?.replace('dir.', '').trim(),
-                year: movieYear,
+                year: isNaN(movieYear) ? undefined : movieYear,
                 country: parts.at(2)?.replace(movieYear?.toString(), '').trim(),
-                duration: Number(parts.at(3)?.replace('min.', '').trim()),
-                language: parts.slice(4).join(', '),
+                duration: duration === undefined ? undefined : duration,
+                language: language,
                 url: url,
             },
             showings: [],
-        } as MovieShowing;
+        };
 
         // Extract booking URL
         const bookingElement = root.querySelector('.row-mobile.row.select');
@@ -167,7 +218,7 @@ async function getMovieInfo(url: string): Promise<MovieShowing | null> {
             );
             if (!parseDate.isValid)
                 throw new Error(
-                    `${LOG_PREFIX} Failed to parse datetime: ${date} ${time}, \n${returnVal.movie}`
+                    `${LOG_PREFIX} Failed to parse datetime: ${date} ${time}, \n${returnVal.film}`
                 );
             const startTime = parseDate.toISO()?.toString();
 
@@ -175,7 +226,7 @@ async function getMovieInfo(url: string): Promise<MovieShowing | null> {
                 returnVal.showings.push({
                     startTime,
                     theatre,
-                    url: BASE_URL + bookingUrl,
+                    bookingUrl: BASE_URL + bookingUrl,
                 });
             }
         });
@@ -185,56 +236,55 @@ async function getMovieInfo(url: string): Promise<MovieShowing | null> {
     }
 }
 
-export async function scraper(): Promise<CinemaShowing[]> {
+export async function scraper(): Promise<CinemaShowings> {
     const firstPass = await getUpcomingShowings();
 
-    const filmShowings = await Promise.all(
-        firstPass.map(async (movieShowing) => {
-            try {
-                const moreInfo = await getMovieInfo(movieShowing.movie.url);
+    const filmShowings = (
+        await Promise.all(
+            firstPass.map(async (movieShowing) => {
+                try {
+                    const moreInfo = await getMovieInfo(movieShowing.film.url);
 
-                if (moreInfo) {
-                    return moreInfo;
-                } else {
-                    console.warn(
-                        `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.movie.title}, ${movieShowing.movie.url}`
+                    if (moreInfo) {
+                        return moreInfo;
+                    } else {
+                        console.warn(
+                            `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title.replace('\n', '')}, ${movieShowing.film.url}`
+                        );
+                        return movieShowing;
+                    }
+                } catch (e) {
+                    console.error(
+                        `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
                     );
+                    console.error(e);
                     return movieShowing;
                 }
-            } catch (e) {
-                console.error(
-                    `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
-                );
-                console.error(e);
-                return movieShowing;
-            }
-        })
-    );
+            })
+        )
+    ).filter((fs) => fs.showings.length > 0);
 
     return [
         {
-            cinema: CINEMA_NAME,
-            location: 'London',
-            showings: filmShowings.flatMap((ms) =>
-                ms.showings.map((s) => {
-                    return {
-                        name: ms.movie.title,
-                        duration: ms.movie.duration ? ms.movie.duration : 0,
-                        startTime: s.startTime,
-                        url: s.url ? s.url : ms.movie.url,
-                        tmdbId: null,
-                    };
-                })
-            ),
+            cinema: {
+                name: CINEMA_NAME,
+                location: 'London',
+                coordinates: {
+                    lat: `51º30'14.39" N`,
+                    lng: `0º07'30" W`,
+                },
+            },
+            showings: filmShowings,
         },
     ];
 }
 
 // main.ts
 async function main() {
-    const result = await scraper();
-    console.log(result);
     console.log('Running as main script');
+    const result = await scraper();
+    const trustedResult = CinemaShowingsSchema.parse(result);
+    console.log(trustedResult);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

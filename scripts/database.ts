@@ -16,7 +16,7 @@ export async function connectDB() {
         throw new Error('Missing Supabase Project ID');
     }
 
-    if (process.env.API_KEY === undefined) {
+    if (process.env.DB_PASSWORD === undefined) {
         throw new Error('Missing Supabase database API Key');
     }
 

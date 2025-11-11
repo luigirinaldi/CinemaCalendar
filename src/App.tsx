@@ -8,7 +8,14 @@ import {
     ChevronRight,
 } from 'lucide-react';
 
-import { fetchCinemas, fetchMovies, fetchScreenings, type CinemaTable, type FilmTable, type ShowingsTable } from './api';
+import {
+    fetchCinemas,
+    fetchMovies,
+    fetchScreenings,
+    type CinemaTable,
+    type FilmTable,
+    type ShowingsTable,
+} from './api';
 
 type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
 type GroupBy = 'movie' | 'cinema';
@@ -241,9 +248,7 @@ function App() {
         return (
             <div key={movieId} className="bg-neutral-800 rounded-lg p-6">
                 <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
-                <p className="text-neutral-400 mb-4">
-                    {movie?.duration} min
-                </p>
+                <p className="text-neutral-400 mb-4">{movie?.duration} min</p>
                 <div className="space-y-2">
                     <h4 className="text-sm font-semibold text-neutral-300">
                         {movieScreenings.length} Screening

@@ -105,10 +105,20 @@ function App() {
 
     const handleYearRangeChange = useCallback((start: number, end: number) => {
         setYearRange([start, end]);
-    }, []); // Empty deps = stable function reference
+    }, []); 
 
+    const filterScreeningByYear = (screenings : ShowingsTable[]) => {
+        return screenings.filter(s => {
+                const movie = getMovie(s.film_id);
+                if (yearRange) {
+                    if (movie && movie.release_year !== null) return movie.release_year <= yearRange[1] && movie.release_year >= yearRange[0]
+                    else return false
+                } else return true
+            })
+    } 
 
     const getMovie = (id: number) => movies.find((m) => m.id === id);
+
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     const getCities = (cinemas: CinemaTable[]) => [
@@ -626,13 +636,13 @@ function App() {
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {groupByMovie(screenings)
+                        {groupByMovie(filterScreeningByYear(screenings))
                             .sort(sortGroupedByStartTime)
                             .map(makeByMovieCard)}
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        {Object.entries(groupByCinema(screenings)).map(
+                        {Object.entries(groupByCinema(filterScreeningByYear(screenings))).map(
                             ([cinemaId, cinemaScreenings]) => {
                                 const cinema = getCinema(Number(cinemaId));
                                 return (

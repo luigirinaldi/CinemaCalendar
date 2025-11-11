@@ -21,10 +21,10 @@ interface YearFilterProps {
 function YearFilter({ movies, onRangeChange }: YearFilterProps) {
     const currentYear = new Date().getFullYear();
     const [selectedPreset, setSelectedPreset] =
-        useState<YearFilterPreset>('all');
+        useState<YearFilterPreset>('thisYear');
     const [isDetailedOpen, setIsDetailedOpen] = useState(false);
     const [customRange, setCustomRange] = useState<[number, number]>([
-        1940,
+        currentYear,
         currentYear,
     ]);
     const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
@@ -34,6 +34,7 @@ function YearFilter({ movies, onRangeChange }: YearFilterProps) {
         console.log(movies)
         const minYear = Math.min(...movies);
         const maxYear = Math.max(...movies);
+        setCustomRange([minYear, maxYear]);
         const yearCounts: { [key: number]: number } = {};
 
         // Count movies per year

@@ -1,4 +1,4 @@
-import type { CinemaShowing } from '../../src/types';
+import type { CinemaShowing } from '../types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
     const response = await fetch(
@@ -18,10 +18,10 @@ export async function scraper(): Promise<CinemaShowing[]> {
         {
             cinema: 'RexCinema',
             location: 'Padova',
-            showings: data.titoli.flatMap((film) =>
-                film.eventi.map((show) => ({
+            showings: data.titoli.flatMap((film: { eventi: any[]; titolo: any; durata: string | number; }) =>
+                film.eventi.map((show: { id_cinebot: any; inizio: string | number | Date; }) => ({
                     name: film.titolo,
-                    tmdbId: show.id_cinebot,
+                    localId: show.id_cinebot,
                     startTime: new Date(show.inizio).toISOString(),
                     duration: +film.durata, // the '+' converts the string to number
                 }))

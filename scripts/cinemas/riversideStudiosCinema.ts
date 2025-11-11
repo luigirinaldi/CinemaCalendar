@@ -1,4 +1,4 @@
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import { CinemaShowing, FilmShowing } from '../types';
 import { DateTime } from 'luxon';
 
 const CINEMA_NAME = 'Riverside Studios';
@@ -50,7 +50,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
                             startTime: startTime,
                             duration: duration,
                             url: event['url'],
-                            tmdbId: null,
+                            localId: null,
                         } as FilmShowing;
                     else return [];
                 });

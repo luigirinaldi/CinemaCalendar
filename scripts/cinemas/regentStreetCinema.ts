@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { CinemaShowing, FilmShowing } from '../../src/types';
+import { CinemaShowing, FilmShowing } from '../types';
 
 export async function scraper(): Promise<CinemaShowing[]> {
     let body = {
@@ -52,7 +52,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
     for (let [_key, movie] of Object.entries(movie_data)) {
         let movie_info: FilmShowing = {
             name: movie['movie']['name'],
-            tmdbId: movie['movie']['tmdbId'],
+            localId: movie['movie']['tmdbId'], // NOTE: should decide if use it to make optimizations
             startTime: movie['time'],
             duration: movie['movie']['duration'],
             url:

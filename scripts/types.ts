@@ -1,6 +1,6 @@
 export interface FilmShowing {
     name: string;
-    tmdbId: number | string | null;
+    localId: number | string | null;
     startTime: string;
     endTime?: string;
     duration: number;

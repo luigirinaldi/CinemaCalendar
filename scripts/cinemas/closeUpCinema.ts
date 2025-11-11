@@ -59,7 +59,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
                 film_showings.push({
                     name: regex_res.title,
-                    tmdbId: null,
+                    localId: null,
                     startTime: new Date(date_time).toISOString(),
                     duration: 0,
                     url: url,

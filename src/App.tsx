@@ -179,7 +179,9 @@ function App() {
             if (movie) {
                 if (movie.tmdb_id != null) {
                     existing = groups.find(
-                        (g) => g.movie?.tmdb_id != null && g.movie!.tmdb_id === movie.tmdb_id
+                        (g) =>
+                            g.movie?.tmdb_id != null &&
+                            g.movie!.tmdb_id === movie.tmdb_id
                     );
                 }
 
@@ -187,10 +189,15 @@ function App() {
                     existing = groups.find((g) => {
                         const gm = g.movie;
                         if (!gm) return false;
-                        if (movie.title && gm.title !== movie.title) return false;
-                        if (movie.duration != null && gm.duration !== movie.duration)
+                        if (movie.title && gm.title !== movie.title)
                             return false;
-                        if (movie.director && gm.director !== movie.director) return false;
+                        if (
+                            movie.duration != null &&
+                            gm.duration !== movie.duration
+                        )
+                            return false;
+                        if (movie.director && gm.director !== movie.director)
+                            return false;
                         return true;
                     });
                 }
@@ -205,7 +212,8 @@ function App() {
                 } else if (movie) {
                     const parts: string[] = [];
                     if (movie.title) parts.push(movie.title.trim());
-                    if (movie.duration != null) parts.push(String(movie.duration));
+                    if (movie.duration != null)
+                        parts.push(String(movie.duration));
                     if (movie.director) parts.push(movie.director.trim());
                     key = `title:${parts.join('|')}`;
                 } else {

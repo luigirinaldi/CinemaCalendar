@@ -191,7 +191,7 @@ async function updateFilmMetadata(db: SupabaseClient<Database>) {
         .from('films')
         .select('id, title, duration_minutes')
         .is('tmdb_id', null)
-        .range(cursor, cursor + 99);
+        .range(cursor, cursor + CHUNK_DEFAULT_SIZE-1);
         cursor += CHUNK_DEFAULT_SIZE;
         
         if (film_data.error) { // !== null

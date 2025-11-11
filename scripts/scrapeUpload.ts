@@ -27,15 +27,15 @@ async function main() {
         await scrapeAndStore(scraperName, scraperFun, db);
     } catch (e) {
         if (e instanceof ZodError) {
-            console.log(e);
-            console.log(`📜 Scraper '${scraperName}' parsing error`);
-        } else {
-            console.error(`‼️ Scraper '${scraperName}' threw an error:`);
             console.error(e);
+            throw new Error(`📜 Scraper '${scraperName}' parsing error`);
+        } else {
+            console.error(e);
+            throw new Error(`‼️ Scraper '${scraperName}' threw an error`);
         }
+    } finally {
+        await db.destroy();
     }
-
-    await db.destroy();
 }
 
 main();

@@ -1,5 +1,5 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Scrape information from cinemas and store it on the database
+# Workflow to run all scrapers
+name: Run all scrapers
 
 on:
     # Runs on pushes targeting the default branch
@@ -12,20 +12,30 @@ on:
     # Allows you to run this workflow manually from the Actions tab
     workflow_dispatch:
 
-# Allow one concurrent deployment
-concurrency:
-    group: 'scrape'
-    cancel-in-progress: true
-
 jobs:
-    scraper:
+    generate-matrix:
         runs-on: ubuntu-latest
-        env:
-            API_KEY: ${{ secrets.PROD_API_KEY }}
-            SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        outputs:
+            matrix: ${{ steps.set-matrix.outputs.matrix }}
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
+
+            - id: set-matrix
+              run: |
+                  json=$(./generate_matrix.sh)
+                  echo "matrix=$json" >> $GITHUB_OUTPUT
+
+    scraper:
+        needs: generate-matrix
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                include: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+
+        steps:
+            - uses: actions/checkout@v4
+
             - name: Set up Node
               uses: actions/setup-node@v4
               with:
@@ -40,12 +50,14 @@ jobs:
                   key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
                   restore-keys: |
                       ${{ runner.os }}-node-modules-
-
             # Install dependencies ONLY if cache miss
             - name: Install dependencies
               if: steps.node-modules-cache.outputs.cache-hit != 'true'
               run: npm ci
-            - name: Install dependencies
-              run: npm ci
-            - name: Run Scraping
-              run: npm run get_data
+
+            - name: Run scraper
+              env:
+                  SCRAPER: ${{ matrix.path }}
+              run: |
+                  echo "Running test on: ${{ matrix.name }}"
+                  npx tsx ./scripts/scrapeUpload.ts

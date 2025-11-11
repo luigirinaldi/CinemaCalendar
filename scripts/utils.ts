@@ -90,16 +90,34 @@ export function collectCinemaStats(cinema: CinemaShowing): CinemaStats {
         totalFilms,
         totalShowings,
         filmLevel: {
-            director: { count: countDirector, pct: pct(countDirector, totalFilms) },
-            duration: { count: countDuration, pct: pct(countDuration, totalFilms) },
-            language: { count: countLanguage, pct: pct(countLanguage, totalFilms) },
+            director: {
+                count: countDirector,
+                pct: pct(countDirector, totalFilms),
+            },
+            duration: {
+                count: countDuration,
+                pct: pct(countDuration, totalFilms),
+            },
+            language: {
+                count: countLanguage,
+                pct: pct(countLanguage, totalFilms),
+            },
             year: { count: countYear, pct: pct(countYear, totalFilms) },
-            country: { count: countCountry, pct: pct(countCountry, totalFilms) },
+            country: {
+                count: countCountry,
+                pct: pct(countCountry, totalFilms),
+            },
             coverUrl: { count: countCover, pct: pct(countCover, totalFilms) },
         },
         showingLevel: {
-            bookingUrl: { count: countBookingUrl, pct: pct(countBookingUrl, totalShowings) },
-            theatre: { count: countTheatre, pct: pct(countTheatre, totalShowings) },
+            bookingUrl: {
+                count: countBookingUrl,
+                pct: pct(countBookingUrl, totalShowings),
+            },
+            theatre: {
+                count: countTheatre,
+                pct: pct(countTheatre, totalShowings),
+            },
         },
     };
 }
@@ -114,16 +132,32 @@ export function printCinemaStats(cinema: CinemaShowing, label?: string) {
     console.info(`  total showings: ${s.totalShowings}`);
 
     console.info('\n  Film-level fields:');
-    console.info(`    director: ${s.filmLevel.director.count} (${pct(s.filmLevel.director.pct)})`);
-    console.info(`    duration: ${s.filmLevel.duration.count} (${pct(s.filmLevel.duration.pct)})`);
-    console.info(`    language: ${s.filmLevel.language.count} (${pct(s.filmLevel.language.pct)})`);
-    console.info(`    year:     ${s.filmLevel.year.count} (${pct(s.filmLevel.year.pct)})`);
-    console.info(`    country:  ${s.filmLevel.country.count} (${pct(s.filmLevel.country.pct)})`);
-    console.info(`    coverUrl: ${s.filmLevel.coverUrl.count} (${pct(s.filmLevel.coverUrl.pct)})`);
+    console.info(
+        `    director: ${s.filmLevel.director.count} (${pct(s.filmLevel.director.pct)})`
+    );
+    console.info(
+        `    duration: ${s.filmLevel.duration.count} (${pct(s.filmLevel.duration.pct)})`
+    );
+    console.info(
+        `    language: ${s.filmLevel.language.count} (${pct(s.filmLevel.language.pct)})`
+    );
+    console.info(
+        `    year:     ${s.filmLevel.year.count} (${pct(s.filmLevel.year.pct)})`
+    );
+    console.info(
+        `    country:  ${s.filmLevel.country.count} (${pct(s.filmLevel.country.pct)})`
+    );
+    console.info(
+        `    coverUrl: ${s.filmLevel.coverUrl.count} (${pct(s.filmLevel.coverUrl.pct)})`
+    );
 
     console.info('\n  Showing-level fields:');
-    console.info(`    bookingUrl: ${s.showingLevel.bookingUrl.count} (${pct(s.showingLevel.bookingUrl.pct)})`);
-    console.info(`    theatre:    ${s.showingLevel.theatre.count} (${pct(s.showingLevel.theatre.pct)})`);
+    console.info(
+        `    bookingUrl: ${s.showingLevel.bookingUrl.count} (${pct(s.showingLevel.bookingUrl.pct)})`
+    );
+    console.info(
+        `    theatre:    ${s.showingLevel.theatre.count} (${pct(s.showingLevel.theatre.pct)})`
+    );
 }
 
 export async function fetchAndParseICS<T = unknown>(

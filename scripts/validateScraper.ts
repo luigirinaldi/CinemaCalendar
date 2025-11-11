@@ -1,91 +1,129 @@
-
 import { ZodError } from 'zod';
 import { CinemaShowingsSchema, ScraperFunction } from './types';
 import { printCinemaStats } from './utils';
 import fs from 'fs';
 import path from 'path';
 
-
 async function testAll() {
     const dir = path.join('./scripts', 'cinemas');
-    const files = fs.readdirSync(dir)
-        .filter(f => f.endsWith('.ts'));
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts'));
 
-    const statsTable: Array<{ cinema: string, films: number, showings: number, director: string, duration: string, language: string, year: string, country: string, coverUrl: string, bookingUrl: string, theatre: string }> = [];
+    const statsTable: Array<{
+        cinema: string;
+        films: number;
+        showings: number;
+        director: string;
+        duration: string;
+        language: string;
+        year: string;
+        country: string;
+        coverUrl: string;
+        bookingUrl: string;
+        theatre: string;
+    }> = [];
 
-    await Promise.all(files.map(async file => {    
-        let module;
-        try {
-            module = await import('./cinemas/' + file);
-        } catch (err) {
-            console.error(`❌ Failed to import ${file}:`, err);
-            return;
-        }
-        if (typeof module.scraper !== 'function') {
-            console.warn(`❌ No 'scraper' function found in ${file}`);
-            return;
-        }
-        console.log(`☑️ Loaded scraper from ${file}`);
-        const scraperFun = module.scraper as ScraperFunction;
-        let trustedResult;
-        try {
-            const rawResult = await scraperFun();
-            trustedResult = CinemaShowingsSchema.parse(rawResult);
-        } catch (e) {
-            if (e instanceof ZodError) {
-                console.error(e);
-                console.error(`📜 Scraper failed to return data in correct format for ${file}`);
-                return;
-            } else {
-                console.error(`‼️ Scraper '${file}' threw an error:`);
-                console.error(e);
+    await Promise.all(
+        files.map(async (file) => {
+            let module;
+            try {
+                module = await import('./cinemas/' + file);
+            } catch (err) {
+                console.error(`❌ Failed to import ${file}:`, err);
                 return;
             }
-        }
-        for (const cinema of trustedResult) {
-            const totalFilms = cinema.showings.length;
-            const totalShowings = cinema.showings.reduce((acc, f) => acc + f.showings.length, 0);
-            let countDirector = 0, countYear = 0, countCountry = 0, countCover = 0, countDuration = 0, countLanguage = 0;
-            let countBookingUrl = 0, countTheatre = 0;
-            for (const fs of cinema.showings) {
-                const film = fs.film;
-                if (film.director) countDirector++;
-                if (typeof film.year === 'number') countYear++;
-                if (film.country) countCountry++;
-                if (film.coverUrl) countCover++;
-                if (typeof film.duration === 'number' && film.duration > 0) countDuration++;
-                if (film.language) countLanguage++;
-                for (const s of fs.showings) {
-                    if (s.bookingUrl) countBookingUrl++;
-                    if (s.theatre) countTheatre++;
+            if (typeof module.scraper !== 'function') {
+                console.warn(`❌ No 'scraper' function found in ${file}`);
+                return;
+            }
+            console.log(`☑️ Loaded scraper from ${file}`);
+            const scraperFun = module.scraper as ScraperFunction;
+            let trustedResult;
+            try {
+                const rawResult = await scraperFun();
+                trustedResult = CinemaShowingsSchema.parse(rawResult);
+            } catch (e) {
+                if (e instanceof ZodError) {
+                    console.error(e);
+                    console.error(
+                        `📜 Scraper failed to return data in correct format for ${file}`
+                    );
+                    return;
+                } else {
+                    console.error(`‼️ Scraper '${file}' threw an error:`);
+                    console.error(e);
+                    return;
                 }
             }
-            const pct = (n: number, total: number) => total === 0 ? '0.0%' : ((n / total) * 100).toFixed(1) + '%';
-            statsTable.push({
-                cinema: cinema.cinema.name,
-                films: totalFilms,
-                showings: totalShowings,
-                director: `${countDirector} (${pct(countDirector, totalFilms)})`,
-                duration: `${countDuration} (${pct(countDuration, totalFilms)})`,
-                language: `${countLanguage} (${pct(countLanguage, totalFilms)})`,
-                year: `${countYear} (${pct(countYear, totalFilms)})`,
-                country: `${countCountry} (${pct(countCountry, totalFilms)})`,
-                coverUrl: `${countCover} (${pct(countCover, totalFilms)})`,
-                bookingUrl: `${countBookingUrl} (${pct(countBookingUrl, totalShowings)})`,
-                theatre: `${countTheatre} (${pct(countTheatre, totalShowings)})`,
-            });
-        }
-    }));
+            for (const cinema of trustedResult) {
+                const totalFilms = cinema.showings.length;
+                const totalShowings = cinema.showings.reduce(
+                    (acc, f) => acc + f.showings.length,
+                    0
+                );
+                let countDirector = 0,
+                    countYear = 0,
+                    countCountry = 0,
+                    countCover = 0,
+                    countDuration = 0,
+                    countLanguage = 0;
+                let countBookingUrl = 0,
+                    countTheatre = 0;
+                for (const fs of cinema.showings) {
+                    const film = fs.film;
+                    if (film.director) countDirector++;
+                    if (typeof film.year === 'number') countYear++;
+                    if (film.country) countCountry++;
+                    if (film.coverUrl) countCover++;
+                    if (typeof film.duration === 'number' && film.duration > 0)
+                        countDuration++;
+                    if (film.language) countLanguage++;
+                    for (const s of fs.showings) {
+                        if (s.bookingUrl) countBookingUrl++;
+                        if (s.theatre) countTheatre++;
+                    }
+                }
+                const pct = (n: number, total: number) =>
+                    total === 0 ? '0.0%' : ((n / total) * 100).toFixed(1) + '%';
+                statsTable.push({
+                    cinema: cinema.cinema.name,
+                    films: totalFilms,
+                    showings: totalShowings,
+                    director: `${countDirector} (${pct(countDirector, totalFilms)})`,
+                    duration: `${countDuration} (${pct(countDuration, totalFilms)})`,
+                    language: `${countLanguage} (${pct(countLanguage, totalFilms)})`,
+                    year: `${countYear} (${pct(countYear, totalFilms)})`,
+                    country: `${countCountry} (${pct(countCountry, totalFilms)})`,
+                    coverUrl: `${countCover} (${pct(countCover, totalFilms)})`,
+                    bookingUrl: `${countBookingUrl} (${pct(countBookingUrl, totalShowings)})`,
+                    theatre: `${countTheatre} (${pct(countTheatre, totalShowings)})`,
+                });
+            }
+        })
+    );
     // Print table
     if (statsTable.length === 0) {
         console.log('No valid cinema data found.');
         return;
     }
-    const columns = ['cinema', 'films', 'showings', 'director', 'duration', 'language', 'year', 'country', 'coverUrl', 'bookingUrl', 'theatre'];
-    const header = columns.map(c => c.padEnd(16)).join('');
+    const columns = [
+        'cinema',
+        'films',
+        'showings',
+        'director',
+        'duration',
+        'language',
+        'year',
+        'country',
+        'coverUrl',
+        'bookingUrl',
+        'theatre',
+    ];
+    const header = columns.map((c) => c.padEnd(16)).join('');
     console.log('\n' + header);
     for (const row of statsTable) {
-        const line = columns.map(c => String((row as Record<string, unknown>)[c]).padEnd(16)).join('');
+        const line = columns
+            .map((c) => String((row as Record<string, unknown>)[c]).padEnd(16))
+            .join('');
         console.log(line);
     }
 }

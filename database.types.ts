@@ -88,24 +88,35 @@ export type Database = {
                     created_at: string;
                     duration_minutes: number | null;
                     id: number;
+                    local_id: string | null;
                     title: string;
-                    tmdb_id: string | null;
+                    tmdb_id: number | null;
                 };
                 Insert: {
                     created_at?: string;
                     duration_minutes?: number | null;
                     id?: number;
+                    local_id?: string | null;
                     title: string;
-                    tmdb_id?: string | null;
+                    tmdb_id?: number | null;
                 };
                 Update: {
                     created_at?: string;
                     duration_minutes?: number | null;
                     id?: number;
+                    local_id?: string | null;
                     title?: string;
-                    tmdb_id?: string | null;
+                    tmdb_id?: number | null;
                 };
-                Relationships: [];
+                Relationships: [
+                    {
+                        foreignKeyName: 'films_tmdb_id_fkey';
+                        columns: ['tmdb_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'tmdb_films';
+                        referencedColumns: ['id'];
+                    },
+                ];
             };
             new_cinemas: {
                 Row: {
@@ -234,6 +245,60 @@ export type Database = {
                         referencedColumns: ['id'];
                     },
                 ];
+            };
+            tmdb_films: {
+                Row: {
+                    adult: boolean;
+                    backdrop_path: string | null;
+                    created_at: string;
+                    genre_ids: number[];
+                    id: number;
+                    original_language: string;
+                    original_title: string;
+                    overview: string;
+                    popularity: number;
+                    poster_path: string | null;
+                    release_date: string;
+                    title: string;
+                    video: boolean;
+                    vote_average: number;
+                    vote_count: number;
+                };
+                Insert: {
+                    adult: boolean;
+                    backdrop_path?: string | null;
+                    created_at?: string;
+                    genre_ids: number[];
+                    id: number;
+                    original_language: string;
+                    original_title: string;
+                    overview: string;
+                    popularity: number;
+                    poster_path?: string | null;
+                    release_date: string;
+                    title: string;
+                    video: boolean;
+                    vote_average: number;
+                    vote_count: number;
+                };
+                Update: {
+                    adult?: boolean;
+                    backdrop_path?: string | null;
+                    created_at?: string;
+                    genre_ids?: number[];
+                    id?: number;
+                    original_language?: string;
+                    original_title?: string;
+                    overview?: string;
+                    popularity?: number;
+                    poster_path?: string | null;
+                    release_date?: string;
+                    title?: string;
+                    video?: boolean;
+                    vote_average?: number;
+                    vote_count?: number;
+                };
+                Relationships: [];
             };
         };
         Views: {

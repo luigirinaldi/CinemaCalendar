@@ -16,8 +16,8 @@ export async function connectDB() {
         throw new Error('Missing Supabase Project ID');
     }
 
-    if (process.env.API_KEY === undefined) {
-        throw new Error('Missing Supabase database API Key');
+    if (process.env.DB_PASSWORD === undefined) {
+        throw new Error('Missing Supabase database password');
     }
 
     // const supabase_db_url = `postgresql://postgres:${process.env.DB_PASSWORD}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`

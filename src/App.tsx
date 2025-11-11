@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Calendar,
     Film,
@@ -16,6 +16,8 @@ import {
     type FilmTable,
     type ShowingsTable,
 } from './api';
+
+import YearFilter from './components/YearFilter';
 
 type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
 type GroupBy = 'movie' | 'cinema';
@@ -35,6 +37,7 @@ function App() {
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
     const [city, setCity] = useState<string>('');
+    const [yearRange, setYearRange] = useState<[number, number] | null>(null);
 
     useEffect(() => {
         // Fetch movie and cinema information once at the website load
@@ -99,6 +102,11 @@ function App() {
         };
         fetchData();
     }, [dateRange, currentDate, customStartDate, customEndDate, city, cinemas]);
+
+    const handleYearRangeChange = useCallback((start: number, end: number) => {
+        setYearRange([start, end]);
+    }, []); // Empty deps = stable function reference
+
 
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
@@ -597,6 +605,13 @@ function App() {
                                 </button>
                             </div>
                         </div>
+                        <YearFilter
+                            movies={screenings.map(s => getMovie(s.film_id)).filter(m => m !== undefined).reduce((acc : FilmTable[], movie) => {
+                                if (acc.find(m => m.title === movie.title) === undefined) return acc.concat([movie])
+                                else return acc
+                            }, [] ).map(m => m.release_year).filter(n => n !== null)}
+                            onRangeChange={handleYearRangeChange}
+                        />
                     </div>
                 </div>
             </header>

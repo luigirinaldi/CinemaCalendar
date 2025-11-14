@@ -5,6 +5,7 @@ import 'dotenv/config';
 import { ZodError } from 'zod';
 import { connectDB } from './database';
 import { scrapeAndStore } from './utils';
+import { updateFilmMetadata } from './metadata';
 
 async function main() {
     const stepFiles = readdirSync('./scripts/cinemas');
@@ -38,6 +39,8 @@ async function main() {
             }
         })
     );
+
+    await updateFilmMetadata(db);
 
     await db.destroy();
 }

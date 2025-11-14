@@ -1,8 +1,9 @@
 // Types
 export interface Movie {
-    id: string;
+    id: number;
     title: string;
     duration: number;
+    release_date?: string;
 }
 
 export interface Cinema {

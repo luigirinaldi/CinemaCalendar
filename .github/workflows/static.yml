@@ -30,27 +30,9 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
-            - name: Set up Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: lts/*
-                  cache: 'npm'
-            # Restore node_modules cache
-            - name: Cache node_modules
-              id: node-modules-cache
-              uses: actions/cache@v4
-              with:
-                  path: node_modules
-                  key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
-                  restore-keys: |
-                      ${{ runner.os }}-node-modules-
+            
+            - uses: ./.github/workflows/node-cache
 
-            # Install dependencies ONLY if cache miss
-            - name: Install dependencies
-              if: steps.node-modules-cache.outputs.cache-hit != 'true'
-              run: npm ci
-            - name: Install dependencies
-              run: npm ci
             - name: Build
               run: npm run build
               env:

@@ -10,7 +10,8 @@
         "lint": "eslint .",
         "preview": "vite preview",
         "format": "prettier --write .",
-        "testScraper": "npx tsx scripts/validateScraper.ts",
+        "get_tmdb_id": "npx tsx scripts/getTmdbId.ts",
+        "test_scraper": "npx tsx scripts/validateScraper.ts",
         "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format"
     },
     "devDependencies": {

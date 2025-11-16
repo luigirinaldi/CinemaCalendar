@@ -35,25 +35,7 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
-
-            - name: Set up Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: lts/*
-                  cache: 'npm'
-            # Restore node_modules cache
-            - name: Cache node_modules
-              id: node-modules-cache
-              uses: actions/cache@v4
-              with:
-                  path: node_modules
-                  key: ${{ runner.os }}-node-modules-${{ hashFiles('**/package-lock.json') }}
-                  restore-keys: |
-                      ${{ runner.os }}-node-modules-
-            # Install dependencies ONLY if cache miss
-            - name: Install dependencies
-              if: steps.node-modules-cache.outputs.cache-hit != 'true'
-              run: npm ci
+            - uses: ./.github/workflows/node-cache
 
             - name: Run scraper
               env:
@@ -63,3 +45,17 @@ jobs:
               run: |
                   echo "Running test on: ${{ matrix.name }}"
                   npx tsx ./scripts/scrapeUpload.ts
+
+    add-tmdb-id:
+        needs: scraper
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/workflows/node-cache
+
+            - name: Run get TMDB id
+              env:
+                  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+                  TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+              run: npm run get_tmdb_id

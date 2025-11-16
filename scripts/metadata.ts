@@ -33,14 +33,6 @@ type TMDBSearch = {
     total_results: number;
 };
 
-const OPTIONS = {
-    method: 'GET',
-    headers: {
-        accept: 'application/json',
-        Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
-    }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
-};
-
 // TODO: add search by director
 async function getTMDB(
     film: Film,
@@ -50,7 +42,7 @@ async function getTMDB(
         // if there is no release date, set the current year as fallback
         film.release_year = new Date().getFullYear();
     }
-    let search = await searchOnTMDB(film, verbose);
+    const search = await searchOnTMDB(film, verbose);
     if (!search || search.total_results == 0) {
         if (verbose)
             console.error(
@@ -58,7 +50,7 @@ async function getTMDB(
             );
         return null;
     }
-    let TMDBMovie = search.results[0];
+    const TMDBMovie = search.results[0];
     // try to find the best match among multiple results
     // if (search.results.length > 1) {
     //     TMDBMovie = await guessMovie(search, film);
@@ -70,7 +62,19 @@ async function searchOnTMDB(
     film: Film,
     verbose: boolean
 ): Promise<TMDBSearch | null> {
-    let title = film.title;
+    if (process.env.TMDB_API_KEY === undefined) {
+        throw new Error('Missing Supabase Project ID');
+    }
+
+    const OPTIONS = {
+        method: 'GET',
+        headers: {
+            accept: 'application/json',
+            Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
+        }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
+    };
+
+    const title = film.title;
     for (let i = 0; i < 3; i++) {
         // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
         // if it doesn't work, it could be useful retrying with primary_release_year instead of year
@@ -142,12 +146,16 @@ async function updateFilmMetadata(db: Kysely<DB>) {
     // pick a lower number if TMDB API blocks some requests
     const CHUNK_DEFAULT_SIZE = 100;
 
+    let tmdb_null_films = 0;
+
     let film_data = await db
         .selectFrom('new_films')
         .select(['id', 'title', 'release_year', 'director'])
         .where('tmdb_id', 'is', null)
         .limit(CHUNK_DEFAULT_SIZE)
         .execute();
+
+    tmdb_null_films += film_data.length;
 
     let cursor = CHUNK_DEFAULT_SIZE;
     const tmdb_objs: TMDBObj[] = [];
@@ -185,22 +193,35 @@ async function updateFilmMetadata(db: Kysely<DB>) {
             .limit(CHUNK_DEFAULT_SIZE)
             .execute();
         cursor += CHUNK_DEFAULT_SIZE;
+        tmdb_null_films += film_data.length;
     }
+
+    console.log(`Found ${tmdb_null_films} movies with missing tmdb ids`);
+    console.log(
+        `Identified ${tmdb_objs.length} new tmdb entries, ${tmdb_objs.length == 0 ? 0 : tmdb_objs.length / tmdb_null_films} of total missing ids`
+    );
 
     // Update entries in TMDB table
     if (tmdb_objs.length > 0) {
         try {
-            await db
+            const insertResult = await db
                 .insertInto('tmdb_films')
                 .values(tmdb_objs)
                 .onConflict((oc) => oc.doNothing())
                 .execute();
             console.log('TMDB metadata update: SUCCESS');
+            console.log(
+                `Inserted ${insertResult[0].numInsertedOrUpdatedRows} new tmdb movies`
+            );
         } catch (error) {
             console.error('TMDB metadata error:', error);
             return; // avoid updating TMDB ids on film rows without first updating TMDB metadata
         }
     }
+
+    console.log(
+        `Identified ${updated_films.length} to update, ${updated_films.length == 0 ? 0 : updated_films.length / tmdb_null_films} of total movies missing ids`
+    );
 
     // Update the new_films with their TMDB IDs
     if (updated_films.length > 0) {
@@ -210,7 +231,7 @@ async function updateFilmMetadata(db: Kysely<DB>) {
             );
             const ids = Array.from(updateMap.keys());
 
-            await db
+            const insertResult = await db
                 .updateTable('new_films')
                 .set({
                     tmdb_id: sql<number | null>`CASE ${sql.raw(
@@ -225,6 +246,9 @@ async function updateFilmMetadata(db: Kysely<DB>) {
                 .where('id', 'in', ids)
                 .execute();
             console.log('TMDB id update: SUCCESS');
+            console.log(
+                `Updated ${insertResult[0].numUpdatedRows} ids in the films table`
+            );
         } catch (error) {
             console.error('TMDB id update error:', error);
         }

@@ -98,10 +98,10 @@ async function searchOnTMDB(
             }
         }
     }
-    if (verbose)
-        console.error(
-            `Failed to get TMDB results for ${film.title} (${film.release_year})`
-        );
+    // if (verbose)
+    //     console.error(
+    //         `Failed to get TMDB results for ${film.title} (${film.release_year})`
+    //     );
     return null;
 }
 
@@ -168,20 +168,34 @@ async function updateFilmMetadata(db: Kysely<DB>) {
 
     while (film_data.length > 0) {
         // ask to the TMDB API
-        const tmdb_update = await Promise.all(
-            film_data.map(async (film) => {
-                const tmdbData = await getTMDB(film);
-                if (tmdbData && !tmdb_ids.has(tmdbData.id)) {
-                    tmdb_objs.push(tmdbData);
-                    tmdb_ids.add(tmdbData.id);
-                }
-                return {
-                    id: film.id,
-                    title: film.title,
-                    tmdb_id: tmdbData?.id || null,
-                };
-            })
-        );
+        const tmdb_update = (
+            await Promise.all(
+                film_data.map(async (film) => {
+                    try {
+                        const tmdbData = await getTMDB(film, true);
+                        if (tmdbData && !tmdb_ids.has(tmdbData.id)) {
+                            tmdb_objs.push(tmdbData);
+                            tmdb_ids.add(tmdbData.id);
+                        }
+                        return {
+                            id: film.id,
+                            title: film.title,
+                            tmdb_id: tmdbData?.id || null,
+                        };
+                    } catch (e) {
+                        console.error(
+                            `Something went wrong getting TMDB info for ${film.title} (${film.release_year})`
+                        );
+                        console.error(e);
+                        return {
+                            id: film.id,
+                            title: film.title,
+                            tmdb_id: null,
+                        };
+                    }
+                })
+            )
+        ).filter((film) => film.tmdb_id !== null); // Remove films where tmdb wasn't updated
 
         updated_films.push(...tmdb_update);
 

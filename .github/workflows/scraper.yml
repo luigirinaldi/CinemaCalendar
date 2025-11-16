@@ -45,3 +45,17 @@ jobs:
               run: |
                   echo "Running test on: ${{ matrix.name }}"
                   npx tsx ./scripts/scrapeUpload.ts
+
+    add-tmdb-id:
+        needs: scraper
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/workflows/node-cache
+
+            - name: Run get TMDB id
+              env:
+                  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+                  TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+              run: npm run get_tmdb_id

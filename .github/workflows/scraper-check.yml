@@ -43,4 +43,4 @@ jobs:
                   SCRAPER: ${{ matrix.path }}
               run: |
                   echo "Running test on: ${{ matrix.name }}"
-                  npm run testScraper
+                  npm run test_scraper

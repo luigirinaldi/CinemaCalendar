@@ -622,7 +622,7 @@ function App() {
                         </p>
                     </div>
                 ) : groupBy === 'movie' ? (
-                    <div className="flex flex-wrap gap-6">
+                    <div className="flex flex-wrap gap-6 justify-around">
                         {groupByMovie(screenings)
                             .sort(sortGroupedByStartTime)
                             .map(makeByMovieCard)}

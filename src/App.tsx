@@ -13,7 +13,7 @@ import {
     fetchMovies,
     fetchScreenings,
     type CinemaTable,
-    type FilmTable,
+    type FilmWithPoster,
     type ShowingsTable,
 } from './api';
 
@@ -30,7 +30,7 @@ function App() {
         new Date().toISOString()
     );
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [movies, setMovies] = useState<FilmTable[]>([]);
+    const [movies, setMovies] = useState<FilmWithPoster[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,7 +100,9 @@ function App() {
         fetchData();
     }, [dateRange, currentDate, customStartDate, customEndDate, city, cinemas]);
 
-    const getMovie = (id: number) => movies.find((m) => m.id === id);
+    const getMovie = (id: number) => movies.find((m) => m.id === id) as
+        | FilmWithPoster
+        | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     const getCities = (cinemas: CinemaTable[]) => [
@@ -163,7 +165,7 @@ function App() {
     ): Array<[string, ShowingsTable[]]> => {
         type Group = {
             key: string;
-            movie?: FilmTable | null;
+            movie?: FilmWithPoster | null;
             screenings: ShowingsTable[];
         };
 
@@ -308,101 +310,108 @@ function App() {
         // using the first screening's film_id.
         const movie = getMovie(movieScreenings[0]?.film_id ?? -1);
         return (
-            <div key={movieId} className="bg-neutral-800 rounded-lg p-6">
-                <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
-                <p className="text-neutral-400 mb-4">{movie?.duration} min</p>
-                <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-neutral-300">
-                        {movieScreenings.length} Screening
-                        {movieScreenings.length !== 1 ? 's' : ''}
-                    </h4>
-
-                    {Object.entries(groupByCinema(movieScreenings))
-                        .sort(sortGroupedByStartTime)
-                        .map(([cinemaId, cinemaMovieScreening]) => {
-                            const cinema = getCinema(Number(cinemaId));
-                            return (
-                                <div
-                                    key={cinemaId}
-                                    className="bg-neutral-700 rounded p-3 text-sm"
-                                >
-                                    <div>
-                                        <p className="font-medium">
-                                            {cinema?.name}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col justify-between">
-                                        {Object.entries(
-                                            groupByDay(
-                                                cinemaMovieScreening.sort(
-                                                    sortScreeningByStartTime
+            <div key={movieId} className="bg-neutral-800 rounded-lg overflow-hidden flex flex-col w-40 sm:w-48">
+                {movie?.poster_url ? (
+                    <img
+                        src={movie.poster_url}
+                        alt={`${movie?.title ?? 'Poster'}`}
+                        loading="lazy"
+                        className="w-full aspect-[2/3] object-cover"
+                    />
+                ) : null}
+                <div className="p-3 flex flex-col">
+                    <div className="mb-2">
+                        <h3 className="text-base font-semibold leading-tight">
+                            {movie?.title}
+                        </h3>
+                        {movie?.director ? (
+                            <p className="text-neutral-400 text-xs mt-1">Directed by {movie.director}</p>
+                        ) : null}
+                        <p className="text-neutral-500 text-xs mt-1">{movie?.duration} min</p>
+                    </div>
+                    <div className="space-y-1">
+                        <h4 className="text-sm font-medium text-neutral-300">
+                            {movieScreenings.length} Screening
+                            {movieScreenings.length !== 1 ? 's' : ''}
+                        </h4>
+                        {Object.entries(groupByCinema(movieScreenings))
+                            .sort(sortGroupedByStartTime)
+                            .map(([cinemaId, cinemaMovieScreening]) => {
+                                const cinema = getCinema(Number(cinemaId));
+                                return (
+                                    <div key={cinemaId} className="bg-neutral-700 rounded p-2 text-sm">
+                                        <div>
+                                            <p className="font-medium">
+                                                {cinema?.name}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col justify-between">
+                                            {Object.entries(
+                                                groupByDay(
+                                                    cinemaMovieScreening.sort(
+                                                        sortScreeningByStartTime
+                                                    )
                                                 )
                                             )
-                                        )
-                                            .sort(sortGroupedByStartTime)
-                                            .map(([_day, dayScreenings]) => {
-                                                return (
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex-shrink-0 align-right">
-                                                            <p className="text-neutral-400">
-                                                                {formatDate(
-                                                                    dayScreenings[0]
-                                                                        .start_time
-                                                                )}
-                                                            </p>
+                                                .sort(sortGroupedByStartTime)
+                                                .map(([_day, dayScreenings]) => {
+                                                    return (
+                                                        <div className="flex justify-between items-start" key={dayScreenings[0]?.id}>
+                                                            <div className="flex-shrink-0 align-right">
+                                                                <p className="text-neutral-400">
+                                                                    {formatDate(
+                                                                        dayScreenings[0]
+                                                                            .start_time
+                                                                    )}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex gap-x-2 flex-wrap justify-end">
+                                                                {dayScreenings
+                                                                    .sort(
+                                                                        sortScreeningByStartTime
+                                                                    )
+                                                                    .map(
+                                                                        (
+                                                                            screening,
+                                                                            _index,
+                                                                            _array
+                                                                        ) => {
+                                                                            return (
+                                                                                <div key={screening.id}>
+                                                                                    {screening.booking_url ? (
+                                                                                        <a
+                                                                                            className="text-red-500 text-neutral-300 inline underline"
+                                                                                            href={
+                                                                                                screening.booking_url
+                                                                                            }
+                                                                                            target="_blank"
+                                                                                        >
+                                                                                            {formatTime(
+                                                                                                screening.start_time
+                                                                                            )}
+                                                                                        </a>
+                                                                                    ) : (
+                                                                                        <p
+                                                                                            className="text-red-500 text-neutral-300 inline"
+                                                                                        >
+                                                                                            {formatTime(
+                                                                                                screening.start_time
+                                                                                            )}
+                                                                                        </p>
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        }
+                                                                    )}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex gap-x-2 flex-wrap justify-end">
-                                                            {dayScreenings
-                                                                .sort(
-                                                                    sortScreeningByStartTime
-                                                                )
-                                                                .map(
-                                                                    (
-                                                                        screening,
-                                                                        _index,
-                                                                        _array
-                                                                    ) => {
-                                                                        return (
-                                                                            <div>
-                                                                                {screening.booking_url ? (
-                                                                                    <a
-                                                                                        key={
-                                                                                            screening.id
-                                                                                        }
-                                                                                        className="text-red-500 text-neutral-300 inline underline"
-                                                                                        href={
-                                                                                            screening.booking_url
-                                                                                        }
-                                                                                        target="_blank"
-                                                                                    >
-                                                                                        {formatTime(
-                                                                                            screening.start_time
-                                                                                        )}
-                                                                                    </a>
-                                                                                ) : (
-                                                                                    <p
-                                                                                        key={
-                                                                                            screening.id
-                                                                                        }
-                                                                                        className="text-red-500 text-neutral-300 inline"
-                                                                                    >
-                                                                                        {formatTime(
-                                                                                            screening.start_time
-                                                                                        )}
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        );
-                                                                    }
-                                                                )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
+                                );
+                            })}
+                    </div>
                 </div>
             </div>
         );
@@ -419,6 +428,7 @@ function App() {
                         </div>
                         <div>
                             <select
+                                aria-label="City"
                                 value={city}
                                 onChange={(e) => setCity(e.target.value)}
                                 className="bg-neutral-800 text-white px-4 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none w-48"
@@ -544,6 +554,7 @@ function App() {
                                         Start Date
                                     </label>
                                     <input
+                                        aria-label="Start date"
                                         type="date"
                                         value={customStartDate}
                                         onChange={(e) =>
@@ -557,6 +568,7 @@ function App() {
                                         End Date
                                     </label>
                                     <input
+                                        aria-label="End date"
                                         type="date"
                                         value={customEndDate}
                                         onChange={(e) =>
@@ -610,7 +622,7 @@ function App() {
                         </p>
                     </div>
                 ) : groupBy === 'movie' ? (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="flex flex-wrap gap-6">
                         {groupByMovie(screenings)
                             .sort(sortGroupedByStartTime)
                             .map(makeByMovieCard)}

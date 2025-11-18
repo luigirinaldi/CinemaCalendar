@@ -155,6 +155,7 @@ export type Database = {
                     duration: number | null;
                     id: number;
                     language: string | null;
+                    local_id: string | null;
                     release_year: number | null;
                     title: string;
                     tmdb_id: number | null;
@@ -169,6 +170,7 @@ export type Database = {
                     duration?: number | null;
                     id?: number;
                     language?: string | null;
+                    local_id?: string | null;
                     release_year?: number | null;
                     title: string;
                     tmdb_id?: number | null;
@@ -183,6 +185,7 @@ export type Database = {
                     duration?: number | null;
                     id?: number;
                     language?: string | null;
+                    local_id?: string | null;
                     release_year?: number | null;
                     title?: string;
                     tmdb_id?: number | null;
@@ -194,6 +197,13 @@ export type Database = {
                         columns: ['cinema_id'];
                         isOneToOne: false;
                         referencedRelation: 'new_cinemas';
+                        referencedColumns: ['id'];
+                    },
+                    {
+                        foreignKeyName: 'new_films_tmdb_id_fkey';
+                        columns: ['tmdb_id'];
+                        isOneToOne: false;
+                        referencedRelation: 'tmdb_films';
                         referencedColumns: ['id'];
                     },
                 ];
@@ -253,6 +263,10 @@ export type Database = {
                     created_at: string;
                     genre_ids: number[];
                     id: number;
+                    letterboxd_avg_rating: number | null;
+                    letterboxd_num_ratings: number | null;
+                    letterboxd_ratings: Json | null;
+                    letterboxd_slug: string | null;
                     original_language: string;
                     original_title: string;
                     overview: string;
@@ -270,6 +284,10 @@ export type Database = {
                     created_at?: string;
                     genre_ids: number[];
                     id: number;
+                    letterboxd_avg_rating?: number | null;
+                    letterboxd_num_ratings?: number | null;
+                    letterboxd_ratings?: Json | null;
+                    letterboxd_slug?: string | null;
                     original_language: string;
                     original_title: string;
                     overview: string;
@@ -287,6 +305,10 @@ export type Database = {
                     created_at?: string;
                     genre_ids?: number[];
                     id?: number;
+                    letterboxd_avg_rating?: number | null;
+                    letterboxd_num_ratings?: number | null;
+                    letterboxd_ratings?: Json | null;
+                    letterboxd_slug?: string | null;
                     original_language?: string;
                     original_title?: string;
                     overview?: string;

@@ -1,4 +1,4 @@
-import { Kysely } from 'kysely';
+import { Kysely, RawBuilder, sql } from 'kysely';
 import { connectDB, DB } from './database';
 
 import { parse } from 'node-html-parser';
@@ -73,6 +73,21 @@ function extractRatings(html: string): RatingsData {
     };
 }
 
+function buildCaseStatement(
+    items: { id: number; value: string | number | object }[],
+    column: string
+): RawBuilder<DB> {
+    return sql`CASE
+    ${sql.join(
+        items
+            .filter((item) => item.value !== undefined)
+            .map((item) => sql`WHEN id = ${item.id} THEN ${item.value}`),
+        sql` `
+    )}
+    ELSE ${sql.ref(column)}
+  END`;
+}
+
 export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
     // Get films from tmdb table which don't have letterboxd info
     // Fetch the letterboxd url and make it redirect to the corresponding letterboxd slug
@@ -94,10 +109,10 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
         `Found ${nullLtbxdFilms.length} movies with no letterboxd info`
     );
 
-    nullLtbxdFilms = nullLtbxdFilms.slice(0, 50);
+    nullLtbxdFilms = nullLtbxdFilms.slice(0, 43);
 
     let letterboxdInfo: LetterboxdInfo[] = [];
-    const STRIDE = 20;
+    const STRIDE = 5;
     for (let i = 0; i < nullLtbxdFilms.length; i += STRIDE) {
         letterboxdInfo = letterboxdInfo.concat(
             (
@@ -111,6 +126,10 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
                                 const response = await fetch(
                                     `https://letterboxd.com/tmdb/${film.id}`
                                 );
+                                if (!response.ok)
+                                    throw new Error(
+                                        `Response not ok: ${response.status} ${response.statusText}`
+                                    );
                                 // extract slug as the last section of the url: **/slug/
                                 slug = response.url
                                     .split('/')
@@ -119,6 +138,8 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
                             }
                             if (slug === undefined)
                                 throw new Error('Slug is undefined');
+                            if (!isNaN(Number(slug)))
+                                throw new Error(`Slug is a number: ${slug}`);
                             try {
                                 const ratings_response = await fetch(
                                     `https://letterboxd.com/csi/film/${slug}/ratings-summary/`
@@ -145,18 +166,44 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
                             console.error(
                                 `Failed to fetch letterboxd info for film ${film.title} (id=${film.id})`
                             );
-                            console.error(e);
+                            console.error(e.message);
                             return null;
                         }
                     })
                 )
             ).filter((i) => i !== null)
         );
+        const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+        await delay(1000);
     }
 
     console.log(
         `Successfully scraped letterboxd info for ${letterboxdInfo.length} movies (${(letterboxdInfo.length / nullLtbxdFilms.length) * 100}% of ${nullLtbxdFilms.length} candidate movies)`
     );
+
+    if (letterboxdInfo.length > 0 && doUpdate) {
+        const insertResult = await db.transaction().execute(async (trx) => {
+            console.log('updating db');
+            return trx
+                .updateTable('tmdb_films')
+                .set({
+                    letterboxd_slug: buildCaseStatement(
+                        letterboxdInfo.map((info) => {
+                            return { id: info.film_id, value: info.slug };
+                        }),
+                        'letterboxd_slug'
+                    ),
+                })
+                .where(
+                    'id',
+                    'in',
+                    letterboxdInfo.map((i) => i.film_id)
+                )
+                .execute();
+        });
+
+        console.log(insertResult);
+    }
 }
 
 // Run only if the file is being run as a script
@@ -164,7 +211,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('Running as script');
     const db = await connectDB();
 
-    await updateLetterboxdMeta(db, false);
+    await updateLetterboxdMeta(db, true);
 
     await db.destroy();
 }

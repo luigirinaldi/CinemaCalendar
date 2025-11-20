@@ -84,9 +84,14 @@ export async function scraper(): Promise<CinemaShowing[]> {
                         url: `${BASE_URL}/evento?eventName=${slug}`,
                         duration: +film.durata, // + is just a simple cast from string to number
                         language:
-                            event.fl_film_vos === 'y' ? 'Original Version' : 'Italian',
+                            event.fl_film_vos === 'y'
+                                ? 'Original Version'
+                                : 'Italian',
                         ...(film.autore && { director: film.autore }),
-                        ...(film.locandina && { coverUrl: 'data:image/jpeg;base64,' + film.locandina }),
+                        ...(film.locandina && {
+                            coverUrl:
+                                'data:image/jpeg;base64,' + film.locandina,
+                        }),
                     },
                     showings: [],
                 });

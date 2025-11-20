@@ -70,16 +70,19 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const filmMap = new Map<string, FilmShowings>();
 
     data.titoli.forEach((film) => {
+        // get the site slug (guessed, so it could be wrong)
+        const slug = film.titolo.replace(/\W/g, '_').toLowerCase(); // replace A-Za-z0-9_ chars to _ (also the site is case sensitive)
+
         film.eventi.forEach((event) => {
-            const filmKey = `${film.titolo}_${event.id_cinebot}`;
+            const filmKey = `${slug}_${event.id_cinebot}`;
 
             if (!filmMap.has(filmKey)) {
                 // Initialize new film entry
                 filmMap.set(filmKey, {
                     film: {
                         title: film.titolo,
-                        url: `${BASE_URL}/scheda.php?id=${event.id_cinebot}`,
-                        duration: +film.durata,
+                        url: `${BASE_URL}/evento?eventName=${slug}`,
+                        duration: +film.durata, // + is just a simple cast from string to number
                         language:
                             event.fl_film_vos === 'y' ? 'Original Version' : 'Italian',
                         ...(film.autore && { director: film.autore }),
@@ -93,7 +96,8 @@ export async function scraper(): Promise<CinemaShowing[]> {
             const filmEntry = filmMap.get(filmKey)!;
             filmEntry.showings.push({
                 startTime: new Date(event.inizio).toISOString(),
-                bookingUrl: `${BASE_URL}/acquista.php?id=${event.id_cinebot}`,
+                bookingUrl: `https://ticket.cinebot.it/rex/evento/${event.id_orario_evento}/acquista`,
+                // alternatively https://ticket.cinebot.it/rex/evento/${event.id_orario_evento}_${slug.replace(/^_+|_+$/g,'').replace(/_+/g,'-').slice(0,19)}/acquista
             });
         });
     });

@@ -83,6 +83,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
                         language:
                             event.fl_film_vos === 'y' ? 'Original Version' : 'Italian',
                         ...(film.autore && { director: film.autore }),
+                        ...(film.locandina && { coverUrl: 'data:image/jpeg;base64,' + film.locandina }),
                     },
                     showings: [],
                 });

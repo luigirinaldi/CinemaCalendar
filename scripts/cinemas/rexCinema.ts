@@ -26,7 +26,7 @@ interface RexApiEvent {
 
 interface RexApiFilm {
     titolo: string;
-    autore?: string; // usually the director, could be "??????? ????????" if unknown
+    autore: string; // usually the director, could be "??????? ????????" if unknown, or ""
     durata: string; // number of minutes, inside a string
     descrizione?: string;
     locandina?: string; // base64 (if this string is XXXXX, the image is accessible for ex. through "data:image/jpeg;base64,XXXXX")

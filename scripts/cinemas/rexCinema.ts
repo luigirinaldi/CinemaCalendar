@@ -81,7 +81,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
                         url: `${BASE_URL}/scheda.php?id=${event.id_cinebot}`,
                         duration: +film.durata,
                         language:
-                            event.vos === '1' ? 'Original Version' : 'Italian',
+                            event.fl_film_vos === 'y' ? 'Original Version' : 'Italian',
                         ...(film.autore && { director: film.autore }),
                     },
                     showings: [],

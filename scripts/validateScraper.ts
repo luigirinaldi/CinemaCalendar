@@ -6,14 +6,14 @@ import path from 'path';
 
 async function test(scrapers_to_check: string[] = []) {
     if (!scrapers_to_check || scrapers_to_check.length === 0) {
-        scrapers_to_check = [''];
+        scrapers_to_check = ['']; // all scrapers
     }
     const dir = path.join('./scripts', 'cinemas');
     const scraper_files = new Set();
     const files = fs.readdirSync(dir).filter((f) => f.endsWith('Cinema.ts'));
     scrapers_to_check.forEach((str) => {
         files
-            .filter((f) => f.includes(str))
+            .filter((f) => f.toLowerCase().includes(str.toLowerCase()))
             .forEach((f) => scraper_files.add(f));
     });
 

@@ -53,7 +53,7 @@ const CINEMA: Cinema = {
 const LOG_PREFIX = '[' + CINEMA.name + ']';
 const BASE_URL = 'https://www.cinemarex.it';
 
-export async function scraper(): Promise<CinemaShowing[]> {
+export async function scraper(): Promise<CinemaShowing[]|any> {
     const response = await fetch(`${BASE_URL}/pages/rexJsonCompact.php`);
 
     if (response.status !== 200) {
@@ -63,6 +63,8 @@ export async function scraper(): Promise<CinemaShowing[]> {
         );
         return []; // Return empty list on error to avoid stopping the getData script
     }
+    const obj = await response.json();
+    return obj;
 
     const data = (await response.json()) as RexApiResponse;
 

@@ -12,6 +12,7 @@
         "format": "prettier --write .",
         "get_tmdb_id": "npx tsx scripts/getTmdbId.ts",
         "test_scraper": "npx tsx scripts/validateScraper.ts",
+        "infer_types": "npx tsx scripts/inferResponseTypes.ts",
         "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format"
     },
     "devDependencies": {
@@ -50,6 +51,7 @@
         "luxon": "^3.6.1",
         "node-html-parser": "^7.0.1",
         "pg": "^8.16.3",
+        "quicktype": "^23.2.6",
         "react": "^19.2.0",
         "react-dom": "^19.1.1",
         "zod": "^4.1.12"

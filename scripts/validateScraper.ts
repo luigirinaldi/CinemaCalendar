@@ -4,9 +4,18 @@ import { printCinemaStats } from './utils';
 import fs from 'fs';
 import path from 'path';
 
-async function testAll() {
+async function test(scrapers_to_check: string[] = []) {
+    if (!scrapers_to_check || scrapers_to_check.length === 0) {
+        scrapers_to_check = ['']; // all scrapers
+    }
     const dir = path.join('./scripts', 'cinemas');
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.ts'));
+    const scraper_files = new Set();
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('Cinema.ts'));
+    scrapers_to_check.forEach((str) => {
+        files
+            .filter((f) => f.toLowerCase().includes(str.toLowerCase()))
+            .forEach((f) => scraper_files.add(f));
+    });
 
     const statsTable: Array<{
         cinema: string;
@@ -23,7 +32,8 @@ async function testAll() {
     }> = [];
 
     await Promise.all(
-        files.map(async (file) => {
+        // [...Set] is equivalent to Array.from(Set)
+        [...scraper_files].map(async (file) => {
             let module;
             try {
                 module = await import('./cinemas/' + file);
@@ -131,7 +141,12 @@ async function testAll() {
 async function main() {
     const scraperName = process.env.SCRAPER;
     if (scraperName === undefined) {
-        await testAll();
+        const args = process.argv.slice(2);
+        if (args) {
+            await test(args);
+        } else {
+            await test();
+        }
         return;
     }
     // Single scraper mode

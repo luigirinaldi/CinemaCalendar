@@ -1,16 +1,43 @@
 import type { CinemaShowing, FilmShowings, Cinema } from '../types';
 
 interface RexApiEvent {
-    id_cinebot: string;
-    inizio: string;
-    vos: string;
-    prezzo?: string;
+    id_orario_evento: string; // number in string
+    inizio: number; // epoch time (in milliseconds)
+    id_cinebot: string; // number in string
+    locandina_special: string; // could be ""
+    tipo_prezzo_1: string; // "" or non empty string
+    valore_prezzo_1: string; // "0" or positive number in string
+    valore_prevendita_1: string; // "0" or positive number in string
+    tipo_prezzo_2: string; // "" or non empty string
+    valore_prezzo_2: string; // "0" or positive number in string
+    valore_prevendita_2: string; // "0" or positive number in string
+    tipo_prezzo_3: string; // "" or non empty string
+    valore_prezzo_3: string; // "0" or positive number in string
+    valore_prevendita_3: string; // "0" or positive number in string
+    tipo_prezzo_4: string; // "" or non empty string
+    valore_prezzo_4: string; // "0" or positive number in string
+    valore_prevendita_4: string; // "0" or positive number in string
+    tipo_prezzo_5: string; // "" or non empty string
+    valore_prezzo_5: string; // "0" or positive number in string
+    valore_prevendita_5: string; // "0" or positive number in string
+    fl_film_vos: string; // "y"/"n"
+    cast: string; // "y"/"n"
 }
 
 interface RexApiFilm {
     titolo: string;
-    durata: string;
-    autore?: string;
+    autore: string; // usually the director, could be "??????? ????????" if unknown, or ""
+    durata: string; // number of minutes, inside a string
+    descrizione?: string;
+    locandina?: string; // base64 (if this string is XXXXX, the image is accessible for ex. through "data:image/jpeg;base64,XXXXX")
+    // of the next 4 attributes, only one should be "y", and "n" the others (not verified)
+    categoria_film: string; // "y"/"n"
+    categoria_teatro: string; // "y"/"n"
+    categoria_musica: string; // "y"/"n"
+    categoria_teatroragazzi: string; // "y"/"n"
+    categoria_kids: string; // could be ""
+    categoria_vos: string; // could be ""
+    categoria_cineforum: string; // could be ""
     eventi: RexApiEvent[];
 }
 
@@ -43,19 +70,28 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const filmMap = new Map<string, FilmShowings>();
 
     data.titoli.forEach((film) => {
+        // get the site slug (guessed, so it could be wrong)
+        const slug = film.titolo.replace(/\W/g, '_').toLowerCase(); // replace A-Za-z0-9_ chars to _ (also the site is case sensitive)
+
         film.eventi.forEach((event) => {
-            const filmKey = `${film.titolo}_${event.id_cinebot}`;
+            const filmKey = `${slug}_${event.id_cinebot}`;
 
             if (!filmMap.has(filmKey)) {
                 // Initialize new film entry
                 filmMap.set(filmKey, {
                     film: {
                         title: film.titolo,
-                        url: `${BASE_URL}/scheda.php?id=${event.id_cinebot}`,
-                        duration: +film.durata,
+                        url: `${BASE_URL}/evento?eventName=${slug}`,
+                        duration: +film.durata, // + is just a simple cast from string to number
                         language:
-                            event.vos === '1' ? 'Original Version' : 'Italian',
+                            event.fl_film_vos === 'y'
+                                ? 'Original Version'
+                                : 'Italian',
                         ...(film.autore && { director: film.autore }),
+                        ...(film.locandina && {
+                            coverUrl:
+                                'data:image/jpeg;base64,' + film.locandina,
+                        }),
                     },
                     showings: [],
                 });
@@ -65,7 +101,8 @@ export async function scraper(): Promise<CinemaShowing[]> {
             const filmEntry = filmMap.get(filmKey)!;
             filmEntry.showings.push({
                 startTime: new Date(event.inizio).toISOString(),
-                bookingUrl: `${BASE_URL}/acquista.php?id=${event.id_cinebot}`,
+                bookingUrl: `https://ticket.cinebot.it/rex/evento/${event.id_orario_evento}/acquista`,
+                // alternatively https://ticket.cinebot.it/rex/evento/${event.id_orario_evento}_${slug.replace(/^_+|_+$/g,'').replace(/_+/g,'-').slice(0,19)}/acquista
             });
         });
     });

@@ -1,54 +1,175 @@
-import ICAL from 'ical.js';
-import { fetchAndParseICS } from '../utils';
-import type { CinemaShowing, FilmShowing } from '../types';
+import type { CinemaShowing, Cinema, FilmShowings } from '../types';
 
-/**
- * Choose how to parse the event data into FilmShowing objects.
- * This function is called for each event in the ICS file.
- * @param event - The event object created from the vevent component.
- *
- * ### Common properties:
- * - _summary_ - The event's title or summary.
- * - _description_ - Detailed description of the event.
- * - _location_ - Where the event takes place.
- * - _startDate_ - An ```ICAL.Time``` object representing the event's start.
- * - _endDate_ - An ```ICAL.Time``` object representing the event's end.
- * - _duration_ - An ```ICAL.Duration``` object if duration is specified instead of end date.
- * - _uid_ - Unique identifier for the event.
- * - _organizer_ - The organizer's contact information.
- * - _status_ - The event's status (e.g., "CONFIRMED", "CANCELLED").
- * - _categories_ - Array of categories or tags associated with the event.
- * - _component_ - Accesses the underlying ICAL.Component for advanced manipulations.
- *
- * @returns A FilmShowing object with the parsed data.
- */
-function parseEvent(event: ICAL.Event): FilmShowing {
-    const res = event.summary.split(/[\s–-][\s–-]/, 2); // regex matches every word in { ,–,-}^2
-    const title = res[0];
-    const desc = res[res.length - 1];
-    const durations = desc ? desc.match(/(?<=[\(+])\d+(?=′)/) : null; // regex matches (x′) where x is a number
-    let duration: number = 0;
-    durations?.forEach((minutes) => {
-        duration += +minutes;
-    }); // The '+' operator converts the string to a number
-    return {
-        name: title,
-        localId: event.uid,
-        startTime: event.startDate.toString(),
-        duration: duration,
-    };
+export interface LuxAPIResponse {
+    events: Event[];
+    rest_url: string;
+    total: number;
+    total_pages: number;
 }
 
+export interface Event {
+    id: number;
+    global_id: string;
+    global_id_lineage: string[];
+    author: string;
+    status: string;
+    date: Date;
+    date_utc: Date;
+    modified: Date;
+    modified_utc: Date;
+    url: string;
+    rest_url: string;
+    title: string;
+    description: string;
+    excerpt: string;
+    slug: string;
+    image: Image;
+    all_day: boolean;
+    start_date: Date;
+    start_date_details: DateDetails;
+    end_date: Date;
+    end_date_details: DateDetails;
+    utc_start_date: Date;
+    utc_start_date_details: DateDetails;
+    utc_end_date: Date;
+    utc_end_date_details: DateDetails;
+    timezone: string;
+    timezone_abbr: string;
+    cost: string;
+    cost_details: CostDetails;
+    website: string;
+    show_map: boolean;
+    show_map_link: boolean;
+    hide_from_listings: boolean;
+    sticky: boolean;
+    featured: boolean;
+    categories: any[];
+    tags: any[];
+    venue: Venue;
+    organizer: any[];
+    custom_fields: any[];
+    is_virtual: boolean;
+    virtual_url: null;
+    virtual_video_source: string;
+}
+
+export interface CostDetails {
+    currency_symbol: string;
+    currency_code: string;
+    currency_position: string;
+    values: any[];
+}
+
+export interface DateDetails {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+    minutes: string;
+    seconds: string;
+}
+
+export interface Image {
+    url: string;
+    id: number;
+    extension: string;
+    width: number;
+    height: number;
+    filesize: number;
+    sizes: { [key: string]: Size };
+}
+
+export interface Size {
+    width: number;
+    height: number;
+    'mime-type': MIMEType;
+    filesize: number;
+    url: string;
+}
+
+export enum MIMEType {
+    ImageJPEG = 'image/jpeg',
+}
+
+export interface Venue {
+    id: number;
+    author: string;
+    status: string;
+    date: Date;
+    date_utc: Date;
+    modified: Date;
+    modified_utc: Date;
+    url: string;
+    venue: string;
+    slug: string;
+    address: string;
+    city: string;
+    country: string;
+    zip: string;
+    show_map: boolean;
+    show_map_link: boolean;
+    global_id: string;
+    global_id_lineage: string[];
+}
+
+const CINEMA: Cinema = {
+    name: 'Lux Cinema',
+    location: 'Padova',
+};
+
+const LOG_PREFIX = '[' + CINEMA.name + ']';
+const BASE_URL = 'https://www.movieconnection.it';
+const API_URL = 'https://www.movieconnection.it/wp-json/tribe/events/v1/events';
+
 export async function scraper(): Promise<CinemaShowing[]> {
+    const res = await fetch(API_URL);
+    const json = (await res.json()) as LuxAPIResponse;
+    const filmMap = new Map() as Map<string, FilmShowings>;
+
+    json.events.forEach((event) => {
+        const filmKey = event.website; // questionable choice for a key
+
+        if (!filmMap.has(filmKey)) {
+            let [title, director, moreInfo] = event.title
+                .trim()
+                .split(/\s*(?:&#8211;|\s#)\s*/);
+            let vos = false;
+            if (title.endsWith('[v.o.s.]')) {
+                vos = true;
+                title = title.slice(0, -8).trimEnd();
+            }
+            const country = moreInfo.match(/([^\d]+) \d/)?.[1];
+            const year = moreInfo
+                .slice((country ?? '').length)
+                .match(/ +(\d+) +\(/)?.[1];
+            const duration = moreInfo.match(/\((\d+)(?:&#8242;|’|′)\)/)?.[1];
+            const filmShowing: FilmShowings = {
+                film: {
+                    title: title,
+                    url: event.url,
+                    director: director,
+                    duration: duration ? parseInt(duration) : undefined,
+                    language: vos ? 'Original Version' : 'Italian',
+                    year: year ? parseInt(year) : undefined,
+                    country: country,
+                    coverUrl: event.image.url, // smaller sizes could be used
+                },
+                showings: [],
+            };
+            filmMap.set(filmKey, filmShowing);
+        }
+
+        // Add showing to existing film entry
+        const filmEntry = filmMap.get(filmKey)!;
+        filmEntry.showings.push({
+            startTime: new Date(event.start_date).toISOString(), // utc_start_date also available
+            bookingUrl: `https://www.liveticket.it/cinemaluxpadova#EventsTitleAnchor`, // no way to access the real url
+        });
+    });
     return [
         {
-            cinema: 'LuxCinema',
-            location: 'Padova',
-            showings: await fetchAndParseICS(
-                'http://www.movieconnection.it/?plugin=all-in-one-event-calendar&controller=ai1ec_exporter_controller&action=export_events&no_html=true',
-                parseEvent,
-                true
-            ),
+            cinema: CINEMA,
+            showings: Array.from(filmMap.values()),
         },
     ];
 }

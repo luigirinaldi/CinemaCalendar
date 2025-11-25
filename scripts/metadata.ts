@@ -79,7 +79,7 @@ async function searchOnTMDB(
         // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
         // if it doesn't work, it could be useful retrying with primary_release_year instead of year
         let res = await fetch(
-            `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&year=${film.release_year}&page=1`,
+            `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&year=${film.release_year}&page=1`,
             OPTIONS
         );
         let search: TMDBSearch = await res.json();
@@ -88,7 +88,7 @@ async function searchOnTMDB(
                 // found no results
                 // If there are no results, we try to match without the release date.
                 res = await fetch(
-                    `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&page=1`,
+                    `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&page=1`,
                     OPTIONS
                 );
                 search = await res.json();

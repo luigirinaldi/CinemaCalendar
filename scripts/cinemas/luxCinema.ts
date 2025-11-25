@@ -115,6 +115,7 @@ export interface Venue {
 const CINEMA: Cinema = {
     name: 'Lux Cinema',
     location: 'Padova',
+    defaultLanguage: 'it-IT',
 };
 
 const LOG_PREFIX = '[' + CINEMA.name + ']';
@@ -149,7 +150,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
                     url: event.url,
                     director: director,
                     duration: duration ? parseInt(duration) : undefined,
-                    language: vos ? 'Original Version' : 'Italian',
+                    language: vos ? undefined : CINEMA.defaultLanguage,
                     year: year ? parseInt(year) : undefined,
                     country: country,
                     coverUrl: event.image.url, // smaller sizes could be used

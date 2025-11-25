@@ -4,12 +4,23 @@ import {
     CinemaShowingsSchema,
     FilmShowings,
     Showing,
+    Cinema,
 } from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'ICA';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://www.ica.art';
+
+const CINEMA: Cinema = {
+    name: CINEMA_NAME,
+    location: 'London',
+    coordinates: {
+        lat: `51º30'14.39" N`,
+        lng: `0º07'30" W`,
+    },
+    defaultLanguage: 'en-GB',
+};
 
 /**
  * Try to parse a duration (in minutes) from a string by attempting several
@@ -266,14 +277,7 @@ export async function scraper(): Promise<CinemaShowings> {
 
     return [
         {
-            cinema: {
-                name: CINEMA_NAME,
-                location: 'London',
-                coordinates: {
-                    lat: `51º30'14.39" N`,
-                    lng: `0º07'30" W`,
-                },
-            },
+            cinema: CINEMA,
             showings: filmShowings,
         },
     ];

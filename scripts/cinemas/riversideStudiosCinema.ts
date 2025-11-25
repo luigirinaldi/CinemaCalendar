@@ -1,8 +1,14 @@
-import type { CinemaShowing, FilmShowings } from '../types';
+import type { CinemaShowing, FilmShowings, Cinema } from '../types';
 import { DateTime } from 'luxon';
 
 const CINEMA_NAME = 'Riverside Studios';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
+
+const CINEMA: Cinema = {
+    name: CINEMA_NAME,
+    location: 'London',
+    defaultLanguage: 'en-GB',
+};
 
 // Minimal typing for the JSON returned by Riverside
 interface RiversidePerf {
@@ -106,10 +112,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
     return [
         {
-            cinema: {
-                name: CINEMA_NAME,
-                location: 'London',
-            },
+            cinema: CINEMA,
             showings: filmShowings,
         },
     ];

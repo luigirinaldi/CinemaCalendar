@@ -1,4 +1,16 @@
-import type { CinemaShowing, FilmShowings, Film, Showing } from '../types';
+import type {
+    CinemaShowing,
+    FilmShowings,
+    Film,
+    Showing,
+    Cinema,
+} from '../types';
+
+const CINEMA: Cinema = {
+    name: 'The Space Cinema Limena',
+    location: 'Padova',
+    defaultLanguage: 'en-GB',
+};
 
 // Extended interfaces for additional fields
 interface SpaceFilmData extends Film {
@@ -158,10 +170,7 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
 
     return [
         {
-            cinema: {
-                name: 'The Space Cinema Limena',
-                location: 'Padova',
-            },
+            cinema: CINEMA,
             showings: filmShowings,
         },
     ];

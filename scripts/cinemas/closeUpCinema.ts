@@ -1,10 +1,25 @@
-import { CinemaShowing, CinemaShowingsSchema, FilmShowings } from '../types';
+import {
+    CinemaShowing,
+    CinemaShowingsSchema,
+    FilmShowings,
+    Cinema,
+} from '../types';
 import { parse } from 'node-html-parser';
 import { DateTime } from 'luxon';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://www.closeupfilmcentre.com';
+
+const CINEMA: Cinema = {
+    name: CINEMA_NAME,
+    location: 'London',
+    coordinates: {
+        lat: `51° 31' 25.00396" N`,
+        lng: `- 0° 4' 19.382" W`,
+    },
+    defaultLanguage: 'en-GB',
+};
 
 export async function scraper(): Promise<CinemaShowing[]> {
     const response = await fetch(BASE_URL + '/search_film_programmes/');
@@ -144,14 +159,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
     return [
         {
-            cinema: {
-                name: CINEMA_NAME,
-                location: 'London',
-                coordinates: {
-                    lat: `51° 31' 25.00396" N`,
-                    lng: `- 0° 4' 19.382" W`,
-                },
-            },
+            cinema: CINEMA,
             showings: filmMoreInfo,
         },
     ];

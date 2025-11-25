@@ -4,7 +4,14 @@ import type {
     Film,
     Showing,
     FilmShowings,
+    Cinema,
 } from '../types';
+
+const CINEMA: Cinema = {
+    name: 'RegentStreetCinema',
+    location: 'London',
+    defaultLanguage: 'en-GB',
+};
 
 export const scraper: ScraperFunction = async () => {
     const body = {
@@ -209,7 +216,7 @@ export const scraper: ScraperFunction = async () => {
     );
 
     const resultOut: CinemaShowing = {
-        cinema: { name: 'RegentStreetCinema', location: 'London' },
+        cinema: CINEMA,
         showings: filmShowingsArray,
     };
 

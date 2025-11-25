@@ -5,11 +5,18 @@ import type {
     FilmShowings,
     Film,
     Showing,
+    Cinema,
 } from '../types';
 import { parse } from 'node-html-parser';
 
 const CINEMA_NAME = 'Ciné Lumière';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
+
+const CINEMA: Cinema = {
+    name: CINEMA_NAME,
+    location: 'London',
+    defaultLanguage: 'en-GB',
+};
 
 // function that performs type restriction, so that the type coming out doesn't have any undefined things
 function hasNoUndefined<T extends Record<string, unknown>>(
@@ -230,10 +237,7 @@ export const scraper: ScraperFunction = async () => {
     });
 
     const result: CinemaShowing = {
-        cinema: {
-            name: CINEMA_NAME,
-            location: 'London',
-        },
+        cinema: CINEMA,
         showings: filmShowingsArray,
     };
 

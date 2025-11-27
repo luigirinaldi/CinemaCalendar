@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Temporary files
+temp
+
 # Data to be generated on the spot
 public/data/
 **/*.db

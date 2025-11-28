@@ -126,7 +126,7 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
             showings: film.showingGroups.flatMap((day) =>
                 day.sessions.map((show) => {
                     const showing: SpaceShowingData = {
-                        startTime: show.startTime,
+                        startTime: show.showTimeWithTimeZone,
                         theatre: show.screenName,
                         bookingUrl: show.bookingUrl
                             ? `https://www.thespacecinema.it${show.bookingUrl}`

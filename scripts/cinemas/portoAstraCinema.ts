@@ -94,6 +94,7 @@ const CINEMA: Cinema = {
         lat: '45.38365',
         lng: '11.8656',
     },
+    defaultLanguage: 'it-IT'
 };
 
 const LOG_PREFIX = '[' + CINEMA.name + ']';

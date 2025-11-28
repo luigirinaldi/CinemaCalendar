@@ -1,4 +1,4 @@
-import { CinemaSchema, type Cinema, type CinemaShowings } from '../types';
+import type { Cinema, CinemaShowings, Showing } from '../types';
 
 export interface APIResponse {
     userdata: Userdata;
@@ -87,28 +87,60 @@ export interface Userdata {
 
 
 // all info at https://secure.webtic.it/api/wtjsonservices.ashx?languageid=it&localid=5082&trackid=33&wtid=getLocalInfo
-const CINEMA : Cinema = {
+const CINEMA: Cinema = {
     name: 'Porto Astra',
     location: 'Padova',
     coordinates: {
         lat: '45.38365',
-        lng: '11.8656'
+        lng: '11.8656',
     },
-}
+};
 
 const LOG_PREFIX = '[' + CINEMA.name + ']';
-const API_URL = 'https://secure.webtic.it/api/wtjsonservices.ashx?localid=5082&trackid=33&wtid=getFullScheduling';
+const API_URL =
+    'https://secure.webtic.it/api/wtjsonservices.ashx?localid=5082&trackid=33&wtid=getFullScheduling';
+const BASE_URL = 'https://portoastra.it';
+const IMAGE_BASE_URL = 'https://secure.webtic.it/angwt/';
 
 export async function scraper(): Promise<CinemaShowings> {
     const res = await fetch(API_URL);
     const json = (await res.json()) as APIResponse;
-    
-    return [{
-        cinema: CINEMA,
-        showings: json.DS.Scheduling.Events.map(event => ({
-            film: {
-                title: event.Title, // or event.OriginalTitle
-            }
-        }))
-    }];
+
+    return [
+        {
+            cinema: CINEMA,
+            showings: json.DS.Scheduling.Events.map((event) => ({
+                film: {
+                    title: event.OriginalTitle, // or event.Title.replace(/^Vos /i,'')
+                    url:
+                        BASE_URL +
+                        '/film/' +
+                        event.Title.replace(/[^\w\s]/g, '').replace(
+                            /\s+/g,
+                            '-'
+                        ),
+                    director: event.Director,
+                    // coverUrl: event.Picture, // missing base path
+                    duration: event.Days?.[0]?.Performances?.[0]?.Duration, // event.Duration.split(':').map((v,i) => parseInt(v) * 60^(1-i)).reduce((sum, mins) => sum + mins), // i fk love this spaghetti coding
+                    language: event.Properties.includes('O.V.')
+                        ? 'Original Version'
+                        : 'Italian',
+                    year: parseInt(event.Year),
+                    coverUrl: IMAGE_BASE_URL + event.Picture,
+                },
+                showings: event.Days.flatMap((day) =>
+                    day.Performances.map(
+                        (showing) =>
+                            ({
+                                startTime: new Date(
+                                    showing.StartTime
+                                ).toISOString(),
+                                theatre: showing.Screen,
+                                bookingUrl: `http://www.webtic.it/mobile/?trackid=41&action=loadPerformance&localId=${json.DS.Scheduling.LocalId}&eventId=${event.EventId}&performanceId=${showing.PerformanceId}`,
+                            }) as Showing
+                    )
+                ),
+            })),
+        },
+    ];
 }

@@ -46,21 +46,15 @@ export async function scraper(): Promise<CinemaShowing[]> {
         )
         .flatMap((event) => {
             let duration: number | undefined;
-            try {
-                const durationMatch = (event.run_time ?? '').match(
-                    /(\d+)([ mins]*)/
+            const durationMatch = (event.run_time ?? '').match(
+                /(\d+)([ mins]*)/
+            );
+            if (!durationMatch) {
+                console.warn(
+                    `${LOG_PREFIX} Could not parse duration from '${event.run_time}' for '${event.title}'`
                 );
-                if (!durationMatch)
-                    throw new Error(
-                        `Could not parse duration from: '${event.run_time}'`
-                    );
+            } else {
                 duration = +durationMatch[1];
-            } catch (error) {
-                console.error(
-                    `${LOG_PREFIX} Failed to parse duration for movie "${event.title}":`,
-                    error
-                );
-                duration = undefined; // fallback value
             }
 
             const performancesEntries = Object.entries(

@@ -48,6 +48,7 @@ interface RexApiResponse {
 const CINEMA: Cinema = {
     name: 'Rex Cinema',
     location: 'Padova',
+    defaultLanguage: 'it-IT',
 };
 
 const LOG_PREFIX = '[' + CINEMA.name + ']';
@@ -85,8 +86,8 @@ export async function scraper(): Promise<CinemaShowing[]> {
                         duration: +film.durata, // + is just a simple cast from string to number
                         language:
                             event.fl_film_vos === 'y'
-                                ? 'Original Version'
-                                : 'Italian',
+                                ? undefined
+                                : CINEMA.defaultLanguage,
                         ...(film.autore && { director: film.autore }),
                         ...(film.locandina && {
                             coverUrl:

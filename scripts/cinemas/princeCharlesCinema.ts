@@ -9,8 +9,15 @@ import type {
     FilmShowings,
     Film,
     Showing,
+    Cinema,
 } from '../types';
 import { DateTime } from 'luxon';
+
+const CINEMA: Cinema = {
+    name: 'Prince Charles Cinema',
+    location: 'London',
+    defaultLanguage: 'en-GB',
+};
 
 const months: Record<string, number> = [
     'January',
@@ -264,10 +271,7 @@ export const scraper: ScraperFunction = async () => {
     );
 
     const result: CinemaShowing = {
-        cinema: {
-            name: 'Prince Charles Cinema',
-            location: 'London',
-        },
+        cinema: CINEMA,
         showings: filmShowingsArray,
     };
 

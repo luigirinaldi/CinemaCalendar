@@ -41,9 +41,10 @@ export async function storeCinemaData(
 
     // Insert cinema into
     const now = DateTime.now().toISO().toString();
+    const { defaultLanguage, ...rest } = cinemaShowing.cinema;
     const { id: cinemaId } = await trx
         .insertInto('new_cinemas')
-        .values({ ...cinemaShowing.cinema, last_updated: now })
+        .values({ ...rest, default_lang: defaultLanguage, last_updated: now })
         .onConflict((oc) =>
             oc.column('name').doUpdateSet({ last_updated: now })
         )

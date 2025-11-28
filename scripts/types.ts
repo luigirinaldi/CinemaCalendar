@@ -26,6 +26,12 @@ export const CinemaSchema = z.object({
     name: z.string(),
     location: z.string(),
     coordinates: z.object({ lat: z.string(), lng: z.string() }).optional(),
+    defaultLanguage: z
+        .string()
+        .regex(
+            /^[a-z]{2}(-[A-Z]{2})?$/,
+            "Invalid TMDB language code (use something like 'en' or 'en-US')"
+        ),
 });
 
 export const CinemaShowingSchema = z.object({

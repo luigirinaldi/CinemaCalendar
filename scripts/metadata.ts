@@ -4,43 +4,108 @@ import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { DB } from './database';
 
-type Film = {
+interface Film {
     id: number;
     title: string;
     release_year: number | null;
     director: string | null;
-};
-type TMDBObj = {
+    duration: number | null;
+    default_lang: string;
+}
+
+export interface TMDBMovie {
     adult: boolean;
-    backdrop_path: string | null;
+    backdrop_path: string;
     genre_ids: number[];
     id: number;
     original_language: string;
     original_title: string;
     overview: string;
     popularity: number;
-    poster_path: string | null;
-    release_date: string; // format: YYYY-MM-DD
+    poster_path: string;
+    release_date: string;
     title: string;
     video: boolean;
     vote_average: number;
     vote_count: number;
-};
-type TMDBSearch = {
+}
+
+export interface TMDBDiscoverMovie {
     page: number;
-    results: TMDBObj[];
+    results: TMDBMovie[];
     total_pages: number;
     total_results: number;
+}
+
+type TMDBSearch = {
+    page: number;
+    results: TMDBMovie[];
+    total_pages: number;
+    total_results: number;
+};
+interface TMDBPersonSearch {
+    page: number;
+    results: Person[];
+    total_pages: number;
+    total_results: number;
+}
+
+interface Person {
+    adult: boolean;
+    gender: number;
+    id: number;
+    known_for_department: string;
+    name: string;
+    original_name: string;
+    popularity: number;
+    profile_path: string;
+    known_for: KnownFor[];
+}
+
+interface KnownFor {
+    adult: boolean;
+    backdrop_path: string;
+    id: number;
+    title: string;
+    original_title: string;
+    overview: string;
+    poster_path: string;
+    media_type: string;
+    original_language: string;
+    genre_ids: number[];
+    popularity: number;
+    release_date: Date;
+    video: boolean;
+    vote_average: number;
+    vote_count: number;
+}
+
+const API_URL = 'https://api.themoviedb.org/3';
+const OPTIONS = {
+    method: 'GET',
+    headers: {
+        accept: 'application/json',
+        Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
+    }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
 };
 
 // TODO: add search by director
 async function getTMDB(
     film: Film,
     verbose: boolean = false
-): Promise<TMDBObj | null> {
-    if (!film.release_year) {
-        // if there is no release date, set the current year as fallback
-        film.release_year = new Date().getFullYear();
+): Promise<TMDBMovie | null> {
+    if (process.env.TMDB_API_KEY === undefined) {
+        throw new Error('Missing Supabase Project ID');
+    }
+
+    if (film.director) {
+        const director_id = await searchDirector(film.director);
+        if (director_id) {
+            const movie = await discoverMovie(film, director_id);
+            if (movie) {
+                return movie;
+            }
+        }
     }
     const search = await searchOnTMDB(film, verbose);
     if (!search || search.total_results == 0) {
@@ -58,28 +123,59 @@ async function getTMDB(
     return TMDBMovie;
 }
 
+async function searchDirector(director: string) {
+    const response = await fetch(
+        `${API_URL}/search/person?query=${encodeURIComponent(director)}`,
+        OPTIONS
+    );
+    const search = (await response.json()) as TMDBPersonSearch;
+    if (search.total_results === 0) return null;
+    return search.results.reduce((currentMatch, person) =>
+        person.popularity > currentMatch.popularity ? person : currentMatch
+    ).id;
+}
+
+async function discoverMovie(film: Film, director_id: number) {
+    const response = await fetch(
+        // it is possible (and maybe better) to remove the runtime/duration filter
+        `${API_URL}/discover/movie?language=${film.default_lang}&sort_by=popularity.desc&with_crew=${director_id}&with_origin_country=&with_runtime.gte=${film.duration ? film.duration - 10 : ''}&year=${film.release_year ?? ''}`,
+        OPTIONS
+    );
+    const discover = (await response.json()) as TMDBDiscoverMovie;
+    const cinemaTitle = film.title
+        .normalize('NFD')
+        .replace(/\p{Diacritic}|\s/gu, '')
+        .toLowerCase();
+    return discover.total_results === 0
+        ? null
+        : discover.results.find((movie) => {
+              const TMDBTitle = movie.title
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}|\s/gu, '')
+                  .toLowerCase();
+              const TMDBOGTitle = movie.original_title
+                  .normalize('NFD')
+                  .replace(/\p{Diacritic}|\s/gu, '')
+                  .toLowerCase();
+              return (
+                  cinemaTitle.includes(TMDBTitle) ||
+                  cinemaTitle.includes(TMDBOGTitle) ||
+                  TMDBTitle.includes(cinemaTitle) ||
+                  TMDBOGTitle.includes(cinemaTitle)
+              );
+          });
+}
+
 async function searchOnTMDB(
     film: Film,
     verbose: boolean
 ): Promise<TMDBSearch | null> {
-    if (process.env.TMDB_API_KEY === undefined) {
-        throw new Error('Missing Supabase Project ID');
-    }
-
-    const OPTIONS = {
-        method: 'GET',
-        headers: {
-            accept: 'application/json',
-            Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
-        }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
-    };
-
     const title = film.title;
     for (let i = 0; i < 3; i++) {
         // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
         // if it doesn't work, it could be useful retrying with primary_release_year instead of year
         let res = await fetch(
-            `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&year=${film.release_year}&page=1`,
+            `${API_URL}/search/movie?query=${encodeURI(title)}&year=${film.release_year}&page=1`,
             OPTIONS
         );
         let search: TMDBSearch = await res.json();
@@ -88,7 +184,7 @@ async function searchOnTMDB(
                 // found no results
                 // If there are no results, we try to match without the release date.
                 res = await fetch(
-                    `https://api.themoviedb.org/3/search/movie?query=${encodeURI(title)}&include_adult=true&page=1`,
+                    `${API_URL}/search/movie?query=${encodeURI(title)}&page=1`,
                     OPTIONS
                 );
                 search = await res.json();
@@ -110,7 +206,7 @@ async function searchOnTMDB(
  * @param search - The TMDB API response object.
  * @param film - The Movie object.
  */
-async function guessMovie(search: TMDBSearch, film: Film): Promise<TMDBObj> {
+async function guessMovie(search: TMDBSearch, film: Film): Promise<TMDBMovie> {
     // The first check is title exact match, as it is the most reliable.
     // If there are no results, we try to match the release date.
     // Year match is skipped as it is highly unreliable.
@@ -118,7 +214,7 @@ async function guessMovie(search: TMDBSearch, film: Film): Promise<TMDBObj> {
     if (results.length == 0) {
         results = search.results.filter(
             (movie) =>
-                parseInt(movie.release_date.slice(0, 4)) == film.release_year
+                new Date(movie.release_date).getFullYear() == film.release_year
         );
         if (results.length == 0) {
             return search.results[0];
@@ -126,7 +222,7 @@ async function guessMovie(search: TMDBSearch, film: Film): Promise<TMDBObj> {
     } else if (results.length > 1) {
         let filtered = results.filter(
             (movie) =>
-                parseInt(movie.release_date.slice(0, 4)) == film.release_year
+                new Date(movie.release_date).getFullYear() == film.release_year
         );
         if (filtered.length == 0) {
             filtered = results;
@@ -150,7 +246,15 @@ async function updateFilmMetadata(db: Kysely<DB>) {
 
     let film_data = await db
         .selectFrom('new_films')
-        .select(['id', 'title', 'release_year', 'director'])
+        .innerJoin('new_cinemas', 'new_films.cinema_id', 'new_cinemas.id')
+        .select([
+            'new_films.id',
+            'title',
+            'release_year',
+            'director',
+            'duration',
+            'default_lang',
+        ])
         .where('tmdb_id', 'is', null)
         .limit(CHUNK_DEFAULT_SIZE)
         .execute();
@@ -158,7 +262,7 @@ async function updateFilmMetadata(db: Kysely<DB>) {
     tmdb_null_films += film_data.length;
 
     let cursor = CHUNK_DEFAULT_SIZE;
-    const tmdb_objs: TMDBObj[] = [];
+    const tmdb_objs: TMDBMovie[] = [];
     const tmdb_ids = new Set(); // update TMDB metadata only once (avoid useless multiple updates on the same row)
     const updated_films: {
         id: number;
@@ -201,7 +305,15 @@ async function updateFilmMetadata(db: Kysely<DB>) {
 
         film_data = await db
             .selectFrom('new_films')
-            .select(['id', 'title', 'release_year', 'director']) // add duration filter?
+            .innerJoin('new_cinemas', 'new_films.cinema_id', 'new_cinemas.id')
+            .select([
+                'new_films.id',
+                'title',
+                'release_year',
+                'director',
+                'duration',
+                'default_lang',
+            ])
             .where('tmdb_id', 'is', null)
             .offset(cursor)
             .limit(CHUNK_DEFAULT_SIZE)
@@ -229,7 +341,7 @@ async function updateFilmMetadata(db: Kysely<DB>) {
             );
         } catch (error) {
             console.error('TMDB metadata error:', error);
-            return; // avoid updating TMDB ids on film rows without first updating TMDB metadata
+            return;
         }
     }
 

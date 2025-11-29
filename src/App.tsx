@@ -15,6 +15,8 @@ import {
     type CinemaTable,
     type FilmTable,
     type ShowingsTable,
+    type FilmWithShowingsAndTMDB,
+    type CinemasWithShowings
 } from './api';
 
 type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
@@ -32,7 +34,8 @@ function App() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [movies, setMovies] = useState<FilmTable[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
-    const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
+    const [cinemasWithShowings, setCinemasWithShowings] = useState<CinemasWithShowings[]>([]);
+    const [screenings, setScreenings] = useState<FilmWithShowingsAndTMDB[]>([]);
     const [loading, setLoading] = useState(true);
     const [city, setCity] = useState<string>('');
 
@@ -159,72 +162,41 @@ function App() {
     };
 
     const groupByMovie = (
-        screeningsList: ShowingsTable[]
+        screeningsList: FilmWithShowingsAndTMDB[]
     ): Array<[string, ShowingsTable[]]> => {
-        type Group = {
-            key: string;
-            movie?: FilmTable | null;
-            screenings: ShowingsTable[];
-        };
+        // type Group = {
+        //     key: string;
+        //     movie?: FilmTable | null;
+        //     screenings: ShowingsTable[];
+        // };
 
-        const groups: Group[] = [];
+        // const groups: Group[] = [];
 
-        screeningsList.forEach((s) => {
-            const movie = getMovie(s.film_id);
+        const filmMap = new Map() as Map<string, FilmWithShowingsAndTMDB>;
 
+        screeningsList.forEach((movie) => {
             // Find an existing group for this movie using tmdb_id when present,
             // otherwise compare title/duration/director when those fields exist.
-            let existing: Group | undefined = undefined;
-
-            if (movie) {
-                if (movie.tmdb_id != null) {
-                    existing = groups.find(
-                        (g) =>
-                            g.movie?.tmdb_id != null &&
-                            g.movie!.tmdb_id === movie.tmdb_id
-                    );
-                }
-
-                if (!existing) {
-                    existing = groups.find((g) => {
-                        const gm = g.movie;
-                        if (!gm) return false;
-                        if (movie.title && gm.title !== movie.title)
-                            return false;
-                        if (
-                            movie.duration != null &&
-                            gm.duration !== movie.duration
-                        )
-                            return false;
-                        if (movie.director && gm.director !== movie.director)
-                            return false;
-                        return true;
-                    });
-                }
-            }
-
-            if (existing) {
-                existing.screenings.push(s);
-            } else {
-                let key: string;
-                if (movie && movie.tmdb_id != null) {
-                    key = `tmdb:${movie.tmdb_id}`;
-                } else if (movie) {
-                    const parts: string[] = [];
-                    if (movie.title) parts.push(movie.title.trim());
-                    if (movie.duration != null)
-                        parts.push(String(movie.duration));
-                    if (movie.director) parts.push(movie.director.trim());
-                    key = `title:${parts.join('|')}`;
+            if (movie.tmdb_id) {
+                const key = 'tmdb:' + movie.tmdb_id;
+                const existing_movie = filmMap.get(key);
+                if (existing_movie) {
+                    movie.new_showings.forEach(show => existing_movie.new_showings.push(show));
                 } else {
-                    key = `film:${s.film_id}`;
+                    filmMap.set(key, movie);
                 }
-
-                groups.push({ key, movie: movie ?? null, screenings: [s] });
+            } else {
+                const key = 'film:' + movie.id;
+                // id must be unique!
+                if (filmMap.has(key)) {
+                    console.error('Uh oh! Something went wrong. Found duplicate id.');
+                    return
+                }
+                    // const existing_movie = [...filmMap.values()].find(f => f.title === movie.title && (f.release_year === movie.release_year || f.director === movie.director || f.duration === movie.duration));
+                filmMap.set(key, movie);
             }
         });
-
-        return groups.map((g) => [g.key, g.screenings]);
+        return [...filmMap.entries()].map(entry => ([entry[0], entry[1].new_showings]));
     };
 
     const groupByCinema = (screeningsList: ShowingsTable[]) => {

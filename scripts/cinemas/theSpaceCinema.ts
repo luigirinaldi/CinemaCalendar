@@ -43,7 +43,7 @@ export interface Result {
     panelImageUrl:              string;
     filmStatus:                 number;
     trailers:                   any[];
-    director:                   string;
+    director:                   string; // could be ""
     distributor:                string;
     movieXchangeCode:           string;
     crossCountryMovieXchangeId: string;
@@ -230,7 +230,7 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
             title: film.filmTitle,
             url: `https://www.thespacecinema.it/film/${film.filmId}`,
             duration: film.runningTime,
-            director: film.director,
+            director: film.director || undefined, // undefined in place of ''
             coverUrl: film.posterImageSrc,
             genres: film.genres,
             originalTitle: film.originalTitle,

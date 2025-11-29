@@ -96,7 +96,6 @@ const CINEMA: Cinema = {
         lng: '11.8656',
     },
     defaultLanguage: 'it-IT',
-    timezone: 'Europe/Rome',
 };
 
 const LOG_PREFIX = '[' + CINEMA.name + ']';
@@ -104,6 +103,7 @@ const API_URL =
     'https://secure.webtic.it/api/wtjsonservices.ashx?localid=5082&trackid=33&wtid=getFullScheduling';
 const BASE_URL = 'https://portoastra.it';
 const IMAGE_BASE_URL = 'https://secure.webtic.it/angwt/';
+const DEFAULT_TIME_ZONE = 'Europe/Rome';
 
 export async function scraper(): Promise<CinemaShowings> {
     const res = await fetch(API_URL);
@@ -148,7 +148,7 @@ export async function scraper(): Promise<CinemaShowings> {
                                     ? showing.StartTime + timezone
                                     : setTimeZone(
                                           showing.StartTime,
-                                          CINEMA.timezone!
+                                          DEFAULT_TIME_ZONE
                                       ),
                                 theatre: showing.Screen,
                                 bookingUrl: `http://www.webtic.it/mobile/?trackid=41&action=loadPerformance&localId=${json.DS.Scheduling.LocalId}&eventId=${event.EventId}&performanceId=${showing.PerformanceId}`,

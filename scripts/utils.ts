@@ -189,3 +189,17 @@ export async function fetchAndParseICS<T = unknown>(
 
     return events;
 }
+
+/**
+ * ## Add timezone to a timestamp without one
+ * A function that sets the timezone on a date without one, and returns the date in ISO format
+ * @param date the date to be converted to ISO format
+ * @param timezone timezone in the standard form "Europe/Rome", or "+01", etc.
+ * @returns the corresponding ISO string after setting the appropriate timezone
+ */
+export function setTimeZone(date: Date | string, timezone: string): string {
+    const tzDate = new Date(
+        new Date(date).toLocaleString('en-US', { timeZone: timezone })
+    );
+    return tzDate.toISOString();
+}

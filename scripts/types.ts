@@ -32,6 +32,7 @@ export const CinemaSchema = z.object({
             /^[a-z]{2}(-[A-Z]{2})?$/,
             "Invalid TMDB language code (use something like 'en' or 'en-US')"
         ),
+    timezone: z.string(),
 });
 
 export const CinemaShowingSchema = z.object({

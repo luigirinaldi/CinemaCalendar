@@ -1,3 +1,4 @@
+import { string } from 'zod';
 import type { Cinema, CinemaShowings, Showing } from '../types';
 import { setTimeZone } from '../utils';
 
@@ -147,7 +148,7 @@ export async function scraper(): Promise<CinemaShowings> {
                                     ? showing.StartTime + timezone
                                     : setTimeZone(
                                           showing.StartTime,
-                                          CINEMA.timezone
+                                          CINEMA.timezone!
                                       ),
                                 theatre: showing.Screen,
                                 bookingUrl: `http://www.webtic.it/mobile/?trackid=41&action=loadPerformance&localId=${json.DS.Scheduling.LocalId}&eventId=${event.EventId}&performanceId=${showing.PerformanceId}`,

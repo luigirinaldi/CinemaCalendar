@@ -44,6 +44,7 @@
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.57.2",
+        "cli-table3": "^0.6.5",
         "dotenv": "^17.2.3",
         "env-cmd": "^11.0.0",
         "fullcalendar": "^6.1.17",

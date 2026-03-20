@@ -3,6 +3,7 @@ import { CinemaShowingsSchema, ScraperFunction } from './types';
 import { printCinemaStats } from './utils';
 import fs from 'fs';
 import path from 'path';
+import Table from 'cli-table3';
 
 async function test(scrapers_to_check: string[] = []) {
     if (!scrapers_to_check || scrapers_to_check.length === 0) {
@@ -29,6 +30,7 @@ async function test(scrapers_to_check: string[] = []) {
         coverUrl: string;
         bookingUrl: string;
         theatre: string;
+        aggregate: string;
     }> = [];
 
     await Promise.all(
@@ -94,6 +96,13 @@ async function test(scrapers_to_check: string[] = []) {
                 }
                 const pct = (n: number, total: number) =>
                     total === 0 ? '0.0%' : ((n / total) * 100).toFixed(1) + '%';
+                const filmCounts = [countDirector, countDuration, countLanguage, countYear, countCountry, countCover];
+                const showingCounts = [countBookingUrl, countTheatre];
+                const totalPct =
+                    filmCounts.reduce((sum, n) => sum + n / (totalFilms || 1), 0) +
+                    showingCounts.reduce((sum, n) => sum + n / (totalShowings || 1), 0);
+                const avgPct = totalPct / (filmCounts.length + showingCounts.length);
+
                 statsTable.push({
                     cinema: cinema.cinema.name,
                     films: totalFilms,
@@ -106,6 +115,7 @@ async function test(scrapers_to_check: string[] = []) {
                     coverUrl: `${countCover} (${pct(countCover, totalFilms)})`,
                     bookingUrl: `${countBookingUrl} (${pct(countBookingUrl, totalShowings)})`,
                     theatre: `${countTheatre} (${pct(countTheatre, totalShowings)})`,
+                    aggregate: (avgPct * 100).toFixed(1) + '%',
                 });
             }
         })
@@ -119,6 +129,7 @@ async function test(scrapers_to_check: string[] = []) {
         'cinema',
         'films',
         'showings',
+        'aggregate',
         'director',
         'duration',
         'language',
@@ -128,14 +139,11 @@ async function test(scrapers_to_check: string[] = []) {
         'bookingUrl',
         'theatre',
     ];
-    const header = columns.map((c) => c.padEnd(16)).join('');
-    console.log('\n' + header);
+    const table = new Table({ head: columns });
     for (const row of statsTable) {
-        const line = columns
-            .map((c) => String((row as Record<string, unknown>)[c]).padEnd(16))
-            .join('');
-        console.log(line);
+        table.push(columns.map((c) => String((row as Record<string, unknown>)[c])));
     }
+    console.log('\n' + table.toString());
 }
 
 async function main() {

@@ -6,6 +6,7 @@ import {
 } from '../types';
 import { parse } from 'node-html-parser';
 import { DateTime } from 'luxon';
+import { chromium } from 'playwright-chromium';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -22,9 +23,11 @@ const CINEMA: Cinema = {
 };
 
 export async function scraper(): Promise<CinemaShowing[]> {
-    const response = await fetch(BASE_URL + '/search_film_programmes/');
-
-    const html = await response.text();
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(BASE_URL + '/search_film_programmes/', { waitUntil: 'domcontentloaded' });
+    const html = await page.content();
+    await browser.close();
     const root = parse(html);
 
     // --- 2. Find the <script> that contains "var shows"

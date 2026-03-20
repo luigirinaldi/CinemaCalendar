@@ -4,6 +4,7 @@
     "version": "0.1.0",
     "type": "module",
     "scripts": {
+        "clear_db": "npx tsx scripts/clearDatabase.ts",
         "get_data": "npx tsx scripts/scrapeAll.ts",
         "dev": "vite",
         "build": "tsc -b && vite build",
@@ -25,6 +26,7 @@
         "@types/react-dom": "^19.1.9",
         "@vitejs/plugin-react": "^5.0.4",
         "autoprefixer": "^10.4.21",
+        "baseline-browser-mapping": "^2.10.9",
         "dotenv-cli": "^11.0.0",
         "eslint": "^9.36.0",
         "eslint-plugin-react-hooks": "^5.2.0",
@@ -42,6 +44,7 @@
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.57.2",
+        "cli-table3": "^0.6.5",
         "dotenv": "^17.2.3",
         "env-cmd": "^11.0.0",
         "fullcalendar": "^6.1.17",
@@ -51,6 +54,7 @@
         "luxon": "^3.6.1",
         "node-html-parser": "^7.0.1",
         "pg": "^8.16.3",
+        "playwright-chromium": "^1.58.2",
         "quicktype": "^23.2.6",
         "react": "^19.2.0",
         "react-dom": "^19.1.1",

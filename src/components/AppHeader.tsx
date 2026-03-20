@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Film, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy } from '../types';
 import { formatDateRange } from '../utils/formatters';
@@ -187,15 +188,7 @@ interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
-    dateRange: DateRange;
-    onDateRangeChange: (range: DateRange) => void;
-    currentDate: Date;
-    onNavigate: (direction: 'prev' | 'next') => void;
-    onResetToToday: () => void;
-    customStartDate: string;
-    customEndDate: string;
-    onCustomStartDateChange: (value: string) => void;
-    onCustomEndDateChange: (value: string) => void;
+    onRangeChange: (range: [Date, Date] | null) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
 }
@@ -204,18 +197,62 @@ export default function AppHeader({
     city,
     cities,
     onCityChange,
-    dateRange,
-    onDateRangeChange,
-    currentDate,
-    onNavigate,
-    onResetToToday,
-    customStartDate,
-    customEndDate,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+    onRangeChange,
     groupBy,
     onGroupByChange,
 }: AppHeaderProps) {
+    const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString());
+    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString());
+
+    const navigateDate = (direction: 'prev' | 'next') => {
+        const newDate = new Date(currentDate);
+        const delta = direction === 'next' ? 1 : -1;
+        if (dateRange === 'today') newDate.setDate(newDate.getDate() + delta);
+        else if (dateRange === 'thisWeek') newDate.setDate(newDate.getDate() + delta * 7);
+        setCurrentDate(newDate);
+    };
+
+    const resetToToday = () => setCurrentDate(new Date());
+
+    useEffect(() => {
+        let range: [Date, Date] | null;
+        switch (dateRange) {
+            case 'today':
+                range = [
+                    currentDate,
+                    new Date(
+                        currentDate.getFullYear(),
+                        currentDate.getMonth(),
+                        currentDate.getDate() + 1,
+                        4,
+                        0
+                    ),
+                ];
+                break;
+            case 'thisWeek':
+                range = [
+                    currentDate,
+                    new Date(
+                        currentDate.getFullYear(),
+                        currentDate.getMonth(),
+                        currentDate.getDate() + 7,
+                        4,
+                        0
+                    ),
+                ];
+                break;
+            case 'custom':
+                range = [new Date(customStartDate), new Date(customEndDate)];
+                break;
+            case 'anytime':
+                range = null;
+                break;
+        }
+        onRangeChange(range);
+    }, [dateRange, currentDate, customStartDate, customEndDate, onRangeChange]);
+
     return (
         <header className="bg-neutral-950 border-b border-red-900/30">
             <div className="max-w-7xl mx-auto px-4 py-6">
@@ -237,23 +274,23 @@ export default function AppHeader({
                 <div className="space-y-4">
                     <DateRangeTabs
                         dateRange={dateRange}
-                        onDateRangeChange={onDateRangeChange}
-                        onResetToToday={onResetToToday}
+                        onDateRangeChange={setDateRange}
+                        onResetToToday={resetToToday}
                     />
                     {(dateRange === 'today' || dateRange === 'thisWeek') && (
                         <DateNavigator
                             dateRange={dateRange}
                             currentDate={currentDate}
-                            onNavigate={onNavigate}
-                            onResetToToday={onResetToToday}
+                            onNavigate={navigateDate}
+                            onResetToToday={resetToToday}
                         />
                     )}
                     {dateRange === 'custom' && (
                         <CustomDateInputs
                             customStartDate={customStartDate}
                             customEndDate={customEndDate}
-                            onCustomStartDateChange={onCustomStartDateChange}
-                            onCustomEndDateChange={onCustomEndDateChange}
+                            onCustomStartDateChange={setCustomStartDate}
+                            onCustomEndDateChange={setCustomEndDate}
                         />
                     )}
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />

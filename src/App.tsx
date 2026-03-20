@@ -8,18 +8,15 @@ import {
     type FilmTable,
     type ShowingsTable,
 } from './api';
-import type { DateRange, GroupBy } from './types';
+import type { GroupBy } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
 
 function App() {
-    const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
     const [groupBy, setGroupBy] = useState<GroupBy>('movie');
-    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString());
-    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString());
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
     const [movies, setMovies] = useState<FilmTable[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
@@ -42,43 +39,12 @@ function App() {
 
     // Re-fetch screenings whenever filters change
     useEffect(() => {
-        const getDateRange = (): [Date, Date] | null => {
-            switch (dateRange) {
-                case 'today':
-                    return [
-                        currentDate,
-                        new Date(
-                            currentDate.getFullYear(),
-                            currentDate.getMonth(),
-                            currentDate.getDate() + 1,
-                            4,
-                            0
-                        ),
-                    ];
-                case 'thisWeek':
-                    return [
-                        currentDate,
-                        new Date(
-                            currentDate.getFullYear(),
-                            currentDate.getMonth(),
-                            currentDate.getDate() + 7,
-                            4,
-                            0
-                        ),
-                    ];
-                case 'custom':
-                    return [new Date(customStartDate), new Date(customEndDate)];
-                case 'anytime':
-                    return null;
-            }
-        };
-
         const fetchData = async () => {
-            const data = await fetchScreenings(getDateRange(), getCityCinemaIds(cinemas, city));
+            const data = await fetchScreenings(dateRange, getCityCinemaIds(cinemas, city));
             setScreenings(data);
         };
         fetchData();
-    }, [dateRange, currentDate, customStartDate, customEndDate, city, cinemas]);
+    }, [dateRange, city, cinemas]);
 
     const getCities = (cinemas: CinemaTable[]) => [...new Set(cinemas.map((c) => c.location))];
     const getCityCinemaIds = (cinemas: CinemaTable[], city: string) =>
@@ -86,16 +52,6 @@ function App() {
 
     const getMovie = (id: number) => movies.find((m) => m.id === id);
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
-
-    const navigateDate = (direction: 'prev' | 'next') => {
-        const newDate = new Date(currentDate);
-        const delta = direction === 'next' ? 1 : -1;
-        if (dateRange === 'today') newDate.setDate(newDate.getDate() + delta);
-        else if (dateRange === 'thisWeek') newDate.setDate(newDate.getDate() + delta * 7);
-        setCurrentDate(newDate);
-    };
-
-    const resetToToday = () => setCurrentDate(new Date());
 
     if (loading) {
         return (
@@ -111,15 +67,7 @@ function App() {
                 city={city}
                 cities={getCities(cinemas).filter((c): c is string => c !== null)}
                 onCityChange={setCity}
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                currentDate={currentDate}
-                onNavigate={navigateDate}
-                onResetToToday={resetToToday}
-                customStartDate={customStartDate}
-                customEndDate={customEndDate}
-                onCustomStartDateChange={setCustomStartDate}
-                onCustomEndDateChange={setCustomEndDate}
+                onRangeChange={setDateRange}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
             />

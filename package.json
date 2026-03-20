@@ -4,6 +4,7 @@
     "version": "0.1.0",
     "type": "module",
     "scripts": {
+        "clear_db": "npx tsx scripts/clearDatabase.ts",
         "get_data": "npx tsx scripts/scrapeAll.ts",
         "dev": "vite",
         "build": "tsc -b && vite build",

@@ -1,4 +1,4 @@
-import type { CinemaTable, FilmTable, ShowingsTable } from '../api';
+import type { CinemaTable, FilmWithPoster, ShowingsTable } from '../api';
 import { formatDate, formatTime } from '../utils/formatters';
 import {
     groupByCinema,
@@ -49,7 +49,7 @@ function CinemaGroup({
     ).sort(sortGroupedByStartTime);
 
     return (
-        <div className="bg-neutral-700 rounded p-3 text-sm">
+        <div className="bg-neutral-700 rounded p-2 text-sm">
             <p className="font-medium">{cinema?.name}</p>
             <div className="flex flex-col justify-between">
                 {byDay.map(([day, dayScreenings]) => (
@@ -63,7 +63,7 @@ function CinemaGroup({
 interface MovieCardProps {
     movieKey: string;
     screenings: ShowingsTable[];
-    getMovie: (id: number) => FilmTable | undefined;
+    getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
 }
 
@@ -72,21 +72,36 @@ export default function MovieCard({ movieKey, screenings, getMovie, getCinema }:
     const byCinema = Object.entries(groupByCinema(screenings)).sort(sortGroupedByStartTime);
 
     return (
-        <div key={movieKey} className="bg-neutral-800 rounded-lg p-6">
-            <h3 className="text-xl font-bold mb-2">{movie?.title}</h3>
-            <p className="text-neutral-400 mb-4">{movie?.duration} min</p>
-            <div className="space-y-2">
-                <h4 className="text-sm font-semibold text-neutral-300">
-                    {screenings.length} Screening{screenings.length !== 1 ? 's' : ''}
-                </h4>
-                {byCinema.map(([cinemaId, cinemaScreenings]) => (
-                    <CinemaGroup
-                        key={cinemaId}
-                        cinemaId={cinemaId}
-                        screenings={cinemaScreenings}
-                        getCinema={getCinema}
-                    />
-                ))}
+        <div key={movieKey} className="bg-neutral-800 rounded-lg overflow-hidden flex flex-col w-40 sm:w-48">
+            {movie?.poster_url ? (
+                <img
+                    src={movie.poster_url}
+                    alt={movie.title ?? 'Poster'}
+                    loading="lazy"
+                    className="w-full aspect-[2/3] object-cover"
+                />
+            ) : null}
+            <div className="p-3 flex flex-col">
+                <div className="mb-2">
+                    <h3 className="text-base font-semibold leading-tight">{movie?.title}</h3>
+                    {movie?.director ? (
+                        <p className="text-neutral-400 text-xs mt-1">Directed by {movie.director}</p>
+                    ) : null}
+                    <p className="text-neutral-500 text-xs mt-1">{movie?.duration} min</p>
+                </div>
+                <div className="space-y-1">
+                    <h4 className="text-sm font-medium text-neutral-300">
+                        {screenings.length} Screening{screenings.length !== 1 ? 's' : ''}
+                    </h4>
+                    {byCinema.map(([cinemaId, cinemaScreenings]) => (
+                        <CinemaGroup
+                            key={cinemaId}
+                            cinemaId={cinemaId}
+                            screenings={cinemaScreenings}
+                            getCinema={getCinema}
+                        />
+                    ))}
+                </div>
             </div>
         </div>
     );

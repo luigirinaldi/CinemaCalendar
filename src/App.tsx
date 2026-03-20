@@ -5,7 +5,7 @@ import {
     fetchMovies,
     fetchScreenings,
     type CinemaTable,
-    type FilmTable,
+    type FilmWithPoster,
     type ShowingsTable,
 } from './api';
 import type { GroupBy } from './types';
@@ -17,7 +17,7 @@ import ByCinemaView from './components/ByCinemaView';
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>('movie');
     const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
-    const [movies, setMovies] = useState<FilmTable[]>([]);
+    const [movies, setMovies] = useState<FilmWithPoster[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
@@ -50,7 +50,7 @@ function App() {
     const getCityCinemaIds = (cinemas: CinemaTable[], city: string) =>
         cinemas.filter((c) => c.location === city).map((c) => c.id);
 
-    const getMovie = (id: number) => movies.find((m) => m.id === id);
+    const getMovie = (id: number) => movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     if (loading) {
@@ -80,7 +80,7 @@ function App() {
                         </p>
                     </div>
                 ) : groupBy === 'movie' ? (
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    <div className="flex flex-wrap gap-6 justify-around">
                         {groupByMovie(screenings, getMovie)
                             .sort(sortGroupedByStartTime)
                             .map(([key, movieScreenings]) => (

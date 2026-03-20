@@ -16,8 +16,8 @@ interface RiversidePerf {
 }
 
 interface RiversideEvent {
-    event_type?: string | string[];
-    run_time?: string;
+    slot_tag?: string | boolean;
+    duration?: string;
     title?: string;
     url?: string;
     performances?: Record<string, RiversidePerf[]>;
@@ -25,7 +25,7 @@ interface RiversideEvent {
 
 export async function scraper(): Promise<CinemaShowing[]> {
     const response = await fetch(
-        'https://riversidestudios.co.uk/ajax/filter_stream/2/88/?offset=0&limit=500&q=',
+        'https://riversidestudios.co.uk/ajax/filter_stream/ZWhHVEdwSDNuekJLUWI1OXVDQ0Fvdz09/?offset=0&limit=500&q=',
         {
             method: 'GET',
         }
@@ -37,17 +37,12 @@ export async function scraper(): Promise<CinemaShowing[]> {
     // Collect flat list of (title, url, startTime, duration)
     const flatShowings = result
         .filter(
-            (event) =>
-                !!event.event_type &&
-                // event_type can be a string or array; normalize to string
-                (Array.isArray(event.event_type)
-                    ? event.event_type.includes('101')
-                    : String(event.event_type).includes('101'))
+            (event) => event.slot_tag === 'Cinema'
         )
         .flatMap((event) => {
             let duration: number | undefined;
-            const durationMatch = (event.run_time ?? '').match(
-                /(\d+)([ mins]*)/
+            const durationMatch = (event.duration ?? '').match(
+                /(\d+)/
             );
             if (!durationMatch) {
                 console.warn(

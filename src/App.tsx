@@ -201,6 +201,10 @@ function App() {
                         return true;
                     });
                 }
+            } else {
+                existing = groups.find(
+                    (g) => g.key === `film:${s.film_id}`
+                );
             }
 
             if (existing) {

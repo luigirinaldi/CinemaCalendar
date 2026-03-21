@@ -163,7 +163,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
         // Add showing to existing film entry
         const filmEntry = filmMap.get(filmKey)!;
         filmEntry.showings.push({
-            startTime: new Date(event.start_date).toISOString(), // utc_start_date also available
+            startTime: event.utc_start_date + '+0', // +0 for the timezone
             bookingUrl: `https://www.liveticket.it/cinemaluxpadova#EventsTitleAnchor`, // no way to access the real url
         });
     });

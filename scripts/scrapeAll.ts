@@ -25,10 +25,13 @@ async function main() {
 
     const db = await connectDB();
 
+    const dryRun = process.argv.includes('--dry-run');
+    if (dryRun) console.log('[main] DRY RUN mode — no changes will be written');
+
     await Promise.all(
         scrapers.map(async ([name, fun]) => {
             try {
-                await scrapeAndStore(name, fun, db);
+                await scrapeAndStore(name, fun, db, dryRun);
             } catch (e) {
                 if (e instanceof ZodError) {
                     console.log(`📜 Scraper '${name}' parsing error`);

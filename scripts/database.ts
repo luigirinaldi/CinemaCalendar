@@ -33,6 +33,64 @@ export async function connectDB() {
     });
 }
 
+export async function dryRunStoreCinemaData(
+    trx: Transaction<DB>,
+    cinemaShowing: CinemaShowing
+) {
+    const LOG_PREFIX = '[dry-run][' + cinemaShowing.cinema.name + ']';
+    const now = DateTime.now().toISO().toString();
+
+    const { defaultLanguage, ...rest } = cinemaShowing.cinema;
+    const cinema = await trx
+        .selectFrom('new_cinemas')
+        .select('id')
+        .where('name', '=', rest.name)
+        .executeTakeFirst();
+
+    if (!cinema) {
+        console.log(`${LOG_PREFIX} Cinema not found in DB — would be inserted`);
+        return;
+    }
+    const cinemaId = cinema.id;
+
+    // Current future showings in DB
+    const currentShowings = await trx
+        .selectFrom('new_showings')
+        .innerJoin('new_films', 'new_films.id', 'new_showings.film_id')
+        .select(['new_showings.start_time', 'new_films.title'])
+        .where('new_showings.cinema_id', '=', cinemaId)
+        .where('new_showings.start_time', '>=', now)
+        .execute();
+
+    // Incoming showings from scraper
+    const incomingShowings = cinemaShowing.showings.flatMap((filmShowing) =>
+        filmShowing.showings.map((showing) => ({
+            title: filmShowing.film.title,
+            start_time: showing.startTime,
+        }))
+    );
+
+    const toKey = (title: string, time: string) =>
+        `${title}|${new Date(time).getTime()}`;
+
+    const currentKeys = new Set(currentShowings.map((s) => toKey(s.title, s.start_time)));
+    const incomingKeys = new Set(incomingShowings.map((s) => toKey(s.title, s.start_time)));
+
+    const added = incomingShowings.filter((s) => !currentKeys.has(toKey(s.title, s.start_time)));
+    const removed = currentShowings.filter((s) => !incomingKeys.has(toKey(s.title, s.start_time)));
+
+    if (added.length === 0 && removed.length === 0) {
+        console.log(`${LOG_PREFIX} No changes`);
+        return;
+    }
+    for (const s of added) {
+        console.log(`${LOG_PREFIX} + [${s.start_time}] ${s.title}`);
+    }
+    for (const s of removed) {
+        console.log(`${LOG_PREFIX} - [${s.start_time}] ${s.title}`);
+    }
+}
+
 export async function storeCinemaData(
     trx: Transaction<DB>,
     cinemaShowing: CinemaShowing

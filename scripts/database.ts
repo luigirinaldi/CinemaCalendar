@@ -99,11 +99,11 @@ export async function storeCinemaData(
         console.log(`${LOG_PREFIX} No new movies to insert`);
     }
 
-    // Get showings
-    const showings = await trx
-        .selectFrom('new_showings')
-        .selectAll()
+    // Delete all future showings for this cinema
+    await trx
+        .deleteFrom('new_showings')
         .where('cinema_id', '=', cinemaId)
+        .where('start_time', '>=', now)
         .execute();
 
     const showingsToInsert = cinemaShowing.showings.flatMap((filmShowing) => {
@@ -115,25 +115,14 @@ export async function storeCinemaData(
                 `${LOG_PREFIX} Couldn't find id for film after inserting it: ${film.title}`
             );
 
-        return filmShowing.showings
-            .filter(
-                (show) =>
-                    showings.find(
-                        (s) =>
-                            new Date(show.startTime).getTime() ===
-                                new Date(s.start_time).getTime() &&
-                            s.film_id === filmId &&
-                            s.cinema_id === cinemaId
-                    ) === undefined
-            )
-            .map((showing) => {
-                return {
-                    booking_url: showing.bookingUrl,
-                    cinema_id: cinemaId,
-                    film_id: filmId,
-                    start_time: showing.startTime,
-                };
-            });
+        return filmShowing.showings.map((showing) => {
+            return {
+                booking_url: showing.bookingUrl,
+                cinema_id: cinemaId,
+                film_id: filmId,
+                start_time: showing.startTime,
+            };
+        });
     });
 
     if (showingsToInsert.length > 0) {

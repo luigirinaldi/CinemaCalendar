@@ -179,9 +179,8 @@ export async function scraper(): Promise<CinemaShowings> {
             const filmUrl = titleLink.getAttribute('href');
             if (!filmUrl) continue;
 
-            // Strip trailing rating (e.g. " 12A", " 15", " PG", " U", " 18") from title
-            const rawTitle = titleLink.text.trim();
-            const title = rawTitle.replace(/\s+(U|PG|12A|15|18)\s*$/, '').trim();
+            titleLink.querySelector('.films-list__by-date__film__rating')?.remove();
+            const title = titleLink.text.trim();
 
             if (!title) {
                 console.error(`${LOG_PREFIX} Empty title for ${filmUrl}`);

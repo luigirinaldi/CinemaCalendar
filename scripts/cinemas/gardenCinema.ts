@@ -16,10 +16,103 @@ const CINEMA: Cinema = {
     defaultLanguage: 'en-GB',
 };
 
+// Comprehensive set of country names (lowercase for case-insensitive matching).
+// Includes UN member states, common abbreviations, territories, and historical names
+// that may appear in film credits.
+const VALID_COUNTRIES = new Set([
+    // A
+    'afghanistan', 'albania', 'algeria', 'andorra', 'angola',
+    'antigua and barbuda', 'argentina', 'armenia', 'australia', 'austria',
+    'azerbaijan',
+    // B
+    'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belarus', 'belgium',
+    'belize', 'benin', 'bhutan', 'bolivia', 'bosnia and herzegovina',
+    'botswana', 'brazil', 'brunei', 'bulgaria', 'burkina faso', 'burundi',
+    // C
+    'cabo verde', 'cambodia', 'cameroon', 'canada', 'central african republic',
+    'chad', 'chile', 'china', 'colombia', 'comoros', 'congo',
+    'democratic republic of the congo', 'costa rica', 'croatia', 'cuba',
+    'cyprus', 'czech republic', 'czechia',
+    // D
+    'denmark', 'djibouti', 'dominica', 'dominican republic',
+    // E
+    'ecuador', 'egypt', 'el salvador', 'equatorial guinea', 'eritrea',
+    'estonia', 'eswatini', 'ethiopia',
+    // F
+    'fiji', 'finland', 'france',
+    // G
+    'gabon', 'gambia', 'georgia', 'germany', 'ghana', 'greece', 'grenada',
+    'guatemala', 'guinea', 'guinea-bissau', 'guyana',
+    // H
+    'haiti', 'honduras', 'hungary', 'hong kong',
+    // I
+    'iceland', 'india', 'indonesia', 'iran', 'iraq', 'ireland', 'israel',
+    'italy', 'ivory coast',
+    // J
+    'jamaica', 'japan', 'jordan',
+    // K
+    'kazakhstan', 'kenya', 'kiribati', 'kosovo', 'kuwait', 'kyrgyzstan',
+    // L
+    'laos', 'latvia', 'lebanon', 'lesotho', 'liberia', 'libya',
+    'liechtenstein', 'lithuania', 'luxembourg',
+    // M
+    'macau', 'madagascar', 'malawi', 'malaysia', 'maldives', 'mali', 'malta',
+    'marshall islands', 'mauritania', 'mauritius', 'mexico', 'micronesia',
+    'moldova', 'monaco', 'mongolia', 'montenegro', 'morocco', 'mozambique',
+    'myanmar',
+    // N
+    'namibia', 'nauru', 'nepal', 'netherlands', 'new zealand', 'nicaragua',
+    'niger', 'nigeria', 'north korea', 'north macedonia', 'norway',
+    // O
+    'oman',
+    // P
+    'pakistan', 'palau', 'palestine', 'panama', 'papua new guinea', 'paraguay',
+    'peru', 'philippines', 'poland', 'portugal', 'puerto rico',
+    // Q
+    'qatar',
+    // R
+    'romania', 'russia', 'rwanda',
+    // S
+    'saint kitts and nevis', 'saint lucia', 'saint vincent and the grenadines',
+    'samoa', 'san marino', 'sao tome and principe', 'saudi arabia', 'senegal',
+    'serbia', 'seychelles', 'sierra leone', 'singapore', 'slovakia',
+    'slovenia', 'solomon islands', 'somalia', 'south africa', 'south korea',
+    'south sudan', 'spain', 'sri lanka', 'sudan', 'suriname', 'sweden',
+    'switzerland', 'syria',
+    // T
+    'taiwan', 'tajikistan', 'tanzania', 'thailand', 'timor-leste', 'togo',
+    'tonga', 'trinidad and tobago', 'tunisia', 'turkey', 'turkmenistan',
+    'tuvalu',
+    // U
+    'uganda', 'ukraine', 'united arab emirates', 'united kingdom',
+    'united states', 'united states of america', 'uruguay', 'uzbekistan',
+    // V
+    'vanuatu', 'vatican', 'venezuela', 'vietnam',
+    // W
+    'west germany',
+    // Y
+    'yemen', 'yugoslavia',
+    // Z
+    'zambia', 'zimbabwe',
+    // Common abbreviations and territories
+    'uk', 'usa', 'us', 'uae', 'ussr',
+    // British nations sometimes listed separately
+    'england', 'scotland', 'wales', 'northern ireland',
+    // Other commonly used variants
+    'korea',
+]);
+
 /**
- * Parse director, country, year, and duration from the stats string.
- * Format: "Director Name, Country, YYYY, NNNm."
- * Country may be multiple comma-separated values (e.g. "USA, UK").
+ * Parse director(s), country/countries, year, and duration from a stats string.
+ *
+ * Format (positional from the end):
+ *   [...directors], [...countries], YYYY, NNNm.
+ *
+ * Algorithm:
+ *   1. Pop last token if it looks like a duration ("NNNm.")
+ *   2. Pop new last token if it looks like a year ("YYYY")
+ *   3. Pop tokens from the end while they match a known country name
+ *   4. Everything remaining is one or more director names
  */
 function parseStats(statsText: string): {
     director?: string;
@@ -27,25 +120,32 @@ function parseStats(statsText: string): {
     year?: number;
     duration?: number;
 } {
-    const yearMatch = statsText.match(/,\s*((?:19|20)\d{2})\s*,/);
-    const durationMatch = statsText.match(/,\s*(\d+)m\.\s*$/);
+    const parts = statsText
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
 
-    const year = yearMatch ? parseInt(yearMatch[1]) : undefined;
-    const duration = durationMatch ? parseInt(durationMatch[1]) : undefined;
+    let duration: number | undefined;
+    let year: number | undefined;
 
-    let director: string | undefined;
-    let country: string | undefined;
-
-    if (yearMatch && yearMatch.index !== undefined) {
-        const beforeYear = statsText.slice(0, yearMatch.index).trim();
-        const commaIdx = beforeYear.indexOf(',');
-        if (commaIdx >= 0) {
-            director = beforeYear.slice(0, commaIdx).trim() || undefined;
-            country = beforeYear.slice(commaIdx + 1).trim() || undefined;
-        } else {
-            director = beforeYear || undefined;
-        }
+    if (parts.length > 0 && /^\d+m\.?$/.test(parts[parts.length - 1])) {
+        duration = parseInt(parts.pop()!);
     }
+
+    if (parts.length > 0 && /^(?:19|20)\d{2}$/.test(parts[parts.length - 1])) {
+        year = parseInt(parts.pop()!);
+    }
+
+    const countryParts: string[] = [];
+    while (
+        parts.length > 0 &&
+        VALID_COUNTRIES.has(parts[parts.length - 1].toLowerCase())
+    ) {
+        countryParts.unshift(parts.pop()!);
+    }
+
+    const country = countryParts.length > 0 ? countryParts.join(', ') : undefined;
+    const director = parts.length > 0 ? parts.join(', ') : undefined;
 
     return { director, country, year, duration };
 }

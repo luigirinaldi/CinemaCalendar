@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Film, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy } from '../types';
 import { formatDateRange } from '../utils/formatters';
+import { getUrlSearchParams, setUrlSearchParams } from '../utils/url';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -201,10 +202,15 @@ export default function AppHeader({
     groupBy,
     onGroupByChange,
 }: AppHeaderProps) {
-    const [dateRange, setDateRange] = useState<DateRange>('thisWeek');
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [customStartDate, setCustomStartDate] = useState(new Date().toISOString());
-    const [customEndDate, setCustomEndDate] = useState(new Date().toISOString());
+    const { dateRange: urlDR, date: urlDate, start: urlStart, end: urlEnd } = getUrlSearchParams();
+    const [dateRange, setDateRange] = useState<DateRange>(urlDR ?? 'thisWeek');
+    const [currentDate, setCurrentDate] = useState(urlDate ? new Date(urlDate) : new Date());
+    const [customStartDate, setCustomStartDate] = useState(
+        urlStart ?? new Date().toISOString().slice(0, 10)
+    );
+    const [customEndDate, setCustomEndDate] = useState(
+        urlEnd ?? new Date().toISOString().slice(0, 10)
+    );
 
     const navigateDate = (direction: 'prev' | 'next') => {
         const newDate = new Date(currentDate);
@@ -252,6 +258,20 @@ export default function AppHeader({
         }
         onRangeChange(range);
     }, [dateRange, currentDate, customStartDate, customEndDate, onRangeChange]);
+
+    // Sync date filter state to URL search params
+    useEffect(() => {
+        if (dateRange === 'today' || dateRange === 'thisWeek') {
+            setUrlSearchParams(
+                { dateRange, date: currentDate.toISOString().slice(0, 10) },
+                ['start', 'end']
+            );
+        } else if (dateRange === 'custom') {
+            setUrlSearchParams({ dateRange, start: customStartDate, end: customEndDate }, ['date']);
+        } else {
+            setUrlSearchParams({ dateRange }, ['date', 'start', 'end']);
+        }
+    }, [dateRange, currentDate, customStartDate, customEndDate]);
 
     return (
         <header className="bg-neutral-950 border-b border-red-900/30">

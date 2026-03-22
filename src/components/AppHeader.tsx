@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Film, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy } from '../types';
 import { formatDateRange } from '../utils/formatters';
-import { getUrlSearchParams, setUrlSearchParams } from '../utils/url';
+import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr } from '../utils/url';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -204,12 +204,14 @@ export default function AppHeader({
 }: AppHeaderProps) {
     const { dateRange: urlDR, date: urlDate, start: urlStart, end: urlEnd } = getUrlSearchParams();
     const [dateRange, setDateRange] = useState<DateRange>(urlDR ?? 'thisWeek');
-    const [currentDate, setCurrentDate] = useState(urlDate ? new Date(urlDate) : new Date());
+    const [currentDate, setCurrentDate] = useState(
+        urlDate ? parseLocalDate(urlDate) : new Date()
+    );
     const [customStartDate, setCustomStartDate] = useState(
-        urlStart ?? new Date().toISOString().slice(0, 10)
+        urlStart ?? toLocalDateStr(new Date())
     );
     const [customEndDate, setCustomEndDate] = useState(
-        urlEnd ?? new Date().toISOString().slice(0, 10)
+        urlEnd ?? toLocalDateStr(new Date())
     );
 
     const navigateDate = (direction: 'prev' | 'next') => {
@@ -224,10 +226,16 @@ export default function AppHeader({
 
     useEffect(() => {
         let range: [Date, Date] | null;
+        const dayStart = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth(),
+            currentDate.getDate(),
+            0, 0, 0
+        );
         switch (dateRange) {
             case 'today':
                 range = [
-                    currentDate,
+                    dayStart,
                     new Date(
                         currentDate.getFullYear(),
                         currentDate.getMonth(),
@@ -239,7 +247,7 @@ export default function AppHeader({
                 break;
             case 'thisWeek':
                 range = [
-                    currentDate,
+                    dayStart,
                     new Date(
                         currentDate.getFullYear(),
                         currentDate.getMonth(),
@@ -250,7 +258,7 @@ export default function AppHeader({
                 ];
                 break;
             case 'custom':
-                range = [new Date(customStartDate), new Date(customEndDate)];
+                range = [parseLocalDate(customStartDate), parseLocalDate(customEndDate)];
                 break;
             case 'anytime':
                 range = null;
@@ -263,7 +271,7 @@ export default function AppHeader({
     useEffect(() => {
         if (dateRange === 'today' || dateRange === 'thisWeek') {
             setUrlSearchParams(
-                { dateRange, date: currentDate.toISOString().slice(0, 10) },
+                { dateRange, date: toLocalDateStr(currentDate) },
                 ['start', 'end']
             );
         } else if (dateRange === 'custom') {

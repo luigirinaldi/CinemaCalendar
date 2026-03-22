@@ -1,5 +1,19 @@
 import type { DateRange, GroupBy } from '../types';
 
+/** Parse a YYYY-MM-DD string as local midnight (avoids UTC-offset day shift). */
+export function parseLocalDate(str: string): Date {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+/** Serialize a Date to YYYY-MM-DD using local calendar date (not UTC). */
+export function toLocalDateStr(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 export function getUrlSearchParams(): {
     city: string | null;
     dateRange: DateRange | null;

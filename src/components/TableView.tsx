@@ -115,7 +115,6 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                         const movie = getMovie(filmScreenings[0].film_id);
                         const tmdb = movie?.tmdb_info ?? null;
                         const title = tmdb?.title ?? movie?.title ?? '—';
-                        console.log(title, movie)
                         const year = tmdb?.release_date
                             ? new Date(tmdb.release_date).getFullYear()
                             : movie?.release_year;

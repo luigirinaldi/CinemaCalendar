@@ -112,10 +112,27 @@ export const fetchCinemas = async (): Promise<CinemaTable[]> => {
     return response.data;
 };
 
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const screeningsCache = new Map<string, { data: FilmWithShowingsAndTMDB[]; fetchedAt: number }>();
+
+function screeningsCacheKey(date_range: [Date, Date] | null, cinema_ids: number[]): string {
+    const ids = [...cinema_ids].sort().join(',');
+    const range = date_range
+        ? `${date_range[0].toISOString()}|${date_range[1].toISOString()}`
+        : 'null';
+    return `${ids}::${range}`;
+}
+
 export const fetchScreenings = async (
     date_range: [Date, Date] | null,
     cinema_ids: number[]
 ): Promise<FilmWithShowingsAndTMDB[]> => {
+    const key = screeningsCacheKey(date_range, cinema_ids);
+    const cached = screeningsCache.get(key);
+    if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+        return cached.data;
+    }
+
     let response;
     if (date_range === null) {
         response = await supabase
@@ -133,6 +150,8 @@ export const fetchScreenings = async (
     }
     if (response.error !== null || response.data === null)
         throw new Error(`Failed to fetch screenings: ${response.error}`);
-    console.log(date_range, response.data.length);
-    return response.data as FilmWithShowingsAndTMDB[];
+
+    const data = response.data as FilmWithShowingsAndTMDB[];
+    screeningsCache.set(key, { data, fetchedAt: Date.now() });
+    return data;
 };

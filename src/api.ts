@@ -6,8 +6,6 @@ export type FilmTable = Tables<'new_films'>;
 export type CinemaTable = Tables<'new_cinemas'>;
 export type ShowingsTable = Tables<'new_showings'>;
 
-// Extended film type used by the frontend: includes a resolved poster_url
-export type FilmWithPoster = FilmTable & { poster_url?: string | null };
 
 export type TMDBFilm = {
     id: number;
@@ -30,6 +28,12 @@ export type TMDBFilm = {
     letterboxd_ratings: any | null;
     release_date: string;
 };
+
+// Extended film type used by the frontend: includes a resolved poster_url
+export type FilmWithPoster = FilmTable & { 
+    poster_url?: string | null;
+    tmdb_info: TMDBFilm | null;
+ };
 
 export type FilmWithShowingsAndTMDB = FilmTable & {
     new_showings: ShowingsTable[];
@@ -94,7 +98,7 @@ export function filmWithPoster(f: FilmWithShowingsAndTMDB): FilmWithPoster {
         poster_url = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
     }
 
-    return { ...f, poster_url };
+    return { ...f, tmdb_info: f.tmdb_films, poster_url };
 }
 
 export const fetchCinemas = async (): Promise<CinemaTable[]> => {

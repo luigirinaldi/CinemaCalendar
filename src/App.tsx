@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Calendar } from 'lucide-react';
 import {
     fetchCinemas,
-    fetchMovies,
     fetchScreenings,
+    filmWithPoster,
     type CinemaTable,
     type FilmWithPoster,
     type ShowingsTable,
@@ -39,14 +39,12 @@ function App() {
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
+    const initialLoadDone = useRef(false);
     const [city, setCity] = useState<string>('');
 
-    // Fetch movies and cinemas once on mount
+    // Fetch cinemas once on mount
     useEffect(() => {
         const fetchData = async () => {
-            setLoading(true);
-            const movieData = await fetchMovies();
-            setMovies(movieData);
             const cinemaData = await fetchCinemas();
             setCinemas(cinemaData);
             const cities = getCities(cinemaData).filter((c): c is string => c !== null);
@@ -55,7 +53,6 @@ function App() {
                 ? cities.find((c) => c.toLowerCase() === urlCity.toLowerCase())
                 : null;
             setCity(matched ?? cities[0]);
-            setLoading(false);
         };
         fetchData();
     }, []);
@@ -79,7 +76,12 @@ function App() {
     useEffect(() => {
         const fetchData = async () => {
             const data = await fetchScreenings(computedRange, getCityCinemaIds(cinemas, city));
+            setMovies(data.map(filmWithPoster));
             setScreenings(data.flatMap((f) => f.new_showings));
+            if (!initialLoadDone.current) {
+                initialLoadDone.current = true;
+                setLoading(false);
+            }
         };
         fetchData();
     }, [computedRange, city, cinemas]);

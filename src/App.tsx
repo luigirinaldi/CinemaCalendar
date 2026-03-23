@@ -11,7 +11,7 @@ import {
 import type { GroupBy, ShowMode } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
-import { useDateRange } from './hooks/useDateRange';
+import { useDateRange, store as dateRangeStore } from './hooks/useDateRange';
 import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
@@ -20,18 +20,7 @@ import TableView from './components/TableView';
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
     const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
-    const {
-        dateRange,
-        currentDate,
-        customStartDate,
-        customEndDate,
-        computedRange,
-        setDateRange,
-        navigateDate,
-        resetToToday,
-        setCustomStartDate,
-        setCustomEndDate,
-    } = useDateRange();
+    const { dateRange, computedRange } = useDateRange();
 
     const isSingleDay = dateRange === 'today';
     const showTimes = isSingleDay || showMode === 'full';
@@ -105,15 +94,7 @@ function App() {
                 city={city}
                 cities={getCities(cinemas).filter((c): c is string => c !== null)}
                 onCityChange={setCity}
-                dateRange={dateRange}
-                currentDate={currentDate}
-                customStartDate={customStartDate}
-                customEndDate={customEndDate}
-                onDateRangeChange={setDateRange}
-                onNavigate={navigateDate}
-                onResetToToday={resetToToday}
-                onCustomStartDateChange={setCustomStartDate}
-                onCustomEndDateChange={setCustomEndDate}
+                store={dateRangeStore}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
                 showMode={showMode}

@@ -1,5 +1,7 @@
+import { useSyncExternalStore } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Film, List, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy, ShowMode } from '../types';
+import type { DateRangeStore } from '../hooks/useDateRange';
 import { formatDateRange } from '../utils/formatters';
 
 const tabClass = (active: boolean) =>
@@ -221,15 +223,7 @@ interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
-    dateRange: DateRange;
-    currentDate: Date;
-    customStartDate: string;
-    customEndDate: string;
-    onDateRangeChange: (r: DateRange) => void;
-    onNavigate: (dir: 'prev' | 'next') => void;
-    onResetToToday: () => void;
-    onCustomStartDateChange: (v: string) => void;
-    onCustomEndDateChange: (v: string) => void;
+    store: DateRangeStore;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
     showMode: ShowMode;
@@ -240,20 +234,14 @@ export default function AppHeader({
     city,
     cities,
     onCityChange,
-    dateRange,
-    currentDate,
-    customStartDate,
-    customEndDate,
-    onDateRangeChange,
-    onNavigate,
-    onResetToToday,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+    store,
     groupBy,
     onGroupByChange,
     showMode,
     onShowModeChange,
 }: AppHeaderProps) {
+    const { dateRange, currentDate, customStartDate, customEndDate } =
+        useSyncExternalStore(store.subscribe, store.getSnapshot);
 
     return (
         <header className="bg-neutral-950 border-b border-red-900/30">
@@ -276,23 +264,23 @@ export default function AppHeader({
                 <div className="space-y-4">
                     <DateRangeTabs
                         dateRange={dateRange}
-                        onDateRangeChange={onDateRangeChange}
-                        onResetToToday={onResetToToday}
+                        onDateRangeChange={(r) => store.setDateRange(r)}
+                        onResetToToday={() => store.resetToToday()}
                     />
                     {(dateRange === 'today' || dateRange === 'thisWeek') && (
                         <DateNavigator
                             dateRange={dateRange}
                             currentDate={currentDate}
-                            onNavigate={onNavigate}
-                            onResetToToday={onResetToToday}
+                            onNavigate={(dir) => store.navigateDate(dir)}
+                            onResetToToday={() => store.resetToToday()}
                         />
                     )}
                     {dateRange === 'custom' && (
                         <CustomDateInputs
                             customStartDate={customStartDate}
                             customEndDate={customEndDate}
-                            onCustomStartDateChange={onCustomStartDateChange}
-                            onCustomEndDateChange={onCustomEndDateChange}
+                            onCustomStartDateChange={(v) => store.setCustomStartDate(v)}
+                            onCustomEndDateChange={(v) => store.setCustomEndDate(v)}
                         />
                     )}
                     <div className="flex items-start justify-between gap-4">

@@ -19,7 +19,7 @@ function initState(): DateRangeState {
     };
 }
 
-class DateRangeStore {
+export class DateRangeStore {
     private state: DateRangeState = initState();
     private listeners = new Set<() => void>();
 
@@ -73,7 +73,7 @@ class DateRangeStore {
     }
 }
 
-const store = new DateRangeStore();
+export const store = new DateRangeStore();
 
 // Pre-bind methods so consumers always get stable function references
 const setDateRange      = store.setDateRange.bind(store);

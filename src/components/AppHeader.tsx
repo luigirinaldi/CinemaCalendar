@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Film, List, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy, ShowMode } from '../types';
 import { formatDateRange } from '../utils/formatters';
-import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr } from '../utils/url';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -223,7 +221,15 @@ interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
-    onRangeChange: (range: [Date, Date] | null, rangeType: DateRange) => void;
+    dateRange: DateRange;
+    currentDate: Date;
+    customStartDate: string;
+    customEndDate: string;
+    onDateRangeChange: (r: DateRange) => void;
+    onNavigate: (dir: 'prev' | 'next') => void;
+    onResetToToday: () => void;
+    onCustomStartDateChange: (v: string) => void;
+    onCustomEndDateChange: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
     showMode: ShowMode;
@@ -234,90 +240,20 @@ export default function AppHeader({
     city,
     cities,
     onCityChange,
-    onRangeChange,
+    dateRange,
+    currentDate,
+    customStartDate,
+    customEndDate,
+    onDateRangeChange,
+    onNavigate,
+    onResetToToday,
+    onCustomStartDateChange,
+    onCustomEndDateChange,
     groupBy,
     onGroupByChange,
     showMode,
     onShowModeChange,
 }: AppHeaderProps) {
-    const { dateRange: urlDR, date: urlDate, start: urlStart, end: urlEnd } = getUrlSearchParams();
-    const [dateRange, setDateRange] = useState<DateRange>(urlDR ?? 'thisWeek');
-    const [currentDate, setCurrentDate] = useState(
-        urlDate ? parseLocalDate(urlDate) : new Date()
-    );
-    const [customStartDate, setCustomStartDate] = useState(
-        urlStart ?? toLocalDateStr(new Date())
-    );
-    const [customEndDate, setCustomEndDate] = useState(
-        urlEnd ?? toLocalDateStr(new Date())
-    );
-
-    const navigateDate = (direction: 'prev' | 'next') => {
-        const newDate = new Date(currentDate);
-        const delta = direction === 'next' ? 1 : -1;
-        if (dateRange === 'today') newDate.setDate(newDate.getDate() + delta);
-        else if (dateRange === 'thisWeek') newDate.setDate(newDate.getDate() + delta * 7);
-        setCurrentDate(newDate);
-    };
-
-    const resetToToday = () => setCurrentDate(new Date());
-
-    useEffect(() => {
-        let range: [Date, Date] | null;
-        const dayStart = new Date(
-            currentDate.getFullYear(),
-            currentDate.getMonth(),
-            currentDate.getDate(),
-            0, 0, 0
-        );
-        switch (dateRange) {
-            case 'today':
-                range = [
-                    dayStart,
-                    new Date(
-                        currentDate.getFullYear(),
-                        currentDate.getMonth(),
-                        currentDate.getDate() + 1,
-                        4,
-                        0
-                    ),
-                ];
-                break;
-            case 'thisWeek':
-                range = [
-                    dayStart,
-                    new Date(
-                        currentDate.getFullYear(),
-                        currentDate.getMonth(),
-                        currentDate.getDate() + 7,
-                        4,
-                        0
-                    ),
-                ];
-                break;
-            case 'custom':
-                range = [parseLocalDate(customStartDate), parseLocalDate(customEndDate)];
-                break;
-            case 'anytime':
-                range = null;
-                break;
-        }
-        onRangeChange(range, dateRange);
-    }, [dateRange, currentDate, customStartDate, customEndDate, onRangeChange]);
-
-    // Sync date filter state to URL search params
-    useEffect(() => {
-        if (dateRange === 'today' || dateRange === 'thisWeek') {
-            setUrlSearchParams(
-                { dateRange, date: toLocalDateStr(currentDate) },
-                ['start', 'end']
-            );
-        } else if (dateRange === 'custom') {
-            setUrlSearchParams({ dateRange, start: customStartDate, end: customEndDate }, ['date']);
-        } else {
-            setUrlSearchParams({ dateRange }, ['date', 'start', 'end']);
-        }
-    }, [dateRange, currentDate, customStartDate, customEndDate]);
 
     return (
         <header className="bg-neutral-950 border-b border-red-900/30">
@@ -340,23 +276,23 @@ export default function AppHeader({
                 <div className="space-y-4">
                     <DateRangeTabs
                         dateRange={dateRange}
-                        onDateRangeChange={setDateRange}
-                        onResetToToday={resetToToday}
+                        onDateRangeChange={onDateRangeChange}
+                        onResetToToday={onResetToToday}
                     />
                     {(dateRange === 'today' || dateRange === 'thisWeek') && (
                         <DateNavigator
                             dateRange={dateRange}
                             currentDate={currentDate}
-                            onNavigate={navigateDate}
-                            onResetToToday={resetToToday}
+                            onNavigate={onNavigate}
+                            onResetToToday={onResetToToday}
                         />
                     )}
                     {dateRange === 'custom' && (
                         <CustomDateInputs
                             customStartDate={customStartDate}
                             customEndDate={customEndDate}
-                            onCustomStartDateChange={setCustomStartDate}
-                            onCustomEndDateChange={setCustomEndDate}
+                            onCustomStartDateChange={onCustomStartDateChange}
+                            onCustomEndDateChange={onCustomEndDateChange}
                         />
                     )}
                     <div className="flex items-start justify-between gap-4">

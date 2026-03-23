@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import {
     fetchCinemas,
@@ -8,9 +8,10 @@ import {
     type FilmWithPoster,
     type ShowingsTable,
 } from './api';
-import type { DateRange, GroupBy, ShowMode } from './types';
+import type { GroupBy, ShowMode } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
+import { useDateRange } from './hooks/useDateRange';
 import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
@@ -19,16 +20,21 @@ import TableView from './components/TableView';
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
     const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
-    const [dateRangeType, setDateRangeType] = useState<DateRange>('thisWeek');
-    const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
+    const {
+        dateRange,
+        currentDate,
+        customStartDate,
+        customEndDate,
+        computedRange,
+        setDateRange,
+        navigateDate,
+        resetToToday,
+        setCustomStartDate,
+        setCustomEndDate,
+    } = useDateRange();
 
-    const isSingleDay = dateRangeType === 'today';
+    const isSingleDay = dateRange === 'today';
     const showTimes = isSingleDay || showMode === 'full';
-
-    const handleRangeChange = useCallback((range: [Date, Date] | null, rangeType: DateRange) => {
-        setDateRange(range);
-        setDateRangeType(rangeType);
-    }, []);
     const [movies, setMovies] = useState<FilmWithPoster[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
@@ -72,11 +78,11 @@ function App() {
     // Re-fetch screenings whenever filters change
     useEffect(() => {
         const fetchData = async () => {
-            const data = await fetchScreenings(dateRange, getCityCinemaIds(cinemas, city));
+            const data = await fetchScreenings(computedRange, getCityCinemaIds(cinemas, city));
             setScreenings(data);
         };
         fetchData();
-    }, [dateRange, city, cinemas]);
+    }, [computedRange, city, cinemas]);
 
     const getCities = (cinemas: CinemaTable[]) => [...new Set(cinemas.map((c) => c.location))];
     const getCityCinemaIds = (cinemas: CinemaTable[], city: string) =>
@@ -99,7 +105,15 @@ function App() {
                 city={city}
                 cities={getCities(cinemas).filter((c): c is string => c !== null)}
                 onCityChange={setCity}
-                onRangeChange={handleRangeChange}
+                dateRange={dateRange}
+                currentDate={currentDate}
+                customStartDate={customStartDate}
+                customEndDate={customEndDate}
+                onDateRangeChange={setDateRange}
+                onNavigate={navigateDate}
+                onResetToToday={resetToToday}
+                onCustomStartDateChange={setCustomStartDate}
+                onCustomEndDateChange={setCustomEndDate}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
                 showMode={showMode}

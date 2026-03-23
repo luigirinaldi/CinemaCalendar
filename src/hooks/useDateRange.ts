@@ -1,4 +1,4 @@
-import { useReducer, useMemo, useEffect, useCallback } from 'react';
+import { useSyncExternalStore, useMemo } from 'react';
 import type { DateRange } from '../types';
 import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr } from '../utils/url';
 
@@ -7,33 +7,6 @@ interface DateRangeState {
     currentDate: Date;
     customStartDate: string;
     customEndDate: string;
-}
-
-type DateRangeAction =
-    | { type: 'SET_RANGE';        payload: DateRange }
-    | { type: 'NAVIGATE';         payload: 'prev' | 'next' }
-    | { type: 'RESET_TO_TODAY' }
-    | { type: 'SET_CUSTOM_START'; payload: string }
-    | { type: 'SET_CUSTOM_END';   payload: string };
-
-function dateRangeReducer(state: DateRangeState, action: DateRangeAction): DateRangeState {
-    switch (action.type) {
-        case 'SET_RANGE':
-            return { ...state, dateRange: action.payload };
-        case 'NAVIGATE': {
-            const delta = action.payload === 'next' ? 1 : -1;
-            const next = new Date(state.currentDate);
-            if (state.dateRange === 'today') next.setDate(next.getDate() + delta);
-            else next.setDate(next.getDate() + delta * 7);
-            return { ...state, currentDate: next };
-        }
-        case 'RESET_TO_TODAY':
-            return { ...state, currentDate: new Date() };
-        case 'SET_CUSTOM_START':
-            return { ...state, customStartDate: action.payload };
-        case 'SET_CUSTOM_END':
-            return { ...state, customEndDate: action.payload };
-    }
 }
 
 function initState(): DateRangeState {
@@ -45,6 +18,69 @@ function initState(): DateRangeState {
         customEndDate:   end  ?? toLocalDateStr(new Date()),
     };
 }
+
+class DateRangeStore {
+    private state: DateRangeState = initState();
+    private listeners = new Set<() => void>();
+
+    subscribe = (listener: () => void): () => void => {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    };
+
+    getSnapshot = (): DateRangeState => this.state;
+
+    private setState(next: Partial<DateRangeState>) {
+        this.state = { ...this.state, ...next };
+        this.syncUrl();
+        this.listeners.forEach((l) => l());
+    }
+
+    private syncUrl() {
+        const { dateRange, currentDate, customStartDate, customEndDate } = this.state;
+        if (dateRange === 'today' || dateRange === 'thisWeek') {
+            setUrlSearchParams({ dateRange, date: toLocalDateStr(currentDate) }, ['start', 'end']);
+        } else if (dateRange === 'custom') {
+            setUrlSearchParams({ dateRange, start: customStartDate, end: customEndDate }, ['date']);
+        } else {
+            setUrlSearchParams({ dateRange }, ['date', 'start', 'end']);
+        }
+    }
+
+    setDateRange(r: DateRange) {
+        const currentDate = (r === 'today' || r === 'thisWeek') ? new Date() : this.state.currentDate;
+        this.setState({ dateRange: r, currentDate });
+    }
+
+    navigateDate(dir: 'prev' | 'next') {
+        const delta = dir === 'next' ? 1 : -1;
+        const next = new Date(this.state.currentDate);
+        if (this.state.dateRange === 'today') next.setDate(next.getDate() + delta);
+        else next.setDate(next.getDate() + delta * 7);
+        this.setState({ currentDate: next });
+    }
+
+    resetToToday() {
+        this.setState({ currentDate: new Date() });
+    }
+
+    setCustomStartDate(v: string) {
+        this.setState({ customStartDate: v });
+    }
+
+    setCustomEndDate(v: string) {
+        this.setState({ customEndDate: v });
+    }
+}
+
+const store = new DateRangeStore();
+
+// Pre-bind methods so consumers always get stable function references
+const setDateRange      = store.setDateRange.bind(store);
+const navigateDate      = store.navigateDate.bind(store);
+const resetToToday      = store.resetToToday.bind(store);
+const setCustomStartDate = store.setCustomStartDate.bind(store);
+const setCustomEndDate   = store.setCustomEndDate.bind(store);
 
 export interface UseDateRangeResult {
     dateRange: DateRange;
@@ -60,7 +96,7 @@ export interface UseDateRangeResult {
 }
 
 export function useDateRange(): UseDateRangeResult {
-    const [state, dispatch] = useReducer(dateRangeReducer, undefined, initState);
+    const state = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
     const computedRange = useMemo((): [Date, Date] | null => {
         const { dateRange, currentDate, customStartDate, customEndDate } = state;
@@ -89,42 +125,6 @@ export function useDateRange(): UseDateRangeResult {
                 return null;
         }
     }, [state]);
-
-    // Sync date state to URL
-    useEffect(() => {
-        const { dateRange, currentDate, customStartDate, customEndDate } = state;
-        if (dateRange === 'today' || dateRange === 'thisWeek') {
-            setUrlSearchParams(
-                { dateRange, date: toLocalDateStr(currentDate) },
-                ['start', 'end']
-            );
-        } else if (dateRange === 'custom') {
-            setUrlSearchParams({ dateRange, start: customStartDate, end: customEndDate }, ['date']);
-        } else {
-            setUrlSearchParams({ dateRange }, ['date', 'start', 'end']);
-        }
-    }, [state]);
-
-    const setDateRange = useCallback((r: DateRange) => {
-        dispatch({ type: 'SET_RANGE', payload: r });
-        if (r === 'today' || r === 'thisWeek') dispatch({ type: 'RESET_TO_TODAY' });
-    }, []);
-
-    const navigateDate = useCallback((dir: 'prev' | 'next') => {
-        dispatch({ type: 'NAVIGATE', payload: dir });
-    }, []);
-
-    const resetToToday = useCallback(() => {
-        dispatch({ type: 'RESET_TO_TODAY' });
-    }, []);
-
-    const setCustomStartDate = useCallback((v: string) => {
-        dispatch({ type: 'SET_CUSTOM_START', payload: v });
-    }, []);
-
-    const setCustomEndDate = useCallback((v: string) => {
-        dispatch({ type: 'SET_CUSTOM_END', payload: v });
-    }, []);
 
     return {
         ...state,

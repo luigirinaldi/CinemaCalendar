@@ -167,6 +167,12 @@ function GroupByTabs({
             <label className="text-sm text-neutral-400 mb-2 block">Group By</label>
             <div className="flex gap-2">
                 <button
+                    onClick={() => onGroupByChange('table')}
+                    className={tabClass(groupBy === 'table')}
+                >
+                    <List className="inline w-4 h-4 mr-2" />Table
+                </button>
+                <button
                     onClick={() => onGroupByChange('movie')}
                     className={tabClass(groupBy === 'movie')}
                 >
@@ -177,12 +183,6 @@ function GroupByTabs({
                     className={tabClass(groupBy === 'cinema')}
                 >
                     <MapPin className="inline w-4 h-4 mr-2" />By Cinema
-                </button>
-                <button
-                    onClick={() => onGroupByChange('table')}
-                    className={tabClass(groupBy === 'table')}
-                >
-                    <List className="inline w-4 h-4 mr-2" />Table
                 </button>
             </div>
         </div>

@@ -18,7 +18,7 @@ import ByCinemaView from './components/ByCinemaView';
 import TableView from './components/TableView';
 
 function App() {
-    const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
+    const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'table');
     const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
     const {
         dateRange,

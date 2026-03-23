@@ -39,7 +39,7 @@ function dateRangeReducer(state: DateRangeState, action: DateRangeAction): DateR
 function initState(): DateRangeState {
     const { dateRange, date, start, end } = getUrlSearchParams();
     return {
-        dateRange:       dateRange ?? 'thisWeek',
+        dateRange:       dateRange ?? 'today',
         currentDate:     date ? parseLocalDate(date) : new Date(),
         customStartDate: start ?? toLocalDateStr(new Date()),
         customEndDate:   end  ?? toLocalDateStr(new Date()),

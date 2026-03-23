@@ -1,4 +1,5 @@
-import type { DateRange, GroupBy } from '../types';
+import { GROUP_BY_VALUES, SHOW_MODE_VALUES } from '../types';
+import type { DateRange, GroupBy, ShowMode } from '../types';
 
 /** Parse a YYYY-MM-DD string as local midnight (avoids UTC-offset day shift). */
 export function parseLocalDate(str: string): Date {
@@ -21,10 +22,12 @@ export function getUrlSearchParams(): {
     start: string | null;
     end: string | null;
     groupBy: GroupBy | null;
+    showMode: ShowMode | null;
 } {
     const p = new URLSearchParams(window.location.search);
     const dateRange = p.get('dateRange');
     const groupBy = p.get('groupBy');
+    const showMode = p.get('showMode');
     return {
         city: p.get('city'),
         dateRange: isDateRange(dateRange) ? dateRange : null,
@@ -32,7 +35,17 @@ export function getUrlSearchParams(): {
         start: p.get('start'),
         end: p.get('end'),
         groupBy: isGroupBy(groupBy) ? groupBy : null,
+        showMode: isShowMode(showMode) ? showMode : null,
     };
+}
+
+export function buildDayUrl(date: Date): string {
+    const url = new URL(window.location.href);
+    url.searchParams.set('dateRange', 'today');
+    url.searchParams.set('date', toLocalDateStr(date));
+    url.searchParams.delete('start');
+    url.searchParams.delete('end');
+    return url.toString();
 }
 
 export function setUrlSearchParams(set: Record<string, string>, del: string[] = []) {
@@ -47,5 +60,9 @@ function isDateRange(value: string | null): value is DateRange {
 }
 
 function isGroupBy(value: string | null): value is GroupBy {
-    return value === 'movie' || value === 'cinema';
+    return GROUP_BY_VALUES.includes(value as GroupBy);
+}
+
+function isShowMode(value: string | null): value is ShowMode {
+    return SHOW_MODE_VALUES.includes(value as ShowMode);
 }

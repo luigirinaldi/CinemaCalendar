@@ -11,10 +11,12 @@ function CinemaGroup({
     cinemaId,
     screenings,
     getCinema,
+    showTimes,
 }: {
     cinemaId: string;
     screenings: ShowingsTable[];
     getCinema: (id: number) => CinemaTable | undefined;
+    showTimes: boolean;
 }) {
     const cinema = getCinema(Number(cinemaId));
     const byDay = Object.entries(
@@ -26,7 +28,7 @@ function CinemaGroup({
             <p className="font-medium">{cinema?.name}</p>
             <div className="flex flex-col justify-between">
                 {byDay.map(([day, dayScreenings]) => (
-                    <DayRow key={day} screenings={dayScreenings} />
+                    <DayRow key={day} screenings={dayScreenings} showTimes={showTimes} />
                 ))}
             </div>
         </div>
@@ -38,9 +40,10 @@ interface MovieCardProps {
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
+    showTimes: boolean;
 }
 
-export default function MovieCard({ movieKey, screenings, getMovie, getCinema }: MovieCardProps) {
+export default function MovieCard({ movieKey, screenings, getMovie, getCinema, showTimes }: MovieCardProps) {
     const movie = getMovie(screenings[0]?.film_id ?? -1);
     const byCinema = Object.entries(groupByCinema(screenings)).sort(sortGroupedByStartTime);
 
@@ -56,6 +59,7 @@ export default function MovieCard({ movieKey, screenings, getMovie, getCinema }:
                         cinemaId={cinemaId}
                         screenings={cinemaScreenings}
                         getCinema={getCinema}
+                        showTimes={showTimes}
                     />
                 ))}
             </div>

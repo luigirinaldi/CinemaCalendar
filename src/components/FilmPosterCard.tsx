@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 import type { FilmWithPoster, ShowingsTable } from '../api';
+
+const TMDB_FAVICON =
+    'https://www.themoviedb.org/assets/2/favicon-32x32-543a21832c8931d3494a68881f6afcafc58e96c5d324345377f3197a37b367b5.png';
 import { formatDate, formatTime } from '../utils/formatters';
 import { sortScreeningByStartTime } from '../utils/grouping';
 import { buildDayUrl } from '../utils/url';
@@ -65,7 +68,26 @@ export default function FilmPosterCard({ movie, children, className = 'bg-neutra
             ) : null}
             <div className="p-3 flex flex-col">
                 <div className="mb-2">
-                    <h3 className="text-base font-semibold leading-tight">{movie?.title}</h3>
+                    <div className="flex items-start justify-between gap-1">
+                        <h3 className="text-base font-semibold leading-tight">
+                            {movie?.tmdb_info?.title ?? movie?.title}
+                        </h3>
+                        {movie?.tmdb_info && (
+                            <a
+                                href={`https://www.themoviedb.org/movie/${movie.tmdb_info.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="View on TMDB"
+                                className="shrink-0 mt-0.5"
+                            >
+                                <img
+                                    src={TMDB_FAVICON}
+                                    alt="TMDB"
+                                    className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+                                />
+                            </a>
+                        )}
+                    </div>
                     {movie?.director ? (
                         <p className="text-neutral-400 text-xs mt-1">{movie.director}</p>
                     ) : null}

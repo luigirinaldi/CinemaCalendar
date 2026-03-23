@@ -35,114 +35,100 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                     <tr className="sticky top-0 bg-neutral-900 border-b border-neutral-700 text-neutral-400 text-xs uppercase tracking-wider">
                         <th className="px-4 py-3 font-medium w-1/4">Title</th>
                         <th className="px-4 py-3 font-medium w-1/6">Director</th>
-                        <th className="px-4 py-3 font-medium w-1/6">Cinemas</th>
+                        <th className="px-4 py-3 font-medium w-1/6">Cinema</th>
                         <th className="px-4 py-3 font-medium">{showTimes ? 'Times' : 'Days'}</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map(([key, filmScreenings]) => {
+                    {rows.flatMap(([key, filmScreenings], filmIndex) => {
                         const movie = getMovie(filmScreenings[0].film_id);
                         const cinemaGroups = groupByCinema(filmScreenings);
                         const cinemaIds = Object.keys(cinemaGroups).map(Number);
-                        const multiCinema = cinemaIds.length > 1;
+                        const bg = filmIndex % 2 === 0 ? 'bg-neutral-900' : 'bg-neutral-800';
 
-                        return (
-                            <tr
-                                key={key}
-                                className="border-b border-neutral-800 odd:bg-neutral-900 even:bg-neutral-800 hover:bg-neutral-700 transition-colors align-top"
-                            >
-                                {/* Title */}
-                                <td className="px-4 py-3">
-                                    <span className="font-semibold text-white">
-                                        {movie?.title ?? '—'}
-                                    </span>
-                                    {movie?.release_year && (
-                                        <span className="text-neutral-500 text-sm ml-2">
-                                            {movie.release_year}
-                                        </span>
+                        return cinemaIds.map((id, cinemaIndex) => {
+                            const isFirst = cinemaIndex === 0;
+                            const dayGroups = groupByCalendarDay(
+                                cinemaGroups[id].sort(sortScreeningByStartTime)
+                            );
+                            return (
+                                <tr
+                                    key={`${key}-${id}`}
+                                    className={`${bg} hover:bg-neutral-700 transition-colors align-top ${isFirst ? 'border-t border-neutral-700' : 'border-t border-neutral-800/50'}`}
+                                >
+                                    {isFirst && (
+                                        <>
+                                            <td rowSpan={cinemaIds.length} className="px-4 py-3">
+                                                <span className="font-semibold text-white">
+                                                    {movie?.title ?? '—'}
+                                                </span>
+                                                {movie?.release_year && (
+                                                    <span className="text-neutral-500 text-sm ml-2">
+                                                        {movie.release_year}
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td rowSpan={cinemaIds.length} className="px-4 py-3 text-neutral-300 text-sm">
+                                                {movie?.director ?? '—'}
+                                            </td>
+                                        </>
                                     )}
-                                </td>
 
-                                {/* Director */}
-                                <td className="px-4 py-3 text-neutral-300 text-sm">
-                                    {movie?.director ?? '—'}
-                                </td>
+                                    <td className="px-4 py-3 text-neutral-300 text-sm">
+                                        {getCinema(id)?.name ?? `Cinema ${id}`}
+                                    </td>
 
-                                {/* Cinemas */}
-                                <td className="px-4 py-3 text-neutral-300 text-sm">
-                                    {cinemaIds.map((id) => (
-                                        <div key={id}>{getCinema(id)?.name ?? `Cinema ${id}`}</div>
-                                    ))}
-                                </td>
-
-                                {/* Times */}
-                                <td className="px-4 py-3">
-                                    {cinemaIds.map((id) => {
-                                        const dayGroups = groupByCalendarDay(
-                                            cinemaGroups[id].sort(sortScreeningByStartTime)
-                                        );
-                                        return (
-                                            <div
-                                                key={id}
-                                                className={multiCinema ? 'mb-3 last:mb-0' : ''}
-                                            >
-                                                {multiCinema && (
-                                                    <div className="text-neutral-500 text-xs mb-1">
-                                                        {getCinema(id)?.name ?? `Cinema ${id}`}
+                                    <td className="px-4 py-3">
+                                        {showTimes ? (
+                                            dayGroups.map(([day, dayScreenings]) => (
+                                                <div
+                                                    key={day}
+                                                    className="flex flex-wrap items-baseline gap-x-2 mb-1 last:mb-0"
+                                                >
+                                                    <span className="text-neutral-500 text-xs w-24 shrink-0">
+                                                        {day}
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-x-2 gap-y-1">
+                                                        {dayScreenings.map((s) =>
+                                                            s.booking_url ? (
+                                                                <a
+                                                                    key={s.id}
+                                                                    href={s.booking_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-red-400 hover:text-red-300 text-sm tabular-nums underline"
+                                                                >
+                                                                    {formatTime(s.start_time)}
+                                                                </a>
+                                                            ) : (
+                                                                <span
+                                                                    key={s.id}
+                                                                    className="text-red-400 text-sm tabular-nums"
+                                                                >
+                                                                    {formatTime(s.start_time)}
+                                                                </span>
+                                                            )
+                                                        )}
                                                     </div>
-                                                )}
-                                                {showTimes ? (
-                                                    dayGroups.map(([day, dayScreenings]) => (
-                                                        <div
-                                                            key={day}
-                                                            className="flex flex-wrap items-baseline gap-x-2 mb-1 last:mb-0"
-                                                        >
-                                                            <span className="text-neutral-500 text-xs w-24 shrink-0">
-                                                                {day}
-                                                            </span>
-                                                            <div className="flex flex-wrap gap-x-2 gap-y-1">
-                                                                {dayScreenings.map((s) =>
-                                                                    s.booking_url ? (
-                                                                        <a
-                                                                            key={s.id}
-                                                                            href={s.booking_url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="text-red-400 hover:text-red-300 text-sm tabular-nums underline"
-                                                                        >
-                                                                            {formatTime(s.start_time)}
-                                                                        </a>
-                                                                    ) : (
-                                                                        <span
-                                                                            key={s.id}
-                                                                            className="text-red-400 text-sm tabular-nums"
-                                                                        >
-                                                                            {formatTime(s.start_time)}
-                                                                        </span>
-                                                                    )
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="flex flex-wrap gap-x-3 gap-y-1">
-                                                        {dayGroups.map(([day, dayScreenings]) => (
-                                                            <a
-                                                                key={day}
-                                                                href={buildDayUrl(new Date(dayScreenings[0].start_time))}
-                                                                className="text-neutral-400 text-xs hover:text-white hover:underline"
-                                                            >
-                                                                {day}
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                                {dayGroups.map(([day, dayScreenings]) => (
+                                                    <a
+                                                        key={day}
+                                                        href={buildDayUrl(new Date(dayScreenings[0].start_time))}
+                                                        className="text-neutral-400 text-xs hover:text-white hover:underline"
+                                                    >
+                                                        {day}
+                                                    </a>
+                                                ))}
                                             </div>
-                                        );
-                                    })}
-                                </td>
-                            </tr>
-                        );
+                                        )}
+                                    </td>
+                                </tr>
+                            );
+                        });
                     })}
                 </tbody>
             </table>

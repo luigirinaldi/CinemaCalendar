@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react';
 import {
     groupByMovie,
     groupByCinema,
@@ -60,9 +61,11 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
                                                         href={s.booking_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="text-red-400 hover:text-red-300 text-sm tabular-nums underline"
+                                                        title="Book tickets"
+                                                        className="inline-flex items-center gap-0.5 text-red-400 opacity-80 hover:opacity-100"
                                                     >
-                                                        {formatTime(s.start_time)}
+                                                        <span className="text-sm tabular-nums">{formatTime(s.start_time)}</span>
+                                                        <ExternalLink className="w-3 h-3 shrink-0" />
                                                     </a>
                                                 ) : (
                                                     <span key={s.id} className="text-red-400 text-sm tabular-nums">

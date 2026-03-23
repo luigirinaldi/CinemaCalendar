@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ExternalLink } from 'lucide-react';
 import type { FilmWithPoster, ShowingsTable } from '../api';
 
 const TMDB_FAVICON =
@@ -9,14 +10,21 @@ import { buildDayUrl } from '../utils/url';
 
 export function ScreeningTime({ screening }: { screening: ShowingsTable }) {
     const time = formatTime(screening.start_time);
-    const cls = 'text-red-500 inline';
-    return screening.booking_url ? (
-        <a className={`${cls} underline`} href={screening.booking_url} target="_blank">
-            {time}
-        </a>
-    ) : (
-        <p className={cls}>{time}</p>
-    );
+    if (screening.booking_url) {
+        return (
+            <a
+                href={screening.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Book tickets"
+                className="inline-flex items-center gap-0.5 text-red-500 opacity-80 hover:opacity-100"
+            >
+                <span className="tabular-nums">{time}</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
+        );
+    }
+    return <span className="text-red-500 tabular-nums">{time}</span>;
 }
 
 export function DayRow({

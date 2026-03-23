@@ -79,7 +79,7 @@ function App() {
     useEffect(() => {
         const fetchData = async () => {
             const data = await fetchScreenings(computedRange, getCityCinemaIds(cinemas, city));
-            setScreenings(data);
+            setScreenings(data.flatMap((f) => f.new_showings));
         };
         fetchData();
     }, [computedRange, city, cinemas]);

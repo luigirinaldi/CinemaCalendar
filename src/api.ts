@@ -9,6 +9,37 @@ export type ShowingsTable = Tables<'new_showings'>;
 // Extended film type used by the frontend: includes a resolved poster_url
 export type FilmWithPoster = FilmTable & { poster_url?: string | null };
 
+export type TMDBFilm = {
+    id: number;
+    created_at: string;
+    adult: boolean;
+    backdrop_path: string | null;
+    genre_ids: number[];
+    original_language: string;
+    original_title: string;
+    overview: string;
+    popularity: number;
+    poster_path: string | null;
+    title: string;
+    video: boolean;
+    vote_average: number;
+    vote_count: number;
+    letterboxd_slug: string | null;
+    letterboxd_avg_rating: number | null;
+    letterboxd_num_ratings: number | null;
+    letterboxd_ratings: any | null;
+    release_date: string;
+};
+
+export type FilmWithShowingsAndTMDB = FilmTable & {
+    new_showings: ShowingsTable[];
+    tmdb_films: TMDBFilm | null;
+};
+
+export type CinemasWithShowings = CinemaTable & {
+    new_films: FilmWithShowingsAndTMDB;
+};
+
 export const fetchMovies = async (): Promise<FilmWithPoster[]> => {
     const response = await supabase.from('new_films').select();
     if (response.error !== null || response.data === null)
@@ -110,24 +141,24 @@ export const fetchCinemas = async (): Promise<CinemaTable[]> => {
 export const fetchScreenings = async (
     date_range: [Date, Date] | null,
     cinema_ids: number[]
-): Promise<ShowingsTable[]> => {
+): Promise<FilmWithShowingsAndTMDB[]> => {
     let response;
     if (date_range === null) {
         response = await supabase
-            .from('new_showings')
-            .select()
+            .from('new_films')
+            .select('*, new_showings!inner(*), tmdb_films(*)')
             .in('cinema_id', cinema_ids);
     } else {
         const [start, end] = date_range;
         response = await supabase
-            .from('new_showings')
-            .select()
+            .from('new_films')
+            .select('*, new_showings!inner(*), tmdb_films(*)')
             .in('cinema_id', cinema_ids)
-            .lte('start_time', end.toISOString())
-            .gte('start_time', start.toISOString());
+            .lte('new_showings.start_time', end.toISOString())
+            .gte('new_showings.start_time', start.toISOString());
     }
     if (response.error !== null || response.data === null)
         throw new Error(`Failed to fetch screenings: ${response.error}`);
     console.log(date_range, response.data.length);
-    return response.data;
+    return response.data as FilmWithShowingsAndTMDB[];
 };

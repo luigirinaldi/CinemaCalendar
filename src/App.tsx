@@ -10,12 +10,13 @@ import {
 } from './api';
 import type { GroupBy } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
+import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
 import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
 
 function App() {
-    const [groupBy, setGroupBy] = useState<GroupBy>('movie');
+    const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
     const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
     const [movies, setMovies] = useState<FilmWithPoster[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
@@ -31,11 +32,26 @@ function App() {
             setMovies(movieData);
             const cinemaData = await fetchCinemas();
             setCinemas(cinemaData);
-            setCity(getCities(cinemaData).filter((c) => c !== null)[0]);
+            const cities = getCities(cinemaData).filter((c): c is string => c !== null);
+            const urlCity = getUrlSearchParams().city;
+            const matched = urlCity
+                ? cities.find((c) => c.toLowerCase() === urlCity.toLowerCase())
+                : null;
+            setCity(matched ?? cities[0]);
             setLoading(false);
         };
         fetchData();
     }, []);
+
+    // Sync city to URL
+    useEffect(() => {
+        if (city) setUrlSearchParams({ city: city.toLowerCase() });
+    }, [city]);
+
+    // Sync groupBy to URL
+    useEffect(() => {
+        setUrlSearchParams({ groupBy });
+    }, [groupBy]);
 
     // Re-fetch screenings whenever filters change
     useEffect(() => {

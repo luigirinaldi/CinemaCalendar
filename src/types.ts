@@ -1,2 +1,3 @@
 export type DateRange = 'today' | 'thisWeek' | 'anytime' | 'custom';
-export type GroupBy = 'movie' | 'cinema';
+export const GROUP_BY_VALUES = ['movie', 'cinema', 'table'] as const;
+export type GroupBy = (typeof GROUP_BY_VALUES)[number];

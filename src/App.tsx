@@ -14,6 +14,7 @@ import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
 import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
+import TableView from './components/TableView';
 
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
@@ -109,8 +110,14 @@ function App() {
                                 />
                             ))}
                     </div>
-                ) : (
+                ) : groupBy === 'cinema' ? (
                     <ByCinemaView
+                        screenings={screenings}
+                        getMovie={getMovie}
+                        getCinema={getCinema}
+                    />
+                ) : (
+                    <TableView
                         screenings={screenings}
                         getMovie={getMovie}
                         getCinema={getCinema}

@@ -1,3 +1,4 @@
+import { GROUP_BY_VALUES } from '../types';
 import type { DateRange, GroupBy } from '../types';
 
 /** Parse a YYYY-MM-DD string as local midnight (avoids UTC-offset day shift). */
@@ -47,5 +48,5 @@ function isDateRange(value: string | null): value is DateRange {
 }
 
 function isGroupBy(value: string | null): value is GroupBy {
-    return value === 'movie' || value === 'cinema';
+    return GROUP_BY_VALUES.includes(value as GroupBy);
 }

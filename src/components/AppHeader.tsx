@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Film, MapPin } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
 import type { DateRange, GroupBy } from '../types';
 import { formatDateRange } from '../utils/formatters';
 import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr } from '../utils/url';
@@ -179,6 +179,12 @@ function GroupByTabs({
                     className={tabClass(groupBy === 'cinema')}
                 >
                     <MapPin className="inline w-4 h-4 mr-2" />By Cinema
+                </button>
+                <button
+                    onClick={() => onGroupByChange('table')}
+                    className={tabClass(groupBy === 'table')}
+                >
+                    <List className="inline w-4 h-4 mr-2" />Table
                 </button>
             </div>
         </div>

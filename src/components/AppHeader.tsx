@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
-import type { DateRange, GroupBy } from '../types';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Film, List, MapPin } from 'lucide-react';
+import type { DateRange, GroupBy, ShowMode } from '../types';
 import { formatDateRange } from '../utils/formatters';
 import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr } from '../utils/url';
 
@@ -191,13 +191,43 @@ function GroupByTabs({
     );
 }
 
+function ShowModeToggle({
+    showMode,
+    onShowModeChange,
+}: {
+    showMode: ShowMode;
+    onShowModeChange: (m: ShowMode) => void;
+}) {
+    return (
+        <div>
+            <label className="text-sm text-neutral-400 mb-2 block">Display</label>
+            <div className="flex gap-2">
+                <button
+                    onClick={() => onShowModeChange('compact')}
+                    className={tabClass(showMode === 'compact')}
+                >
+                    <Calendar className="inline w-4 h-4 mr-2" />Compact
+                </button>
+                <button
+                    onClick={() => onShowModeChange('full')}
+                    className={tabClass(showMode === 'full')}
+                >
+                    <Clock className="inline w-4 h-4 mr-2" />Full
+                </button>
+            </div>
+        </div>
+    );
+}
+
 interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
-    onRangeChange: (range: [Date, Date] | null) => void;
+    onRangeChange: (range: [Date, Date] | null, rangeType: DateRange) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
+    showMode: ShowMode;
+    onShowModeChange: (m: ShowMode) => void;
 }
 
 export default function AppHeader({
@@ -207,6 +237,8 @@ export default function AppHeader({
     onRangeChange,
     groupBy,
     onGroupByChange,
+    showMode,
+    onShowModeChange,
 }: AppHeaderProps) {
     const { dateRange: urlDR, date: urlDate, start: urlStart, end: urlEnd } = getUrlSearchParams();
     const [dateRange, setDateRange] = useState<DateRange>(urlDR ?? 'thisWeek');
@@ -270,7 +302,7 @@ export default function AppHeader({
                 range = null;
                 break;
         }
-        onRangeChange(range);
+        onRangeChange(range, dateRange);
     }, [dateRange, currentDate, customStartDate, customEndDate, onRangeChange]);
 
     // Sync date filter state to URL search params
@@ -327,7 +359,12 @@ export default function AppHeader({
                             onCustomEndDateChange={setCustomEndDate}
                         />
                     )}
-                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+                    <div className="flex items-start justify-between gap-4">
+                        <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+                        {dateRange !== 'today' && (
+                            <ShowModeToggle showMode={showMode} onShowModeChange={onShowModeChange} />
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar } from 'lucide-react';
 import {
     fetchCinemas,
@@ -8,7 +8,7 @@ import {
     type FilmWithPoster,
     type ShowingsTable,
 } from './api';
-import type { GroupBy } from './types';
+import type { DateRange, GroupBy, ShowMode } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
 import AppHeader from './components/AppHeader';
@@ -18,7 +18,17 @@ import TableView from './components/TableView';
 
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'movie');
+    const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
+    const [dateRangeType, setDateRangeType] = useState<DateRange>('thisWeek');
     const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
+
+    const isSingleDay = dateRangeType === 'today';
+    const showTimes = isSingleDay || showMode === 'full';
+
+    const handleRangeChange = useCallback((range: [Date, Date] | null, rangeType: DateRange) => {
+        setDateRange(range);
+        setDateRangeType(rangeType);
+    }, []);
     const [movies, setMovies] = useState<FilmWithPoster[]>([]);
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
@@ -54,6 +64,11 @@ function App() {
         setUrlSearchParams({ groupBy });
     }, [groupBy]);
 
+    // Sync showMode to URL
+    useEffect(() => {
+        setUrlSearchParams({ showMode });
+    }, [showMode]);
+
     // Re-fetch screenings whenever filters change
     useEffect(() => {
         const fetchData = async () => {
@@ -84,9 +99,11 @@ function App() {
                 city={city}
                 cities={getCities(cinemas).filter((c): c is string => c !== null)}
                 onCityChange={setCity}
-                onRangeChange={setDateRange}
+                onRangeChange={handleRangeChange}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
+                showMode={showMode}
+                onShowModeChange={setShowMode}
             />
             <main className="max-w-7xl mx-auto px-4 py-8">
                 {screenings.length === 0 ? (
@@ -107,6 +124,7 @@ function App() {
                                     screenings={movieScreenings}
                                     getMovie={getMovie}
                                     getCinema={getCinema}
+                                    showTimes={showTimes}
                                 />
                             ))}
                     </div>
@@ -115,12 +133,14 @@ function App() {
                         screenings={screenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
+                        showTimes={showTimes}
                     />
                 ) : (
                     <TableView
                         screenings={screenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
+                        showTimes={showTimes}
                     />
                 )}
             </main>

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { FilmWithPoster, ShowingsTable } from '../api';
 import { formatDate, formatTime } from '../utils/formatters';
 import { sortScreeningByStartTime } from '../utils/grouping';
+import { buildDayUrl } from '../utils/url';
 
 export function ScreeningTime({ screening }: { screening: ShowingsTable }) {
     const time = formatTime(screening.start_time);
@@ -15,12 +16,27 @@ export function ScreeningTime({ screening }: { screening: ShowingsTable }) {
     );
 }
 
-export function DayRow({ screenings }: { screenings: ShowingsTable[] }) {
+export function DayRow({
+    screenings,
+    showTimes,
+}: {
+    screenings: ShowingsTable[];
+    showTimes: boolean;
+}) {
+    const dayLabel = formatDate(screenings[0].start_time);
+    if (!showTimes) {
+        return (
+            <a
+                href={buildDayUrl(new Date(screenings[0].start_time))}
+                className="block text-neutral-400 text-xs hover:text-white hover:underline"
+            >
+                {dayLabel}
+            </a>
+        );
+    }
     return (
         <div className="flex justify-between items-start">
-            <p className="text-neutral-400 flex-shrink-0 text-xs">
-                {formatDate(screenings[0].start_time)}
-            </p>
+            <p className="text-neutral-400 flex-shrink-0 text-xs">{dayLabel}</p>
             <div className="flex gap-x-2 flex-wrap justify-end">
                 {screenings.sort(sortScreeningByStartTime).map((s) => (
                     <ScreeningTime key={s.id} screening={s} />

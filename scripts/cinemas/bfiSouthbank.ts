@@ -1,3 +1,5 @@
+// Inspired by and adapted from the cinescrapers project by Joeboy:
+// https://github.com/Joeboy/cinescrapers/blob/main/src/cinescrapers/scrapers/bfi/scrape.py
 import { DateTime } from 'luxon';
 import {
     CinemaShowing,
@@ -16,6 +18,7 @@ const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://whatson.bfi.org.uk/Online';
 const FILMS_INDEX_URL = BASE_URL + '/article/filmsindex';
 const CONCURRENCY_LIMIT = 10;
+const MAX_RETRIES = 2;
 const LONDON_TZ = 'Europe/London';
 
 const CINEMA: Cinema = {
@@ -28,8 +31,17 @@ const CINEMA: Cinema = {
     defaultLanguage: 'en-GB',
 };
 
-// e.g. "Dir. Director Name 1985. ..." or "Country 1985. ..."
-const RELEASE_YEAR_RE = /^[a-zA-Z -]+ (?<year>(19\d\d)|2[012]\d\d)\..*$/;
+// e.g. "USA 2001. 159min" or "UK 2025. 123min. Total running time 150min"
+const COUNTRY_YEAR_DURATION_RE =
+    /^(?<country>[A-Za-z][A-Za-z\s]*?)\s+(?<year>(?:19|20)\d{2})\.\s*(?<duration>\d+)min/;
+
+interface FilmInfo {
+    director?: string;
+    year?: number;
+    duration?: number;
+    country?: string;
+    language?: string;
+}
 
 interface ArticleContext {
     searchNames: string[];
@@ -61,6 +73,34 @@ function release(sem: Semaphore): void {
     }
 }
 
+async function extractFilmInfo(page: Awaited<ReturnType<BrowserContext['newPage']>>): Promise<FilmInfo> {
+    const info: FilmInfo = {};
+    const wrappers = page.locator('li.Film-info__information__wrapper');
+    const count = await wrappers.count();
+
+    for (let i = 0; i < count; i++) {
+        const li = wrappers.nth(i);
+        const heading = (await li.locator('p.Film-info__information__heading').textContent().catch(() => null))?.trim();
+        const value = (await li.locator('p.Film-info__information__value').textContent().catch(() => null))?.trim();
+        if (!value) continue;
+
+        if (heading === 'Director' || heading === 'Directors') {
+            info.director = value;
+        } else if (!heading) {
+            const match = value.match(COUNTRY_YEAR_DURATION_RE);
+            if (match?.groups) {
+                info.country = match.groups.country.trim();
+                info.year = parseInt(match.groups.year);
+                info.duration = parseInt(match.groups.duration);
+            } else if (value.toLowerCase().includes('subtitles')) {
+                info.language = value;
+            }
+        }
+    }
+
+    return info;
+}
+
 function parseStartDate(dateStr: string): string | undefined {
     // Try ISO first
     let dt = DateTime.fromISO(dateStr, { zone: LONDON_TZ });
@@ -87,83 +127,97 @@ async function processFilm(
     filmTitle: string,
     sem: Semaphore
 ): Promise<FilmShowings> {
-    await acquire(sem);
-    console.log(`Trying to parse ${filmUrl}`)
-    const page = await context.newPage();
-    try {
-        await page.goto(filmUrl, { waitUntil: 'load', timeout: 60000 });
-        let pageHTML = await page.innerHTML('body')
-        console.log(`${filmTitle} finished loading`, pageHTML)
-        // Extract articleContext JS variable (Spektrix ticketing data)
-        let articleContext: ArticleContext | null = null;
-        try {
-            articleContext = await page.evaluate(
-                () => (window as unknown as { articleContext?: ArticleContext }).articleContext ?? null
-            );
-        } catch {
-            // Page has no articleContext, showings will be empty
+    for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
+        await acquire(sem);
+        if (attempt > 1) {
+            console.log(`${LOG_PREFIX} Retry ${attempt - 1}/${MAX_RETRIES}: "${filmTitle}"`);
+        } else {
+            console.log(`${LOG_PREFIX} Processing: "${filmTitle}" (${filmUrl})`);
         }
-
-        // Extract cover image
-        let coverUrl: string | undefined;
+        const page = await context.newPage();
         try {
-            const imgSrc = await page
-                .locator('img.Media__image')
-                .first()
-                .getAttribute('src', { timeout: 3000 });
-            if (imgSrc) {
-                coverUrl = imgSrc.startsWith('http')
-                    ? imgSrc
-                    : `https://whatson.bfi.org.uk${imgSrc}`;
-            }
-        } catch {
-            // No image found
-        }
+            await page.goto(filmUrl, { waitUntil: 'load', timeout: 60000 });
 
-        // Extract release year from film info
-        let year: number | undefined;
-        try {
-            const infos = await page
-                .locator('p.Film-info__information__value')
-                .allInnerTexts();
-            for (const info of infos) {
-                const match = info.match(RELEASE_YEAR_RE);
-                if (match?.groups?.year) {
-                    year = parseInt(match.groups.year);
-                    break;
-                }
-            }
-        } catch {
-            // No year found
-        }
-
-        const showings: FilmShowings['showings'] = [];
-
-        if (articleContext?.searchNames && articleContext?.searchResults) {
-            const { searchNames, searchResults } = articleContext;
-            for (const row of searchResults) {
-                const listing = Object.fromEntries(
-                    searchNames.map((name, i) => [name, row[i]])
+            // Extract articleContext JS variable (Spektrix ticketing data)
+            let articleContext: ArticleContext | null = null;
+            try {
+                articleContext = await page.evaluate(
+                    () => (window as unknown as { articleContext?: ArticleContext }).articleContext ?? null
                 );
-                const startDateStr = listing['start_date'];
-                if (!startDateStr) continue;
+            } catch (e) {
+                console.warn(`${LOG_PREFIX} Could not evaluate articleContext for "${filmTitle}": ${e}`);
+            }
 
-                const startTime = parseStartDate(String(startDateStr));
-                if (!startTime) {
-                    console.warn(
-                        `${LOG_PREFIX} Could not parse date "${startDateStr}" for "${filmTitle}"`
-                    );
+            if (!articleContext) {
+                if (attempt <= MAX_RETRIES) {
+                    console.warn(`${LOG_PREFIX} No articleContext for "${filmTitle}" (attempt ${attempt}) — likely blocked, retrying`);
                     continue;
                 }
-                showings.push({ startTime, bookingUrl: filmUrl });
+                console.warn(`${LOG_PREFIX} No articleContext for "${filmTitle}" after ${attempt} attempts — page may have no listings`);
             }
-        }
 
-        return { film: { title: filmTitle, url: filmUrl, year, coverUrl }, showings };
-    } finally {
-        await page.close();
-        release(sem);
+            // Extract cover image
+            let coverUrl: string | undefined;
+            try {
+                const imgSrc = await page
+                    .locator('img.Media__image')
+                    .first()
+                    .getAttribute('src', { timeout: 3000 });
+                if (imgSrc) {
+                    coverUrl = imgSrc.startsWith('http')
+                        ? imgSrc
+                        : `https://whatson.bfi.org.uk${imgSrc}`;
+                }
+            } catch {
+                console.warn(`${LOG_PREFIX} No cover image for "${filmTitle}"`);
+            }
+
+            // Extract director, country, year, duration, language from Film-info__information
+            const filmInfo = await extractFilmInfo(page).catch((e) => {
+                console.warn(`${LOG_PREFIX} Error extracting film info for "${filmTitle}": ${e}`);
+                return {} as FilmInfo;
+            });
+            if (filmInfo.year === undefined) {
+                console.warn(`${LOG_PREFIX} Could not find release year for "${filmTitle}"`);
+            }
+
+            const showings: FilmShowings['showings'] = [];
+
+            if (articleContext?.searchNames && articleContext?.searchResults) {
+                const { searchNames, searchResults } = articleContext;
+                console.log(`${LOG_PREFIX} "${filmTitle}": ${searchResults.length} showings, fields: [${searchNames.join(', ')}]`);
+                for (const row of searchResults) {
+                    const listing = Object.fromEntries(
+                        searchNames.map((name, i) => [name, row[i]])
+                    );
+                    const startDateStr = listing['start_date'];
+                    if (!startDateStr) {
+                        console.warn(`${LOG_PREFIX} Missing start_date for "${filmTitle}": ${JSON.stringify(listing)}`);
+                        continue;
+                    }
+
+                    const startTime = parseStartDate(String(startDateStr));
+                    if (!startTime) {
+                        console.warn(`${LOG_PREFIX} Could not parse date "${startDateStr}" for "${filmTitle}"`);
+                        continue;
+                    }
+                    showings.push({ startTime, bookingUrl: filmUrl });
+                }
+            }
+
+            console.log(`${LOG_PREFIX} "${filmTitle}": ${showings.length} showings parsed`);
+            return {
+                film: { title: filmTitle, url: filmUrl, coverUrl, ...filmInfo },
+                showings,
+            };
+        } finally {
+            await page.close();
+            release(sem);
+        }
     }
+
+    // Unreachable but required for TypeScript
+    return { film: { title: filmTitle, url: filmUrl }, showings: [] };
 }
 
 export async function scraper(): Promise<CinemaShowing[]> {
@@ -207,7 +261,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
         const sem = createSemaphore(CONCURRENCY_LIMIT);
 
         const filmShowings = await Promise.all(
-            filmLinks.slice(0,5).map(({ url, title }) => processFilm(context, url, title, sem))
+            filmLinks.map(({ url, title }) => processFilm(context, url, title, sem))
         );
 
         const withShowings = filmShowings.filter((fs) => fs.showings.length > 0);

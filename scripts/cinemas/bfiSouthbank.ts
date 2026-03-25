@@ -5,7 +5,11 @@ import {
     FilmShowings,
     Cinema,
 } from '../types';
-import { chromium, BrowserContext } from 'playwright-chromium';
+import { chromium } from 'playwright-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
+import type { BrowserContext } from 'playwright-chromium';
+
+chromium.use(StealthPlugin());
 
 const CINEMA_NAME = 'BFI Southbank';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';

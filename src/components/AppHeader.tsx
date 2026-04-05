@@ -45,14 +45,14 @@ function DateRangeTabs({
 }
 
 function DateNavigator({
-    dateRange,
     currentDate,
     onNavigate,
+    onSetCurrentDate,
     onResetToToday,
 }: {
-    dateRange: DateRange;
     currentDate: Date;
     onNavigate: (dir: 'prev' | 'next') => void;
+    onSetCurrentDate: (v: string) => void;
     onResetToToday: () => void;
 }) {
     const isToday = () => {
@@ -64,16 +64,7 @@ function DateNavigator({
         );
     };
 
-    const getLabel = () => {
-        const base = new Date(currentDate);
-        const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-        return start.toLocaleDateString('en-UK', {
-            weekday: 'long',
-            month: 'long',
-            day: 'numeric',
-            year: 'numeric',
-        });
-    };
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
     return (
         <div className="flex items-center gap-4 bg-neutral-800 rounded-lg p-4">
@@ -85,11 +76,11 @@ function DateNavigator({
                 <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex-1 text-center">
-                <div className="text-lg font-semibold">{getLabel()}</div>
+                <DateCell value={dateStr} onChange={onSetCurrentDate} label="date" large />
                 {!isToday() && (
                     <button
                         onClick={onResetToToday}
-                        className="text-sm text-red-500 hover:text-red-400 mt-1"
+                        className="text-sm text-red-500 hover:text-red-400 mt-1 block mx-auto"
                     >
                         Back to today
                     </button>
@@ -110,18 +101,27 @@ function DateCell({
     value,
     onChange,
     label,
+    large = false,
 }: {
     value: string;
     onChange: (v: string) => void;
     label: string;
+    large?: boolean;
 }) {
     const [editing, setEditing] = useState(false);
     const fmt = (dateStr: string) =>
-        parseLocalDate(dateStr).toLocaleDateString('en-UK', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-        });
+        large
+            ? parseLocalDate(dateStr).toLocaleDateString('en-UK', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+              })
+            : parseLocalDate(dateStr).toLocaleDateString('en-UK', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+              });
 
     if (editing) {
         return (
@@ -140,7 +140,7 @@ function DateCell({
         <button
             onClick={() => setEditing(true)}
             title={`Set ${label} date`}
-            className="text-sm font-semibold hover:text-red-400 transition"
+            className={`font-semibold hover:text-red-400 transition ${large ? 'text-lg md:text-xl' : 'text-sm md:text-base'}`}
         >
             {fmt(value)}
         </button>
@@ -249,6 +249,7 @@ interface AppHeaderProps {
     rangeEndDate: string;
     onDateRangeChange: (r: DateRange) => void;
     onNavigate: (dir: 'prev' | 'next') => void;
+    onSetCurrentDate: (v: string) => void;
     onResetToToday: () => void;
     onNavigateRangeStart: (dir: 'prev' | 'next') => void;
     onNavigateRangeEnd: (dir: 'prev' | 'next') => void;
@@ -268,6 +269,7 @@ export default function AppHeader({
     rangeEndDate,
     onDateRangeChange,
     onNavigate,
+    onSetCurrentDate,
     onResetToToday,
     onNavigateRangeStart,
     onNavigateRangeEnd,
@@ -303,9 +305,9 @@ export default function AppHeader({
                     />
                     {dateRange === 'today' && (
                         <DateNavigator
-                            dateRange={dateRange}
                             currentDate={currentDate}
                             onNavigate={onNavigate}
+                            onSetCurrentDate={onSetCurrentDate}
                             onResetToToday={onResetToToday}
                         />
                     )}

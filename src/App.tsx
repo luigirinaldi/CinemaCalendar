@@ -31,6 +31,7 @@ function App() {
         resetToToday,
         navigateRangeStart,
         navigateRangeEnd,
+        setCurrentDate,
         setRangeStartDate,
         setRangeEndDate,
     } = useDateRange();
@@ -115,6 +116,7 @@ function App() {
                 rangeEndDate={rangeEndDate}
                 onDateRangeChange={setDateRange}
                 onNavigate={navigateDate}
+                onSetCurrentDate={setCurrentDate}
                 onResetToToday={resetToToday}
                 onNavigateRangeStart={navigateRangeStart}
                 onNavigateRangeEnd={navigateRangeEnd}

@@ -25,13 +25,9 @@ export default function ByCinemaView({ screenings, getMovie, getCinema, showTime
                     sortGroupedByStartTime
                 );
                 return (
-                    <div key={cinemaId} className="bg-neutral-800 rounded-lg p-6">
+                    <div key={cinemaId} className="bg-neutral-800 rounded-lg p-4">
                         <h2 className="text-2xl font-bold mb-2">{cinema?.name}</h2>
-                        <p className="text-neutral-400 mb-4 flex items-center gap-2">
-                            <MapPin className="w-4 h-4" />
-                            {cinema?.location}
-                        </p>
-                        <div className="flex flex-wrap gap-6 justify-around">
+                        <div className="flex flex-wrap gap-4 justify-around">
                             {movieGroups.map(([key, movieScreenings]) => {
                                 const movie = getMovie(movieScreenings[0]?.film_id ?? -1);
                                 const byDay = Object.entries(

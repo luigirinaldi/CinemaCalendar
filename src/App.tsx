@@ -121,7 +121,7 @@ function App() {
                 showMode={showMode}
                 onShowModeChange={setShowMode}
             />
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className={`max-w-7xl mx-auto py-8 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
                 {screenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />

@@ -151,7 +151,6 @@ function App() {
                                     screenings={movieScreenings}
                                     getMovie={getMovie}
                                     getCinema={getCinema}
-                                    showTimes={showTimes}
                                 />
                             ))}
                     </div>
@@ -160,7 +159,6 @@ function App() {
                         screenings={screenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
-                        showTimes={showTimes}
                     />
                 ) : (
                     <TableView

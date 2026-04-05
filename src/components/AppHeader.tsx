@@ -1,4 +1,5 @@
 import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
+import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
 
@@ -105,17 +106,16 @@ function DateNavigator({
     );
 }
 
-function RangeDateNavigator({
-    rangeStartDate,
-    rangeEndDate,
-    onNavigateStart,
-    onNavigateEnd,
+function DateCell({
+    value,
+    onChange,
+    label,
 }: {
-    rangeStartDate: string;
-    rangeEndDate: string;
-    onNavigateStart: (dir: 'prev' | 'next') => void;
-    onNavigateEnd: (dir: 'prev' | 'next') => void;
+    value: string;
+    onChange: (v: string) => void;
+    label: string;
 }) {
+    const [editing, setEditing] = useState(false);
     const fmt = (dateStr: string) =>
         parseLocalDate(dateStr).toLocaleDateString('en-UK', {
             weekday: 'short',
@@ -123,41 +123,84 @@ function RangeDateNavigator({
             day: 'numeric',
         });
 
+    if (editing) {
+        return (
+            <input
+                type="date"
+                value={value}
+                autoFocus
+                onChange={(e) => { onChange(e.target.value); setEditing(false); }}
+                onBlur={() => setEditing(false)}
+                className="bg-neutral-700 text-white text-sm font-semibold rounded px-2 py-0.5 outline-none border border-neutral-500 w-36"
+            />
+        );
+    }
+
     return (
-        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-3">
-            <button
-                onClick={() => onNavigateStart('prev')}
-                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title="Move start date back"
-            >
-                <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-                onClick={() => onNavigateStart('next')}
-                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title="Move start date forward"
-            >
-                <ChevronRight className="w-5 h-5" />
-            </button>
-            <div className="flex-1 text-center text-sm font-semibold">
-                {fmt(rangeStartDate)}
-                <span className="text-neutral-500 mx-2">—</span>
-                {fmt(rangeEndDate)}
+        <button
+            onClick={() => setEditing(true)}
+            title={`Set ${label} date`}
+            className="text-sm font-semibold hover:text-red-400 transition"
+        >
+            {fmt(value)}
+        </button>
+    );
+}
+
+function RangeDateNavigator({
+    rangeStartDate,
+    rangeEndDate,
+    onNavigateStart,
+    onNavigateEnd,
+    onSetStart,
+    onSetEnd,
+}: {
+    rangeStartDate: string;
+    rangeEndDate: string;
+    onNavigateStart: (dir: 'prev' | 'next') => void;
+    onNavigateEnd: (dir: 'prev' | 'next') => void;
+    onSetStart: (v: string) => void;
+    onSetEnd: (v: string) => void;
+}) {
+    return (
+        <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+            <div className="flex rounded-lg overflow-hidden">
+                <button
+                    onClick={() => onNavigateStart('prev')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition"
+                    title="Move start date back"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => onNavigateStart('next')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition border-l border-neutral-600"
+                    title="Move start date forward"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
             </div>
-            <button
-                onClick={() => onNavigateEnd('prev')}
-                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title="Move end date back"
-            >
-                <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-                onClick={() => onNavigateEnd('next')}
-                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title="Move end date forward"
-            >
-                <ChevronRight className="w-5 h-5" />
-            </button>
+            <div className="flex-1 text-center">
+                <DateCell value={rangeStartDate} onChange={onSetStart} label="start" />
+                <span className="text-neutral-500 mx-2">—</span>
+                <DateCell value={rangeEndDate} onChange={onSetEnd} label="end" />
+            </div>
+            <div className="flex rounded-lg overflow-hidden">
+                <button
+                    onClick={() => onNavigateEnd('prev')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition"
+                    title="Move end date back"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => onNavigateEnd('next')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition border-l border-neutral-600"
+                    title="Move end date forward"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+            </div>
         </div>
     );
 }
@@ -209,6 +252,8 @@ interface AppHeaderProps {
     onResetToToday: () => void;
     onNavigateRangeStart: (dir: 'prev' | 'next') => void;
     onNavigateRangeEnd: (dir: 'prev' | 'next') => void;
+    onSetRangeStartDate: (v: string) => void;
+    onSetRangeEndDate: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
 }
@@ -226,6 +271,8 @@ export default function AppHeader({
     onResetToToday,
     onNavigateRangeStart,
     onNavigateRangeEnd,
+    onSetRangeStartDate,
+    onSetRangeEndDate,
     groupBy,
     onGroupByChange,
 }: AppHeaderProps) {
@@ -268,6 +315,8 @@ export default function AppHeader({
                             rangeEndDate={rangeEndDate}
                             onNavigateStart={onNavigateRangeStart}
                             onNavigateEnd={onNavigateRangeEnd}
+                            onSetStart={onSetRangeStartDate}
+                            onSetEnd={onSetRangeEndDate}
                         />
                     )}
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />

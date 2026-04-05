@@ -31,6 +31,8 @@ function App() {
         resetToToday,
         navigateRangeStart,
         navigateRangeEnd,
+        setRangeStartDate,
+        setRangeEndDate,
     } = useDateRange();
 
     const isSingleDay = dateRange === 'today';
@@ -116,6 +118,8 @@ function App() {
                 onResetToToday={resetToToday}
                 onNavigateRangeStart={navigateRangeStart}
                 onNavigateRangeEnd={navigateRangeEnd}
+                onSetRangeStartDate={setRangeStartDate}
+                onSetRangeEndDate={setRangeEndDate}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
             />

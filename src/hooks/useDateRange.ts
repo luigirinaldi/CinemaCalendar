@@ -14,7 +14,9 @@ type DateRangeAction =
     | { type: 'NAVIGATE';               payload: 'prev' | 'next' }
     | { type: 'RESET_TO_TODAY' }
     | { type: 'NAVIGATE_RANGE_START';   payload: 'prev' | 'next' }
-    | { type: 'NAVIGATE_RANGE_END';     payload: 'prev' | 'next' };
+    | { type: 'NAVIGATE_RANGE_END';     payload: 'prev' | 'next' }
+    | { type: 'SET_RANGE_START';        payload: string }
+    | { type: 'SET_RANGE_END';          payload: string };
 
 function defaultRangeEnd(): string {
     const d = new Date();
@@ -55,6 +57,10 @@ function dateRangeReducer(state: DateRangeState, action: DateRangeAction): DateR
             d.setDate(d.getDate() + delta);
             return { ...state, rangeEndDate: toLocalDateStr(d) };
         }
+        case 'SET_RANGE_START':
+            return { ...state, rangeStartDate: action.payload };
+        case 'SET_RANGE_END':
+            return { ...state, rangeEndDate: action.payload };
     }
 }
 
@@ -79,6 +85,8 @@ export interface UseDateRangeResult {
     resetToToday: () => void;
     navigateRangeStart: (dir: 'prev' | 'next') => void;
     navigateRangeEnd: (dir: 'prev' | 'next') => void;
+    setRangeStartDate: (v: string) => void;
+    setRangeEndDate: (v: string) => void;
 }
 
 export function useDateRange(): UseDateRangeResult {
@@ -142,6 +150,14 @@ export function useDateRange(): UseDateRangeResult {
         dispatch({ type: 'NAVIGATE_RANGE_END', payload: dir });
     }, []);
 
+    const setRangeStartDate = useCallback((v: string) => {
+        dispatch({ type: 'SET_RANGE_START', payload: v });
+    }, []);
+
+    const setRangeEndDate = useCallback((v: string) => {
+        dispatch({ type: 'SET_RANGE_END', payload: v });
+    }, []);
+
     return {
         ...state,
         computedRange,
@@ -150,5 +166,7 @@ export function useDateRange(): UseDateRangeResult {
         resetToToday,
         navigateRangeStart,
         navigateRangeEnd,
+        setRangeStartDate,
+        setRangeEndDate,
     };
 }

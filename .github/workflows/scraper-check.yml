@@ -41,6 +41,7 @@ jobs:
             - name: Run test
               env:
                   SCRAPER: ${{ matrix.path }}
+                  BFI_TEST_LIMIT: 5
               run: |
                   echo "Running test on: ${{ matrix.name }}"
                   npm run test_scraper

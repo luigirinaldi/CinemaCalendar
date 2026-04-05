@@ -67,7 +67,7 @@ function DateNavigator({
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
     return (
-        <div className="flex items-center gap-4 bg-neutral-800 rounded-lg p-4">
+        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-2">
             <button
                 onClick={() => onNavigate('prev')}
                 className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
@@ -163,7 +163,7 @@ function RangeDateNavigator({
     onSetEnd: (v: string) => void;
 }) {
     return (
-        <div className="flex items-center gap-3 bg-neutral-800 rounded-lg p-3">
+        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-2">
             <div className="flex rounded-lg overflow-hidden">
                 <button
                     onClick={() => onNavigateStart('prev')}

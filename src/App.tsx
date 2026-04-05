@@ -157,6 +157,7 @@ function App() {
                         getMovie={getMovie}
                         getCinema={getCinema}
                         showTimes={showTimes}
+                        singleDay={isSingleDay}
                     />
                 )}
             </main>

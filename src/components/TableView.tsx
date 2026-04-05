@@ -17,6 +17,7 @@ interface Props {
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
+    singleDay: boolean;
 }
 
 function groupByCalendarDay(screenings: ShowingsTable[]): [string, ShowingsTable[]][] {
@@ -33,9 +34,10 @@ interface ScreeningTimesProps {
     cinemaScreenings: ShowingsTable[];
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
+    singleDay: boolean;
 }
 
-function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTimesProps) {
+function ScreeningTimes({ cinemaScreenings, getCinema, showTimes, singleDay }: ScreeningTimesProps) {
     const cinemaGroups = groupByCinema(cinemaScreenings);
     const cinemaIds = Object.keys(cinemaGroups).map(Number);
 
@@ -52,7 +54,7 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
                             {showTimes ? (
                                 dayGroups.map(([day, dayScreenings]) => (
                                     <div key={day} className="flex flex-wrap items-baseline gap-x-2 mb-1 last:mb-0">
-                                        <span className="text-neutral-500 text-xs w-24 shrink-0">{day}</span>
+                                        {!singleDay && <span className="text-neutral-500 text-xs w-24 shrink-0">{day}</span>}
                                         <div className="flex flex-wrap gap-x-2 gap-y-1">
                                             {dayScreenings.map((s) =>
                                                 s.booking_url ? (
@@ -97,7 +99,7 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
     );
 }
 
-export default function TableView({ screenings, getMovie, getCinema, showTimes }: Props) {
+export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay }: Props) {
     const rows = groupByMovie(screenings, getMovie).sort(sortGroupedByStartTime);
 
     return (
@@ -127,9 +129,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
                                         <span className="font-semibold text-white">{title}</span>
-                                        {year && (
-                                            <span className="text-neutral-500 text-sm">{year}</span>
-                                        )}
+                                        {year && <span className="text-neutral-500 text-sm hidden md:inline">{year}</span>}
                                         {tmdbUrl && (
                                             <a
                                                 href={tmdbUrl}
@@ -145,9 +145,13 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                             </a>
                                         )}
                                     </div>
-                                    <div className="text-neutral-400 text-sm mt-0.5 md:hidden">
-                                        {movie?.director ?? '—'}
-                                    </div>
+                                    {(year || movie?.director) && (
+                                        <div className="text-neutral-400 text-sm mt-0.5 md:hidden">
+                                            {year && <span className="text-neutral-500">{year}</span>}
+                                            {year && movie?.director && <span className="text-neutral-600 mx-1">·</span>}
+                                            {movie?.director && <span>{movie.director}</span>}
+                                        </div>
+                                    )}
                                 </td>
 
                                 <td className="px-4 py-3 text-neutral-300 text-sm hidden md:table-cell">
@@ -159,6 +163,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                         cinemaScreenings={filmScreenings}
                                         getCinema={getCinema}
                                         showTimes={showTimes}
+                                        singleDay={singleDay}
                                     />
                                 </td>
                             </tr>

@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { Clock, ExternalLink } from 'lucide-react';
 import {
     groupByMovie,
     groupByCinema,
@@ -7,6 +7,7 @@ import {
 } from '../utils/grouping';
 import { formatTime, formatDate } from '../utils/formatters';
 import { buildDayUrl } from '../utils/url';
+import type { ShowMode } from '../types';
 import type { ShowingsTable, CinemaTable, FilmWithPoster } from '../api';
 
 const TMDB_FAVICON =
@@ -18,6 +19,8 @@ interface Props {
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
     singleDay: boolean;
+    showMode: ShowMode;
+    onShowModeChange: (m: ShowMode) => void;
 }
 
 function groupByCalendarDay(screenings: ShowingsTable[]): [string, ShowingsTable[]][] {
@@ -99,7 +102,7 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes, singleDay }: S
     );
 }
 
-export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay }: Props) {
+export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay, showMode, onShowModeChange }: Props) {
     const rows = groupByMovie(screenings, getMovie).sort(sortGroupedByStartTime);
 
     return (
@@ -109,7 +112,20 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes, 
                     <tr className="sticky top-0 bg-neutral-900 border-b border-neutral-600 text-neutral-400 text-xs uppercase tracking-wider">
                         <th className="px-4 py-3 font-medium w-1/4">Title</th>
                         <th className="px-4 py-3 font-medium w-1/6 hidden md:table-cell">Director</th>
-                        <th className="px-4 py-3 font-medium">{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</th>
+                        <th className="px-4 py-3 font-medium">
+                            <div className="flex items-center gap-2 justify-start">
+                                <span>{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</span>
+                                {!singleDay && (
+                                    <button
+                                        onClick={() => onShowModeChange(showMode === 'full' ? 'compact' : 'full')}
+                                        title={showMode === 'full' ? 'Hide times' : 'Show times'}
+                                        className={`p-1 rounded transition ${showMode === 'full' ? 'bg-red-700 text-white hover:bg-red-600' : 'text-red-500 hover:text-red-400'}`}
+                                    >
+                                        <Clock className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>

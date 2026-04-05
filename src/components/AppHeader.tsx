@@ -197,23 +197,13 @@ function ShowModeToggle({
     onShowModeChange: (m: ShowMode) => void;
 }) {
     return (
-        <div>
-            <label className="text-sm text-neutral-400 mb-2 block">Display</label>
-            <div className="flex gap-2">
-                <button
-                    onClick={() => onShowModeChange('compact')}
-                    className={tabClass(showMode === 'compact')}
-                >
-                    <Calendar className="inline w-4 h-4 mr-2" />Compact
-                </button>
-                <button
-                    onClick={() => onShowModeChange('full')}
-                    className={tabClass(showMode === 'full')}
-                >
-                    <Clock className="inline w-4 h-4 mr-2" />Full
-                </button>
-            </div>
-        </div>
+        <button
+            onClick={() => onShowModeChange(showMode === 'full' ? 'compact' : 'full')}
+            className={tabClass(showMode === 'full')}
+            title={showMode === 'full' ? 'Hide times' : 'Show times'}
+        >
+            <Clock className="w-4 h-4" />
+        </button>
     );
 }
 
@@ -295,12 +285,7 @@ export default function AppHeader({
                             onCustomEndDateChange={onCustomEndDateChange}
                         />
                     )}
-                    <div className="flex items-start justify-between gap-4">
-                        <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
-                        {dateRange !== 'today' && (
-                            <ShowModeToggle showMode={showMode} onShowModeChange={onShowModeChange} />
-                        )}
-                    </div>
+                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
                 </div>
             </div>
         </header>

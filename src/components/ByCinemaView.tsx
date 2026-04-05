@@ -13,10 +13,9 @@ interface ByCinemaViewProps {
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
-    showTimes: boolean;
 }
 
-export default function ByCinemaView({ screenings, getMovie, getCinema, showTimes }: ByCinemaViewProps) {
+export default function ByCinemaView({ screenings, getMovie, getCinema }: ByCinemaViewProps) {
     return (
         <div className="space-y-8">
             {Object.entries(groupByCinema(screenings)).map(([cinemaId, cinemaScreenings]) => {
@@ -40,7 +39,7 @@ export default function ByCinemaView({ screenings, getMovie, getCinema, showTime
                                                 <DayRow
                                                     key={dayScreenings[0]?.id}
                                                     screenings={dayScreenings}
-                                                    showTimes={showTimes}
+                                                    showTimes={true}
                                                 />
                                             ))}
                                         </div>

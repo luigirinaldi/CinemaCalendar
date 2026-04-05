@@ -280,9 +280,9 @@ export default function AppHeader({
 }: AppHeaderProps) {
 
     return (
-        <header className="bg-neutral-950 border-b border-red-900/30">
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                <div className="flex items-center justify-between mb-6">
+        <>
+            <div className="bg-neutral-950 border-b border-red-900/30">
+                <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Film className="w-8 h-8 text-red-600" />
                         <h1 className="text-3xl font-bold">CineView</h1>
@@ -297,33 +297,41 @@ export default function AppHeader({
                         ))}
                     </select>
                 </div>
-                <div className="space-y-4">
+            </div>
+            <div className="bg-neutral-950 border-b border-red-900/30">
+                <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
+                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}
                         onResetToToday={onResetToToday}
                     />
-                    {dateRange === 'today' && (
-                        <DateNavigator
-                            currentDate={currentDate}
-                            onNavigate={onNavigate}
-                            onSetCurrentDate={onSetCurrentDate}
-                            onResetToToday={onResetToToday}
-                        />
-                    )}
-                    {dateRange === 'range' && (
-                        <RangeDateNavigator
-                            rangeStartDate={rangeStartDate}
-                            rangeEndDate={rangeEndDate}
-                            onNavigateStart={onNavigateRangeStart}
-                            onNavigateEnd={onNavigateRangeEnd}
-                            onSetStart={onSetRangeStartDate}
-                            onSetEnd={onSetRangeEndDate}
-                        />
-                    )}
-                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
                 </div>
             </div>
-        </header>
+            {(dateRange === 'today' || dateRange === 'range') && (
+                <div className="sticky top-0 z-10 bg-neutral-950 border-b border-red-900/30">
+                    <div className="max-w-7xl mx-auto px-4 py-3">
+                        {dateRange === 'today' && (
+                            <DateNavigator
+                                currentDate={currentDate}
+                                onNavigate={onNavigate}
+                                onSetCurrentDate={onSetCurrentDate}
+                                onResetToToday={onResetToToday}
+                            />
+                        )}
+                        {dateRange === 'range' && (
+                            <RangeDateNavigator
+                                rangeStartDate={rangeStartDate}
+                                rangeEndDate={rangeEndDate}
+                                onNavigateStart={onNavigateRangeStart}
+                                onNavigateEnd={onNavigateRangeEnd}
+                                onSetStart={onSetRangeStartDate}
+                                onSetEnd={onSetRangeEndDate}
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

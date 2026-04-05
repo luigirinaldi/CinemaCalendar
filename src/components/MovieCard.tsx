@@ -40,10 +40,9 @@ interface MovieCardProps {
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
-    showTimes: boolean;
 }
 
-export default function MovieCard({ movieKey, screenings, getMovie, getCinema, showTimes }: MovieCardProps) {
+export default function MovieCard({ movieKey, screenings, getMovie, getCinema }: MovieCardProps) {
     const movie = getMovie(screenings[0]?.film_id ?? -1);
     const byCinema = Object.entries(groupByCinema(screenings)).sort(sortGroupedByStartTime);
 
@@ -59,7 +58,7 @@ export default function MovieCard({ movieKey, screenings, getMovie, getCinema, s
                         cinemaId={cinemaId}
                         screenings={cinemaScreenings}
                         getCinema={getCinema}
-                        showTimes={showTimes}
+                        showTimes={true}
                     />
                 ))}
             </div>

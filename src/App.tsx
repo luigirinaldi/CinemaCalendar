@@ -8,7 +8,7 @@ import {
     type FilmWithPoster,
     type ShowingsTable,
 } from './api';
-import type { GroupBy, ShowMode } from './types';
+import type { GroupBy, ShowMode, TableSort } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
 import { useDateRange } from './hooks/useDateRange';
@@ -20,17 +20,21 @@ import TableView from './components/TableView';
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'table');
     const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
+    const [tableSort, setTableSort] = useState<TableSort | null>(getUrlSearchParams().tableSort ?? null);
     const {
         dateRange,
         currentDate,
-        customStartDate,
-        customEndDate,
+        rangeStartDate,
+        rangeEndDate,
         computedRange,
         setDateRange,
         navigateDate,
         resetToToday,
-        setCustomStartDate,
-        setCustomEndDate,
+        navigateRangeStart,
+        navigateRangeEnd,
+        setCurrentDate,
+        setRangeStartDate,
+        setRangeEndDate,
     } = useDateRange();
 
     const isSingleDay = dateRange === 'today';
@@ -72,6 +76,12 @@ function App() {
         setUrlSearchParams({ showMode });
     }, [showMode]);
 
+    // Sync tableSort to URL
+    useEffect(() => {
+        if (tableSort) setUrlSearchParams({ tableSort });
+        else setUrlSearchParams({}, ['tableSort']);
+    }, [tableSort]);
+
     // Re-fetch screenings whenever filters change
     useEffect(() => {
         const fetchData = async () => {
@@ -109,19 +119,20 @@ function App() {
                 onCityChange={setCity}
                 dateRange={dateRange}
                 currentDate={currentDate}
-                customStartDate={customStartDate}
-                customEndDate={customEndDate}
+                rangeStartDate={rangeStartDate}
+                rangeEndDate={rangeEndDate}
                 onDateRangeChange={setDateRange}
                 onNavigate={navigateDate}
+                onSetCurrentDate={setCurrentDate}
                 onResetToToday={resetToToday}
-                onCustomStartDateChange={setCustomStartDate}
-                onCustomEndDateChange={setCustomEndDate}
+                onNavigateRangeStart={navigateRangeStart}
+                onNavigateRangeEnd={navigateRangeEnd}
+                onSetRangeStartDate={setRangeStartDate}
+                onSetRangeEndDate={setRangeEndDate}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
-                showMode={showMode}
-                onShowModeChange={setShowMode}
             />
-            <main className="max-w-7xl mx-auto px-4 py-8">
+            <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
                 {screenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />
@@ -140,7 +151,6 @@ function App() {
                                     screenings={movieScreenings}
                                     getMovie={getMovie}
                                     getCinema={getCinema}
-                                    showTimes={showTimes}
                                 />
                             ))}
                     </div>
@@ -149,7 +159,6 @@ function App() {
                         screenings={screenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
-                        showTimes={showTimes}
                     />
                 ) : (
                     <TableView
@@ -157,6 +166,11 @@ function App() {
                         getMovie={getMovie}
                         getCinema={getCinema}
                         showTimes={showTimes}
+                        singleDay={isSingleDay}
+                        showMode={showMode}
+                        onShowModeChange={setShowMode}
+                        tableSort={tableSort}
+                        onTableSortChange={setTableSort}
                     />
                 )}
             </main>

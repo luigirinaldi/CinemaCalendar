@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { ChevronUp, ChevronDown, Clock, ExternalLink } from 'lucide-react';
 import {
     groupByMovie,
     groupByCinema,
@@ -7,6 +7,7 @@ import {
 } from '../utils/grouping';
 import { formatTime, formatDate } from '../utils/formatters';
 import { buildDayUrl } from '../utils/url';
+import type { ShowMode, TableSort } from '../types';
 import type { ShowingsTable, CinemaTable, FilmWithPoster } from '../api';
 
 const TMDB_FAVICON =
@@ -17,6 +18,11 @@ interface Props {
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
+    singleDay: boolean;
+    showMode: ShowMode;
+    onShowModeChange: (m: ShowMode) => void;
+    tableSort: TableSort | null;
+    onTableSortChange: (s: TableSort | null) => void;
 }
 
 function groupByCalendarDay(screenings: ShowingsTable[]): [string, ShowingsTable[]][] {
@@ -33,9 +39,10 @@ interface ScreeningTimesProps {
     cinemaScreenings: ShowingsTable[];
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
+    singleDay: boolean;
 }
 
-function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTimesProps) {
+function ScreeningTimes({ cinemaScreenings, getCinema, showTimes, singleDay }: ScreeningTimesProps) {
     const cinemaGroups = groupByCinema(cinemaScreenings);
     const cinemaIds = Object.keys(cinemaGroups).map(Number);
 
@@ -44,15 +51,15 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
             {cinemaIds.map((id) => {
                 const dayGroups = groupByCalendarDay(cinemaGroups[id].sort(sortScreeningByStartTime));
                 return (
-                    <div key={id} className="flex gap-4 py-1 first:pt-0 last:pb-0">
-                        <span className="text-neutral-300 text-sm w-40 shrink-0">
+                    <div key={id} className="flex flex-col md:flex-row md:gap-4 py-1 first:pt-0 last:pb-0">
+                        <span className="text-neutral-300 text-sm md:w-40 md:shrink-0 mb-1 md:mb-0">
                             {getCinema(id)?.name ?? `Cinema ${id}`}
                         </span>
                         <div className="flex-1">
                             {showTimes ? (
                                 dayGroups.map(([day, dayScreenings]) => (
                                     <div key={day} className="flex flex-wrap items-baseline gap-x-2 mb-1 last:mb-0">
-                                        <span className="text-neutral-500 text-xs w-24 shrink-0">{day}</span>
+                                        {!singleDay && <span className="text-neutral-500 text-xs w-24 shrink-0">{day}</span>}
                                         <div className="flex flex-wrap gap-x-2 gap-y-1">
                                             {dayScreenings.map((s) =>
                                                 s.booking_url ? (
@@ -97,21 +104,77 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
     );
 }
 
-export default function TableView({ screenings, getMovie, getCinema, showTimes }: Props) {
+function SortIcon({ col, tableSort }: { col: 'title' | 'director'; tableSort: TableSort | null }) {
+    if (tableSort === `${col}-asc`) return <ChevronUp className="w-3.5 h-3.5 shrink-0" />;
+    if (tableSort === `${col}-desc`) return <ChevronDown className="w-3.5 h-3.5 shrink-0" />;
+    return <ChevronUp className="w-3.5 h-3.5 shrink-0 opacity-20" />;
+}
+
+export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay, showMode, onShowModeChange, tableSort, onTableSortChange }: Props) {
     const rows = groupByMovie(screenings, getMovie).sort(sortGroupedByStartTime);
+
+    const sortedRows = tableSort
+        ? [...rows].sort(([, a], [, b]) => {
+              const ma = getMovie(a[0].film_id);
+              const mb = getMovie(b[0].film_id);
+              if (tableSort === 'title-asc' || tableSort === 'title-desc') {
+                  const ta = (ma?.tmdb_info?.title ?? ma?.title ?? '').toLowerCase();
+                  const tb = (mb?.tmdb_info?.title ?? mb?.title ?? '').toLowerCase();
+                  return tableSort === 'title-asc' ? ta.localeCompare(tb) : tb.localeCompare(ta);
+              }
+              const da = (ma?.director ?? '').toLowerCase();
+              const db = (mb?.director ?? '').toLowerCase();
+              return tableSort === 'director-asc' ? da.localeCompare(db) : db.localeCompare(da);
+          })
+        : rows;
+
+    function handleSortClick(col: 'title' | 'director') {
+        if (tableSort === `${col}-asc`) onTableSortChange(`${col}-desc` as TableSort);
+        else if (tableSort === `${col}-desc`) onTableSortChange(null);
+        else onTableSortChange(`${col}-asc` as TableSort);
+    }
 
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
                 <thead>
                     <tr className="sticky top-0 bg-neutral-900 border-b border-neutral-600 text-neutral-400 text-xs uppercase tracking-wider">
-                        <th className="px-4 py-3 font-medium w-1/4">Title</th>
-                        <th className="px-4 py-3 font-medium w-1/6">Director</th>
-                        <th className="px-4 py-3 font-medium">{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</th>
+                        <th className="px-4 py-3 font-medium w-1/4">
+                            <button
+                                onClick={() => handleSortClick('title')}
+                                className="flex items-center gap-1 hover:text-white transition"
+                            >
+                                Title
+                                <SortIcon col="title" tableSort={tableSort} />
+                            </button>
+                        </th>
+                        <th className="px-4 py-3 font-medium w-1/6 hidden md:table-cell">
+                            <button
+                                onClick={() => handleSortClick('director')}
+                                className="flex items-center gap-1 hover:text-white transition"
+                            >
+                                Director
+                                <SortIcon col="director" tableSort={tableSort} />
+                            </button>
+                        </th>
+                        <th className="px-4 py-3 font-medium">
+                            <div className="flex items-center gap-2 justify-start">
+                                <span>{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</span>
+                                {!singleDay && (
+                                    <button
+                                        onClick={() => onShowModeChange(showMode === 'full' ? 'compact' : 'full')}
+                                        title={showMode === 'full' ? 'Hide times' : 'Show times'}
+                                        className={`p-1 rounded transition ${showMode === 'full' ? 'bg-red-700 text-white hover:bg-red-600' : 'text-red-500 hover:text-red-400'}`}
+                                    >
+                                        <Clock className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
+                            </div>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map(([key, filmScreenings]) => {
+                    {sortedRows.map(([key, filmScreenings]) => {
                         const movie = getMovie(filmScreenings[0].film_id);
                         const tmdb = movie?.tmdb_info ?? null;
                         const title = tmdb?.title ?? movie?.title ?? '—';
@@ -127,9 +190,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-2">
                                         <span className="font-semibold text-white">{title}</span>
-                                        {year && (
-                                            <span className="text-neutral-500 text-sm">{year}</span>
-                                        )}
+                                        {year && <span className="text-neutral-500 text-sm hidden md:inline">{year}</span>}
                                         {tmdbUrl && (
                                             <a
                                                 href={tmdbUrl}
@@ -145,9 +206,16 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                             </a>
                                         )}
                                     </div>
+                                    {(year || movie?.director) && (
+                                        <div className="text-neutral-400 text-sm mt-0.5 md:hidden">
+                                            {year && <span className="text-neutral-500">{year}</span>}
+                                            {year && movie?.director && <span className="text-neutral-600 mx-1">·</span>}
+                                            {movie?.director && <span>{movie.director}</span>}
+                                        </div>
+                                    )}
                                 </td>
 
-                                <td className="px-4 py-3 text-neutral-300 text-sm">
+                                <td className="px-4 py-3 text-neutral-300 text-sm hidden md:table-cell">
                                     {movie?.director ?? '—'}
                                 </td>
 
@@ -156,6 +224,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                         cinemaScreenings={filmScreenings}
                                         getCinema={getCinema}
                                         showTimes={showTimes}
+                                        singleDay={singleDay}
                                     />
                                 </td>
                             </tr>

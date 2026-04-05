@@ -1,6 +1,7 @@
-import { Calendar, ChevronLeft, ChevronRight, Clock, Film, List, MapPin } from 'lucide-react';
-import type { DateRange, GroupBy, ShowMode } from '../types';
-import { formatDateRange } from '../utils/formatters';
+import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import type { DateRange, GroupBy } from '../types';
+import { parseLocalDate } from '../utils/url';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -27,10 +28,10 @@ function DateRangeTabs({
                     <Calendar className="inline w-4 h-4 mr-2" />Today
                 </button>
                 <button
-                    onClick={() => { onDateRangeChange('thisWeek'); onResetToToday(); }}
-                    className={tabClass(dateRange === 'thisWeek')}
+                    onClick={() => onDateRangeChange('range')}
+                    className={tabClass(dateRange === 'range')}
                 >
-                    <Calendar className="inline w-4 h-4 mr-2" />This Week
+                    <Calendar className="inline w-4 h-4 mr-2" />Range
                 </button>
                 <button
                     onClick={() => onDateRangeChange('anytime')}
@@ -38,26 +39,20 @@ function DateRangeTabs({
                 >
                     <Calendar className="inline w-4 h-4 mr-2" />Anytime
                 </button>
-                <button
-                    onClick={() => onDateRangeChange('custom')}
-                    className={tabClass(dateRange === 'custom')}
-                >
-                    <Calendar className="inline w-4 h-4 mr-2" />Custom Range
-                </button>
             </div>
         </div>
     );
 }
 
 function DateNavigator({
-    dateRange,
     currentDate,
     onNavigate,
+    onSetCurrentDate,
     onResetToToday,
 }: {
-    dateRange: DateRange;
     currentDate: Date;
     onNavigate: (dir: 'prev' | 'next') => void;
+    onSetCurrentDate: (v: string) => void;
     onResetToToday: () => void;
 }) {
     const isToday = () => {
@@ -69,39 +64,23 @@ function DateNavigator({
         );
     };
 
-    const getLabel = () => {
-        const base = new Date(currentDate);
-        const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-        if (dateRange === 'today') {
-            return start.toLocaleDateString('en-UK', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-            });
-        }
-        const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        return formatDateRange(start, end);
-    };
-
-    const navTitle = dateRange === 'today' ? 'day' : 'week';
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
     return (
-        <div className="flex items-center gap-4 bg-neutral-800 rounded-lg p-4">
+        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-2">
             <button
                 onClick={() => onNavigate('prev')}
                 className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title={`Previous ${navTitle}`}
+                title="Previous day"
             >
                 <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex-1 text-center">
-                <div className="text-lg font-semibold">{getLabel()}</div>
+                <DateCell value={dateStr} onChange={onSetCurrentDate} label="date" large />
                 {!isToday() && (
                     <button
                         onClick={onResetToToday}
-                        className="text-sm text-red-500 hover:text-red-400 mt-1"
+                        className="text-sm text-red-500 hover:text-red-400 mt-1 block mx-auto"
                     >
                         Back to today
                     </button>
@@ -110,7 +89,7 @@ function DateNavigator({
             <button
                 onClick={() => onNavigate('next')}
                 className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title={`Next ${navTitle}`}
+                title="Next day"
             >
                 <ChevronRight className="w-5 h-5" />
             </button>
@@ -118,38 +97,109 @@ function DateNavigator({
     );
 }
 
-function CustomDateInputs({
-    customStartDate,
-    customEndDate,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+function DateCell({
+    value,
+    onChange,
+    label,
+    large = false,
 }: {
-    customStartDate: string;
-    customEndDate: string;
-    onCustomStartDateChange: (v: string) => void;
-    onCustomEndDateChange: (v: string) => void;
+    value: string;
+    onChange: (v: string) => void;
+    label: string;
+    large?: boolean;
 }) {
-    const inputClass =
-        'bg-neutral-800 text-white px-3 py-2 rounded border border-neutral-700 focus:border-red-600 outline-none';
+    const [editing, setEditing] = useState(false);
+    const fmt = (dateStr: string) =>
+        large
+            ? parseLocalDate(dateStr).toLocaleDateString('en-UK', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+              })
+            : parseLocalDate(dateStr).toLocaleDateString('en-UK', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+              });
+
+    if (editing) {
+        return (
+            <input
+                type="date"
+                value={value}
+                autoFocus
+                onChange={(e) => { onChange(e.target.value); setEditing(false); }}
+                onBlur={() => setEditing(false)}
+                className="bg-neutral-700 text-white text-sm font-semibold rounded px-2 py-0.5 outline-none border border-neutral-500 w-36"
+            />
+        );
+    }
+
     return (
-        <div className="flex flex-wrap gap-4 items-center">
-            <div>
-                <label className="text-sm text-neutral-400 block mb-1">Start Date</label>
-                <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => onCustomStartDateChange(e.target.value)}
-                    className={inputClass}
-                />
+        <button
+            onClick={() => setEditing(true)}
+            title={`Set ${label} date`}
+            className={`font-semibold hover:text-red-400 transition ${large ? 'text-lg md:text-xl' : 'text-sm md:text-base'}`}
+        >
+            {fmt(value)}
+        </button>
+    );
+}
+
+function RangeDateNavigator({
+    rangeStartDate,
+    rangeEndDate,
+    onNavigateStart,
+    onNavigateEnd,
+    onSetStart,
+    onSetEnd,
+}: {
+    rangeStartDate: string;
+    rangeEndDate: string;
+    onNavigateStart: (dir: 'prev' | 'next') => void;
+    onNavigateEnd: (dir: 'prev' | 'next') => void;
+    onSetStart: (v: string) => void;
+    onSetEnd: (v: string) => void;
+}) {
+    return (
+        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-2">
+            <div className="flex rounded-lg overflow-hidden">
+                <button
+                    onClick={() => onNavigateStart('prev')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition"
+                    title="Move start date back"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => onNavigateStart('next')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition border-l border-neutral-600"
+                    title="Move start date forward"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
             </div>
-            <div>
-                <label className="text-sm text-neutral-400 block mb-1">End Date</label>
-                <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => onCustomEndDateChange(e.target.value)}
-                    className={inputClass}
-                />
+            <div className="flex-1 text-center">
+                <DateCell value={rangeStartDate} onChange={onSetStart} label="start" />
+                <span className="text-neutral-500 mx-2">—</span>
+                <DateCell value={rangeEndDate} onChange={onSetEnd} label="end" />
+            </div>
+            <div className="flex rounded-lg overflow-hidden">
+                <button
+                    onClick={() => onNavigateEnd('prev')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition"
+                    title="Move end date back"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={() => onNavigateEnd('next')}
+                    className="p-2 bg-neutral-700 hover:bg-neutral-600 transition border-l border-neutral-600"
+                    title="Move end date forward"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
             </div>
         </div>
     );
@@ -189,51 +239,24 @@ function GroupByTabs({
     );
 }
 
-function ShowModeToggle({
-    showMode,
-    onShowModeChange,
-}: {
-    showMode: ShowMode;
-    onShowModeChange: (m: ShowMode) => void;
-}) {
-    return (
-        <div>
-            <label className="text-sm text-neutral-400 mb-2 block">Display</label>
-            <div className="flex gap-2">
-                <button
-                    onClick={() => onShowModeChange('compact')}
-                    className={tabClass(showMode === 'compact')}
-                >
-                    <Calendar className="inline w-4 h-4 mr-2" />Compact
-                </button>
-                <button
-                    onClick={() => onShowModeChange('full')}
-                    className={tabClass(showMode === 'full')}
-                >
-                    <Clock className="inline w-4 h-4 mr-2" />Full
-                </button>
-            </div>
-        </div>
-    );
-}
-
 interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
     dateRange: DateRange;
     currentDate: Date;
-    customStartDate: string;
-    customEndDate: string;
+    rangeStartDate: string;
+    rangeEndDate: string;
     onDateRangeChange: (r: DateRange) => void;
     onNavigate: (dir: 'prev' | 'next') => void;
+    onSetCurrentDate: (v: string) => void;
     onResetToToday: () => void;
-    onCustomStartDateChange: (v: string) => void;
-    onCustomEndDateChange: (v: string) => void;
+    onNavigateRangeStart: (dir: 'prev' | 'next') => void;
+    onNavigateRangeEnd: (dir: 'prev' | 'next') => void;
+    onSetRangeStartDate: (v: string) => void;
+    onSetRangeEndDate: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
-    showMode: ShowMode;
-    onShowModeChange: (m: ShowMode) => void;
 }
 
 export default function AppHeader({
@@ -242,23 +265,24 @@ export default function AppHeader({
     onCityChange,
     dateRange,
     currentDate,
-    customStartDate,
-    customEndDate,
+    rangeStartDate,
+    rangeEndDate,
     onDateRangeChange,
     onNavigate,
+    onSetCurrentDate,
     onResetToToday,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+    onNavigateRangeStart,
+    onNavigateRangeEnd,
+    onSetRangeStartDate,
+    onSetRangeEndDate,
     groupBy,
     onGroupByChange,
-    showMode,
-    onShowModeChange,
 }: AppHeaderProps) {
 
     return (
-        <header className="bg-neutral-950 border-b border-red-900/30">
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                <div className="flex items-center justify-between mb-6">
+        <>
+            <div className="bg-neutral-950 border-b border-red-900/30">
+                <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Film className="w-8 h-8 text-red-600" />
                         <h1 className="text-3xl font-bold">CineView</h1>
@@ -273,36 +297,41 @@ export default function AppHeader({
                         ))}
                     </select>
                 </div>
-                <div className="space-y-4">
+            </div>
+            <div className="bg-neutral-950 border-b border-red-900/30">
+                <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
+                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}
                         onResetToToday={onResetToToday}
                     />
-                    {(dateRange === 'today' || dateRange === 'thisWeek') && (
-                        <DateNavigator
-                            dateRange={dateRange}
-                            currentDate={currentDate}
-                            onNavigate={onNavigate}
-                            onResetToToday={onResetToToday}
-                        />
-                    )}
-                    {dateRange === 'custom' && (
-                        <CustomDateInputs
-                            customStartDate={customStartDate}
-                            customEndDate={customEndDate}
-                            onCustomStartDateChange={onCustomStartDateChange}
-                            onCustomEndDateChange={onCustomEndDateChange}
-                        />
-                    )}
-                    <div className="flex items-start justify-between gap-4">
-                        <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
-                        {dateRange !== 'today' && (
-                            <ShowModeToggle showMode={showMode} onShowModeChange={onShowModeChange} />
+                </div>
+            </div>
+            {(dateRange === 'today' || dateRange === 'range') && (
+                <div className="sticky top-0 z-10 bg-neutral-950 border-b border-red-900/30">
+                    <div className="max-w-7xl mx-auto px-4 py-3">
+                        {dateRange === 'today' && (
+                            <DateNavigator
+                                currentDate={currentDate}
+                                onNavigate={onNavigate}
+                                onSetCurrentDate={onSetCurrentDate}
+                                onResetToToday={onResetToToday}
+                            />
+                        )}
+                        {dateRange === 'range' && (
+                            <RangeDateNavigator
+                                rangeStartDate={rangeStartDate}
+                                rangeEndDate={rangeEndDate}
+                                onNavigateStart={onNavigateRangeStart}
+                                onNavigateEnd={onNavigateRangeEnd}
+                                onSetStart={onSetRangeStartDate}
+                                onSetEnd={onSetRangeEndDate}
+                            />
                         )}
                     </div>
                 </div>
-            </div>
-        </header>
+            )}
+        </>
     );
 }

@@ -19,6 +19,7 @@ const BASE_URL = 'https://whatson.bfi.org.uk/Online';
 const FILMS_INDEX_URL = BASE_URL + '/article/filmsindex';
 const CONCURRENCY_LIMIT = 10;
 const MAX_RETRIES = 2;
+const TEST_LIMIT = process.env.BFI_TEST_LIMIT ? parseInt(process.env.BFI_TEST_LIMIT) : undefined;
 const LONDON_TZ = 'Europe/London';
 
 const CINEMA: Cinema = {
@@ -136,7 +137,7 @@ async function processFilm(
         }
         const page = await context.newPage();
         try {
-            await page.goto(filmUrl, { waitUntil: 'load', timeout: 60000 });
+            await page.goto(filmUrl, { waitUntil: 'load', timeout: 10000 });
 
             // Extract articleContext JS variable (Spektrix ticketing data)
             let articleContext: ArticleContext | null = null;
@@ -257,11 +258,16 @@ export async function scraper(): Promise<CinemaShowing[]> {
         await indexPage.close();
         console.log(`${LOG_PREFIX} Found ${filmLinks.length} films`);
 
+        const filmsToProcess = TEST_LIMIT !== undefined ? filmLinks.slice(0, TEST_LIMIT) : filmLinks;
+        if (TEST_LIMIT !== undefined) {
+            console.log(`${LOG_PREFIX} Test mode: processing ${filmsToProcess.length} of ${filmLinks.length} films`);
+        }
+
         // Process all film pages concurrently (limited by semaphore)
         const sem = createSemaphore(CONCURRENCY_LIMIT);
 
         const filmShowings = await Promise.all(
-            filmLinks.map(({ url, title }) => processFilm(context, url, title, sem))
+            filmsToProcess.map(({ url, title }) => processFilm(context, url, title, sem))
         );
 
         const withShowings = filmShowings.filter((fs) => fs.showings.length > 0);

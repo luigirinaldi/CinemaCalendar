@@ -8,7 +8,7 @@ import {
     type FilmWithPoster,
     type ShowingsTable,
 } from './api';
-import type { GroupBy, ShowMode } from './types';
+import type { GroupBy, ShowMode, TableSort } from './types';
 import { groupByMovie, sortGroupedByStartTime } from './utils/grouping';
 import { getUrlSearchParams, setUrlSearchParams } from './utils/url';
 import { useDateRange } from './hooks/useDateRange';
@@ -20,6 +20,7 @@ import TableView from './components/TableView';
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'table');
     const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
+    const [tableSort, setTableSort] = useState<TableSort | null>(getUrlSearchParams().tableSort ?? null);
     const {
         dateRange,
         currentDate,
@@ -74,6 +75,12 @@ function App() {
     useEffect(() => {
         setUrlSearchParams({ showMode });
     }, [showMode]);
+
+    // Sync tableSort to URL
+    useEffect(() => {
+        if (tableSort) setUrlSearchParams({ tableSort });
+        else setUrlSearchParams({}, ['tableSort']);
+    }, [tableSort]);
 
     // Re-fetch screenings whenever filters change
     useEffect(() => {
@@ -164,6 +171,8 @@ function App() {
                         singleDay={isSingleDay}
                         showMode={showMode}
                         onShowModeChange={setShowMode}
+                        tableSort={tableSort}
+                        onTableSortChange={setTableSort}
                     />
                 )}
             </main>

@@ -1,4 +1,4 @@
-import { Clock, ExternalLink } from 'lucide-react';
+import { ChevronUp, ChevronDown, Clock, ExternalLink } from 'lucide-react';
 import {
     groupByMovie,
     groupByCinema,
@@ -7,7 +7,7 @@ import {
 } from '../utils/grouping';
 import { formatTime, formatDate } from '../utils/formatters';
 import { buildDayUrl } from '../utils/url';
-import type { ShowMode } from '../types';
+import type { ShowMode, TableSort } from '../types';
 import type { ShowingsTable, CinemaTable, FilmWithPoster } from '../api';
 
 const TMDB_FAVICON =
@@ -21,6 +21,8 @@ interface Props {
     singleDay: boolean;
     showMode: ShowMode;
     onShowModeChange: (m: ShowMode) => void;
+    tableSort: TableSort | null;
+    onTableSortChange: (s: TableSort | null) => void;
 }
 
 function groupByCalendarDay(screenings: ShowingsTable[]): [string, ShowingsTable[]][] {
@@ -102,16 +104,59 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes, singleDay }: S
     );
 }
 
-export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay, showMode, onShowModeChange }: Props) {
+function SortIcon({ col, tableSort }: { col: 'title' | 'director'; tableSort: TableSort | null }) {
+    if (tableSort === `${col}-asc`) return <ChevronUp className="w-3.5 h-3.5 shrink-0" />;
+    if (tableSort === `${col}-desc`) return <ChevronDown className="w-3.5 h-3.5 shrink-0" />;
+    return <ChevronUp className="w-3.5 h-3.5 shrink-0 opacity-20" />;
+}
+
+export default function TableView({ screenings, getMovie, getCinema, showTimes, singleDay, showMode, onShowModeChange, tableSort, onTableSortChange }: Props) {
     const rows = groupByMovie(screenings, getMovie).sort(sortGroupedByStartTime);
+
+    const sortedRows = tableSort
+        ? [...rows].sort(([, a], [, b]) => {
+              const ma = getMovie(a[0].film_id);
+              const mb = getMovie(b[0].film_id);
+              if (tableSort === 'title-asc' || tableSort === 'title-desc') {
+                  const ta = (ma?.tmdb_info?.title ?? ma?.title ?? '').toLowerCase();
+                  const tb = (mb?.tmdb_info?.title ?? mb?.title ?? '').toLowerCase();
+                  return tableSort === 'title-asc' ? ta.localeCompare(tb) : tb.localeCompare(ta);
+              }
+              const da = (ma?.director ?? '').toLowerCase();
+              const db = (mb?.director ?? '').toLowerCase();
+              return tableSort === 'director-asc' ? da.localeCompare(db) : db.localeCompare(da);
+          })
+        : rows;
+
+    function handleSortClick(col: 'title' | 'director') {
+        if (tableSort === `${col}-asc`) onTableSortChange(`${col}-desc` as TableSort);
+        else if (tableSort === `${col}-desc`) onTableSortChange(null);
+        else onTableSortChange(`${col}-asc` as TableSort);
+    }
 
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
                 <thead>
                     <tr className="sticky top-0 bg-neutral-900 border-b border-neutral-600 text-neutral-400 text-xs uppercase tracking-wider">
-                        <th className="px-4 py-3 font-medium w-1/4">Title</th>
-                        <th className="px-4 py-3 font-medium w-1/6 hidden md:table-cell">Director</th>
+                        <th className="px-4 py-3 font-medium w-1/4">
+                            <button
+                                onClick={() => handleSortClick('title')}
+                                className="flex items-center gap-1 hover:text-white transition"
+                            >
+                                Title
+                                <SortIcon col="title" tableSort={tableSort} />
+                            </button>
+                        </th>
+                        <th className="px-4 py-3 font-medium w-1/6 hidden md:table-cell">
+                            <button
+                                onClick={() => handleSortClick('director')}
+                                className="flex items-center gap-1 hover:text-white transition"
+                            >
+                                Director
+                                <SortIcon col="director" tableSort={tableSort} />
+                            </button>
+                        </th>
                         <th className="px-4 py-3 font-medium">
                             <div className="flex items-center gap-2 justify-start">
                                 <span>{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</span>
@@ -129,7 +174,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes, 
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.map(([key, filmScreenings]) => {
+                    {sortedRows.map(([key, filmScreenings]) => {
                         const movie = getMovie(filmScreenings[0].film_id);
                         const tmdb = movie?.tmdb_info ?? null;
                         const title = tmdb?.title ?? movie?.title ?? '—';

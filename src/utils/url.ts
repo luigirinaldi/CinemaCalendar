@@ -1,5 +1,5 @@
-import { GROUP_BY_VALUES, SHOW_MODE_VALUES } from '../types';
-import type { DateRange, GroupBy, ShowMode } from '../types';
+import { GROUP_BY_VALUES, SHOW_MODE_VALUES, TABLE_SORT_VALUES } from '../types';
+import type { DateRange, GroupBy, ShowMode, TableSort } from '../types';
 
 /** Parse a YYYY-MM-DD string as local midnight (avoids UTC-offset day shift). */
 export function parseLocalDate(str: string): Date {
@@ -23,11 +23,13 @@ export function getUrlSearchParams(): {
     end: string | null;
     groupBy: GroupBy | null;
     showMode: ShowMode | null;
+    tableSort: TableSort | null;
 } {
     const p = new URLSearchParams(window.location.search);
     const dateRange = p.get('dateRange');
     const groupBy = p.get('groupBy');
     const showMode = p.get('showMode');
+    const tableSort = p.get('tableSort');
     return {
         city: p.get('city'),
         dateRange: isDateRange(dateRange) ? dateRange : null,
@@ -36,6 +38,7 @@ export function getUrlSearchParams(): {
         end: p.get('end'),
         groupBy: isGroupBy(groupBy) ? groupBy : null,
         showMode: isShowMode(showMode) ? showMode : null,
+        tableSort: isTableSort(tableSort) ? tableSort : null,
     };
 }
 
@@ -65,4 +68,8 @@ function isGroupBy(value: string | null): value is GroupBy {
 
 function isShowMode(value: string | null): value is ShowMode {
     return SHOW_MODE_VALUES.includes(value as ShowMode);
+}
+
+function isTableSort(value: string | null): value is TableSort {
+    return TABLE_SORT_VALUES.includes(value as TableSort);
 }

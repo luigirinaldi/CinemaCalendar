@@ -23,14 +23,14 @@ function App() {
     const {
         dateRange,
         currentDate,
-        customStartDate,
-        customEndDate,
+        rangeStartDate,
+        rangeEndDate,
         computedRange,
         setDateRange,
         navigateDate,
         resetToToday,
-        setCustomStartDate,
-        setCustomEndDate,
+        navigateRangeStart,
+        navigateRangeEnd,
     } = useDateRange();
 
     const isSingleDay = dateRange === 'today';
@@ -109,17 +109,15 @@ function App() {
                 onCityChange={setCity}
                 dateRange={dateRange}
                 currentDate={currentDate}
-                customStartDate={customStartDate}
-                customEndDate={customEndDate}
+                rangeStartDate={rangeStartDate}
+                rangeEndDate={rangeEndDate}
                 onDateRangeChange={setDateRange}
                 onNavigate={navigateDate}
                 onResetToToday={resetToToday}
-                onCustomStartDateChange={setCustomStartDate}
-                onCustomEndDateChange={setCustomEndDate}
+                onNavigateRangeStart={navigateRangeStart}
+                onNavigateRangeEnd={navigateRangeEnd}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
-                showMode={showMode}
-                onShowModeChange={setShowMode}
             />
             <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
                 {screenings.length === 0 ? (

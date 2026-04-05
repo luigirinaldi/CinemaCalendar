@@ -56,7 +56,7 @@ export function setUrlSearchParams(set: Record<string, string>, del: string[] = 
 }
 
 function isDateRange(value: string | null): value is DateRange {
-    return value === 'today' || value === 'thisWeek' || value === 'anytime' || value === 'custom';
+    return value === 'today' || value === 'range' || value === 'anytime';
 }
 
 function isGroupBy(value: string | null): value is GroupBy {

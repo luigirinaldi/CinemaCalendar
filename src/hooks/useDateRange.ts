@@ -5,65 +5,87 @@ import { getUrlSearchParams, setUrlSearchParams, parseLocalDate, toLocalDateStr 
 interface DateRangeState {
     dateRange: DateRange;
     currentDate: Date;
-    customStartDate: string;
-    customEndDate: string;
+    rangeStartDate: string;
+    rangeEndDate: string;
 }
 
 type DateRangeAction =
-    | { type: 'SET_RANGE';        payload: DateRange }
-    | { type: 'NAVIGATE';         payload: 'prev' | 'next' }
+    | { type: 'SET_RANGE';              payload: DateRange }
+    | { type: 'NAVIGATE';               payload: 'prev' | 'next' }
     | { type: 'RESET_TO_TODAY' }
-    | { type: 'SET_CUSTOM_START'; payload: string }
-    | { type: 'SET_CUSTOM_END';   payload: string };
+    | { type: 'NAVIGATE_RANGE_START';   payload: 'prev' | 'next' }
+    | { type: 'NAVIGATE_RANGE_END';     payload: 'prev' | 'next' };
+
+function defaultRangeEnd(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    return toLocalDateStr(d);
+}
 
 function dateRangeReducer(state: DateRangeState, action: DateRangeAction): DateRangeState {
     switch (action.type) {
-        case 'SET_RANGE':
+        case 'SET_RANGE': {
+            if (action.payload === 'range') {
+                return {
+                    ...state,
+                    dateRange: 'range',
+                    rangeStartDate: toLocalDateStr(new Date()),
+                    rangeEndDate: defaultRangeEnd(),
+                };
+            }
             return { ...state, dateRange: action.payload };
+        }
         case 'NAVIGATE': {
             const delta = action.payload === 'next' ? 1 : -1;
             const next = new Date(state.currentDate);
-            if (state.dateRange === 'today') next.setDate(next.getDate() + delta);
-            else next.setDate(next.getDate() + delta * 7);
+            next.setDate(next.getDate() + delta);
             return { ...state, currentDate: next };
         }
         case 'RESET_TO_TODAY':
             return { ...state, currentDate: new Date() };
-        case 'SET_CUSTOM_START':
-            return { ...state, customStartDate: action.payload };
-        case 'SET_CUSTOM_END':
-            return { ...state, customEndDate: action.payload };
+        case 'NAVIGATE_RANGE_START': {
+            const delta = action.payload === 'next' ? 1 : -1;
+            const d = parseLocalDate(state.rangeStartDate);
+            d.setDate(d.getDate() + delta);
+            return { ...state, rangeStartDate: toLocalDateStr(d) };
+        }
+        case 'NAVIGATE_RANGE_END': {
+            const delta = action.payload === 'next' ? 1 : -1;
+            const d = parseLocalDate(state.rangeEndDate);
+            d.setDate(d.getDate() + delta);
+            return { ...state, rangeEndDate: toLocalDateStr(d) };
+        }
     }
 }
 
 function initState(): DateRangeState {
     const { dateRange, date, start, end } = getUrlSearchParams();
     return {
-        dateRange:       dateRange ?? 'today',
-        currentDate:     date ? parseLocalDate(date) : new Date(),
-        customStartDate: start ?? toLocalDateStr(new Date()),
-        customEndDate:   end  ?? toLocalDateStr(new Date()),
+        dateRange:      dateRange ?? 'today',
+        currentDate:    date ? parseLocalDate(date) : new Date(),
+        rangeStartDate: start ?? toLocalDateStr(new Date()),
+        rangeEndDate:   end  ?? defaultRangeEnd(),
     };
 }
 
 export interface UseDateRangeResult {
     dateRange: DateRange;
     currentDate: Date;
-    customStartDate: string;
-    customEndDate: string;
+    rangeStartDate: string;
+    rangeEndDate: string;
     computedRange: [Date, Date] | null;
     setDateRange: (r: DateRange) => void;
     navigateDate: (dir: 'prev' | 'next') => void;
     resetToToday: () => void;
-    setCustomStartDate: (v: string) => void;
-    setCustomEndDate: (v: string) => void;
+    navigateRangeStart: (dir: 'prev' | 'next') => void;
+    navigateRangeEnd: (dir: 'prev' | 'next') => void;
 }
 
 export function useDateRange(): UseDateRangeResult {
     const [state, dispatch] = useReducer(dateRangeReducer, undefined, initState);
 
     const computedRange = useMemo((): [Date, Date] | null => {
-        const { dateRange, currentDate, customStartDate, customEndDate } = state;
+        const { dateRange, currentDate, rangeStartDate, rangeEndDate } = state;
         const dayStart = new Date(
             currentDate.getFullYear(),
             currentDate.getMonth(),
@@ -77,14 +99,8 @@ export function useDateRange(): UseDateRangeResult {
                     currentDate.getMonth(),
                     currentDate.getDate() + 1, 4, 0
                 )];
-            case 'thisWeek':
-                return [dayStart, new Date(
-                    currentDate.getFullYear(),
-                    currentDate.getMonth(),
-                    currentDate.getDate() + 7, 4, 0
-                )];
-            case 'custom':
-                return [parseLocalDate(customStartDate), parseLocalDate(customEndDate)];
+            case 'range':
+                return [parseLocalDate(rangeStartDate), parseLocalDate(rangeEndDate)];
             case 'anytime':
                 return null;
         }
@@ -92,14 +108,14 @@ export function useDateRange(): UseDateRangeResult {
 
     // Sync date state to URL
     useEffect(() => {
-        const { dateRange, currentDate, customStartDate, customEndDate } = state;
-        if (dateRange === 'today' || dateRange === 'thisWeek') {
+        const { dateRange, currentDate, rangeStartDate, rangeEndDate } = state;
+        if (dateRange === 'today') {
             setUrlSearchParams(
                 { dateRange, date: toLocalDateStr(currentDate) },
                 ['start', 'end']
             );
-        } else if (dateRange === 'custom') {
-            setUrlSearchParams({ dateRange, start: customStartDate, end: customEndDate }, ['date']);
+        } else if (dateRange === 'range') {
+            setUrlSearchParams({ dateRange, start: rangeStartDate, end: rangeEndDate }, ['date']);
         } else {
             setUrlSearchParams({ dateRange }, ['date', 'start', 'end']);
         }
@@ -107,7 +123,7 @@ export function useDateRange(): UseDateRangeResult {
 
     const setDateRange = useCallback((r: DateRange) => {
         dispatch({ type: 'SET_RANGE', payload: r });
-        if (r === 'today' || r === 'thisWeek') dispatch({ type: 'RESET_TO_TODAY' });
+        if (r === 'today') dispatch({ type: 'RESET_TO_TODAY' });
     }, []);
 
     const navigateDate = useCallback((dir: 'prev' | 'next') => {
@@ -118,12 +134,12 @@ export function useDateRange(): UseDateRangeResult {
         dispatch({ type: 'RESET_TO_TODAY' });
     }, []);
 
-    const setCustomStartDate = useCallback((v: string) => {
-        dispatch({ type: 'SET_CUSTOM_START', payload: v });
+    const navigateRangeStart = useCallback((dir: 'prev' | 'next') => {
+        dispatch({ type: 'NAVIGATE_RANGE_START', payload: dir });
     }, []);
 
-    const setCustomEndDate = useCallback((v: string) => {
-        dispatch({ type: 'SET_CUSTOM_END', payload: v });
+    const navigateRangeEnd = useCallback((dir: 'prev' | 'next') => {
+        dispatch({ type: 'NAVIGATE_RANGE_END', payload: dir });
     }, []);
 
     return {
@@ -132,7 +148,7 @@ export function useDateRange(): UseDateRangeResult {
         setDateRange,
         navigateDate,
         resetToToday,
-        setCustomStartDate,
-        setCustomEndDate,
+        navigateRangeStart,
+        navigateRangeEnd,
     };
 }

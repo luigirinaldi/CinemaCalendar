@@ -1,6 +1,6 @@
-import { Calendar, ChevronLeft, ChevronRight, Clock, Film, List, MapPin } from 'lucide-react';
-import type { DateRange, GroupBy, ShowMode } from '../types';
-import { formatDateRange } from '../utils/formatters';
+import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
+import type { DateRange, GroupBy } from '../types';
+import { parseLocalDate } from '../utils/url';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -27,22 +27,16 @@ function DateRangeTabs({
                     <Calendar className="inline w-4 h-4 mr-2" />Today
                 </button>
                 <button
-                    onClick={() => { onDateRangeChange('thisWeek'); onResetToToday(); }}
-                    className={tabClass(dateRange === 'thisWeek')}
+                    onClick={() => onDateRangeChange('range')}
+                    className={tabClass(dateRange === 'range')}
                 >
-                    <Calendar className="inline w-4 h-4 mr-2" />This Week
+                    <Calendar className="inline w-4 h-4 mr-2" />Range
                 </button>
                 <button
                     onClick={() => onDateRangeChange('anytime')}
                     className={tabClass(dateRange === 'anytime')}
                 >
                     <Calendar className="inline w-4 h-4 mr-2" />Anytime
-                </button>
-                <button
-                    onClick={() => onDateRangeChange('custom')}
-                    className={tabClass(dateRange === 'custom')}
-                >
-                    <Calendar className="inline w-4 h-4 mr-2" />Custom Range
                 </button>
             </div>
         </div>
@@ -72,27 +66,20 @@ function DateNavigator({
     const getLabel = () => {
         const base = new Date(currentDate);
         const start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-        if (dateRange === 'today') {
-            return start.toLocaleDateString('en-UK', {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-            });
-        }
-        const end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        return formatDateRange(start, end);
+        return start.toLocaleDateString('en-UK', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+        });
     };
-
-    const navTitle = dateRange === 'today' ? 'day' : 'week';
 
     return (
         <div className="flex items-center gap-4 bg-neutral-800 rounded-lg p-4">
             <button
                 onClick={() => onNavigate('prev')}
                 className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title={`Previous ${navTitle}`}
+                title="Previous day"
             >
                 <ChevronLeft className="w-5 h-5" />
             </button>
@@ -110,7 +97,7 @@ function DateNavigator({
             <button
                 onClick={() => onNavigate('next')}
                 className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
-                title={`Next ${navTitle}`}
+                title="Next day"
             >
                 <ChevronRight className="w-5 h-5" />
             </button>
@@ -118,39 +105,59 @@ function DateNavigator({
     );
 }
 
-function CustomDateInputs({
-    customStartDate,
-    customEndDate,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+function RangeDateNavigator({
+    rangeStartDate,
+    rangeEndDate,
+    onNavigateStart,
+    onNavigateEnd,
 }: {
-    customStartDate: string;
-    customEndDate: string;
-    onCustomStartDateChange: (v: string) => void;
-    onCustomEndDateChange: (v: string) => void;
+    rangeStartDate: string;
+    rangeEndDate: string;
+    onNavigateStart: (dir: 'prev' | 'next') => void;
+    onNavigateEnd: (dir: 'prev' | 'next') => void;
 }) {
-    const inputClass =
-        'bg-neutral-800 text-white px-3 py-2 rounded border border-neutral-700 focus:border-red-600 outline-none';
+    const fmt = (dateStr: string) =>
+        parseLocalDate(dateStr).toLocaleDateString('en-UK', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+        });
+
     return (
-        <div className="flex flex-wrap gap-4 items-center">
-            <div>
-                <label className="text-sm text-neutral-400 block mb-1">Start Date</label>
-                <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => onCustomStartDateChange(e.target.value)}
-                    className={inputClass}
-                />
+        <div className="flex items-center gap-2 bg-neutral-800 rounded-lg p-3">
+            <button
+                onClick={() => onNavigateStart('prev')}
+                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
+                title="Move start date back"
+            >
+                <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+                onClick={() => onNavigateStart('next')}
+                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
+                title="Move start date forward"
+            >
+                <ChevronRight className="w-5 h-5" />
+            </button>
+            <div className="flex-1 text-center text-sm font-semibold">
+                {fmt(rangeStartDate)}
+                <span className="text-neutral-500 mx-2">—</span>
+                {fmt(rangeEndDate)}
             </div>
-            <div>
-                <label className="text-sm text-neutral-400 block mb-1">End Date</label>
-                <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => onCustomEndDateChange(e.target.value)}
-                    className={inputClass}
-                />
-            </div>
+            <button
+                onClick={() => onNavigateEnd('prev')}
+                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
+                title="Move end date back"
+            >
+                <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+                onClick={() => onNavigateEnd('next')}
+                className="p-2 rounded-lg bg-neutral-700 hover:bg-neutral-600 transition"
+                title="Move end date forward"
+            >
+                <ChevronRight className="w-5 h-5" />
+            </button>
         </div>
     );
 }
@@ -189,41 +196,21 @@ function GroupByTabs({
     );
 }
 
-function ShowModeToggle({
-    showMode,
-    onShowModeChange,
-}: {
-    showMode: ShowMode;
-    onShowModeChange: (m: ShowMode) => void;
-}) {
-    return (
-        <button
-            onClick={() => onShowModeChange(showMode === 'full' ? 'compact' : 'full')}
-            className={tabClass(showMode === 'full')}
-            title={showMode === 'full' ? 'Hide times' : 'Show times'}
-        >
-            <Clock className="w-4 h-4" />
-        </button>
-    );
-}
-
 interface AppHeaderProps {
     city: string;
     cities: string[];
     onCityChange: (city: string) => void;
     dateRange: DateRange;
     currentDate: Date;
-    customStartDate: string;
-    customEndDate: string;
+    rangeStartDate: string;
+    rangeEndDate: string;
     onDateRangeChange: (r: DateRange) => void;
     onNavigate: (dir: 'prev' | 'next') => void;
     onResetToToday: () => void;
-    onCustomStartDateChange: (v: string) => void;
-    onCustomEndDateChange: (v: string) => void;
+    onNavigateRangeStart: (dir: 'prev' | 'next') => void;
+    onNavigateRangeEnd: (dir: 'prev' | 'next') => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
-    showMode: ShowMode;
-    onShowModeChange: (m: ShowMode) => void;
 }
 
 export default function AppHeader({
@@ -232,17 +219,15 @@ export default function AppHeader({
     onCityChange,
     dateRange,
     currentDate,
-    customStartDate,
-    customEndDate,
+    rangeStartDate,
+    rangeEndDate,
     onDateRangeChange,
     onNavigate,
     onResetToToday,
-    onCustomStartDateChange,
-    onCustomEndDateChange,
+    onNavigateRangeStart,
+    onNavigateRangeEnd,
     groupBy,
     onGroupByChange,
-    showMode,
-    onShowModeChange,
 }: AppHeaderProps) {
 
     return (
@@ -269,7 +254,7 @@ export default function AppHeader({
                         onDateRangeChange={onDateRangeChange}
                         onResetToToday={onResetToToday}
                     />
-                    {(dateRange === 'today' || dateRange === 'thisWeek') && (
+                    {dateRange === 'today' && (
                         <DateNavigator
                             dateRange={dateRange}
                             currentDate={currentDate}
@@ -277,12 +262,12 @@ export default function AppHeader({
                             onResetToToday={onResetToToday}
                         />
                     )}
-                    {dateRange === 'custom' && (
-                        <CustomDateInputs
-                            customStartDate={customStartDate}
-                            customEndDate={customEndDate}
-                            onCustomStartDateChange={onCustomStartDateChange}
-                            onCustomEndDateChange={onCustomEndDateChange}
+                    {dateRange === 'range' && (
+                        <RangeDateNavigator
+                            rangeStartDate={rangeStartDate}
+                            rangeEndDate={rangeEndDate}
+                            onNavigateStart={onNavigateRangeStart}
+                            onNavigateEnd={onNavigateRangeEnd}
                         />
                     )}
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />

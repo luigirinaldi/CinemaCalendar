@@ -44,8 +44,8 @@ function ScreeningTimes({ cinemaScreenings, getCinema, showTimes }: ScreeningTim
             {cinemaIds.map((id) => {
                 const dayGroups = groupByCalendarDay(cinemaGroups[id].sort(sortScreeningByStartTime));
                 return (
-                    <div key={id} className="flex gap-4 py-1 first:pt-0 last:pb-0">
-                        <span className="text-neutral-300 text-sm w-40 shrink-0">
+                    <div key={id} className="flex flex-col md:flex-row md:gap-4 py-1 first:pt-0 last:pb-0">
+                        <span className="text-neutral-300 text-sm md:w-40 md:shrink-0 mb-1 md:mb-0">
                             {getCinema(id)?.name ?? `Cinema ${id}`}
                         </span>
                         <div className="flex-1">
@@ -106,7 +106,7 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                 <thead>
                     <tr className="sticky top-0 bg-neutral-900 border-b border-neutral-600 text-neutral-400 text-xs uppercase tracking-wider">
                         <th className="px-4 py-3 font-medium w-1/4">Title</th>
-                        <th className="px-4 py-3 font-medium w-1/6">Director</th>
+                        <th className="px-4 py-3 font-medium w-1/6 hidden md:table-cell">Director</th>
                         <th className="px-4 py-3 font-medium">{showTimes ? 'Cinema / Times' : 'Cinema / Days'}</th>
                     </tr>
                 </thead>
@@ -145,9 +145,12 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes }
                                             </a>
                                         )}
                                     </div>
+                                    <div className="text-neutral-400 text-sm mt-0.5 md:hidden">
+                                        {movie?.director ?? '—'}
+                                    </div>
                                 </td>
 
-                                <td className="px-4 py-3 text-neutral-300 text-sm">
+                                <td className="px-4 py-3 text-neutral-300 text-sm hidden md:table-cell">
                                     {movie?.director ?? '—'}
                                 </td>
 

@@ -182,6 +182,9 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes, 
                             ? new Date(tmdb.release_date).getFullYear()
                             : movie?.release_year;
                         const tmdbUrl = tmdb ? `https://www.themoviedb.org/movie/${tmdb.id}` : null;
+                        const letterboxdUrl = tmdb?.letterboxd_slug
+                            ? `https://letterboxd.com/film/${tmdb.letterboxd_slug}/`
+                            : null;
                         return (
                             <tr
                                 key={key}
@@ -201,6 +204,20 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes, 
                                                 <img
                                                     src={TMDB_FAVICON}
                                                     alt="TMDB"
+                                                    className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+                                                />
+                                            </a>
+                                        )}
+                                        {letterboxdUrl && (
+                                            <a
+                                                href={letterboxdUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                title="View on Letterboxd"
+                                            >
+                                                <img
+                                                    src="https://letterboxd.com/favicon.ico"
+                                                    alt="Letterboxd"
                                                     className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
                                                 />
                                             </a>

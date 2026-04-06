@@ -81,19 +81,34 @@ export default function FilmPosterCard({ movie, children, className = 'bg-neutra
                             {movie?.tmdb_info?.title ?? movie?.title}
                         </h3>
                         {movie?.tmdb_info && (
-                            <a
-                                href={`https://www.themoviedb.org/movie/${movie.tmdb_info.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="View on TMDB"
-                                className="shrink-0 mt-0.5"
-                            >
-                                <img
-                                    src={TMDB_FAVICON}
-                                    alt="TMDB"
-                                    className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
-                                />
-                            </a>
+                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                                <a
+                                    href={`https://www.themoviedb.org/movie/${movie.tmdb_info.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="View on TMDB"
+                                >
+                                    <img
+                                        src={TMDB_FAVICON}
+                                        alt="TMDB"
+                                        className="w-4 h-4 opacity-60 hover:opacity-100"
+                                    />
+                                </a>
+                                {movie.tmdb_info.letterboxd_slug && (
+                                    <a
+                                        href={`https://letterboxd.com/film/${movie.tmdb_info.letterboxd_slug}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="View on Letterboxd"
+                                    >
+                                        <img
+                                            src="https://letterboxd.com/favicon.ico"
+                                            alt="Letterboxd"
+                                            className="w-4 h-4 opacity-60 hover:opacity-100"
+                                        />
+                                    </a>
+                                )}
+                            </div>
                         )}
                     </div>
                     {movie?.director ? (

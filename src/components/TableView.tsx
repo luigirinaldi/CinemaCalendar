@@ -182,35 +182,68 @@ export default function TableView({ screenings, getMovie, getCinema, showTimes, 
                             ? new Date(tmdb.release_date).getFullYear()
                             : movie?.release_year;
                         const tmdbUrl = tmdb ? `https://www.themoviedb.org/movie/${tmdb.id}` : null;
+                        const letterboxdUrl = tmdb?.letterboxd_slug
+                            ? `https://letterboxd.com/film/${tmdb.letterboxd_slug}/`
+                            : null;
                         return (
                             <tr
                                 key={key}
                                 className="border-t border-neutral-700 odd:bg-neutral-900 even:bg-neutral-800 hover:bg-neutral-700 transition-colors align-top"
                             >
                                 <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-start gap-2">
                                         <span className="font-semibold text-white">{title}</span>
-                                        {year && <span className="text-neutral-500 text-sm hidden md:inline">{year}</span>}
-                                        {tmdbUrl && (
-                                            <a
-                                                href={tmdbUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                title="View on TMDB"
-                                            >
-                                                <img
-                                                    src={TMDB_FAVICON}
-                                                    alt="TMDB"
-                                                    className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
-                                                />
-                                            </a>
-                                        )}
+                                        <div className="hidden md:flex items-center gap-1 shrink-0 pt-0.5">
+                                            {year && <span className="text-neutral-500 text-sm">{year}</span>}
+                                            {tmdbUrl && (
+                                                <a
+                                                    href={tmdbUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="View on TMDB"
+                                                >
+                                                    <img
+                                                        src={TMDB_FAVICON}
+                                                        alt="TMDB"
+                                                        className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+                                                    />
+                                                </a>
+                                            )}
+                                            {letterboxdUrl && (
+                                                <a
+                                                    href={letterboxdUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title="View on Letterboxd"
+                                                >
+                                                    <img
+                                                        src="https://letterboxd.com/favicon.ico"
+                                                        alt="Letterboxd"
+                                                        className="w-4 h-4 shrink-0 opacity-60 hover:opacity-100"
+                                                    />
+                                                </a>
+                                            )}
+                                        </div>
                                     </div>
-                                    {(year || movie?.director) && (
+                                    {(year || movie?.director || tmdbUrl || letterboxdUrl) && (
                                         <div className="text-neutral-400 text-sm mt-0.5 md:hidden">
                                             {year && <span className="text-neutral-500">{year}</span>}
                                             {year && movie?.director && <span className="text-neutral-600 mx-1">·</span>}
                                             {movie?.director && <span>{movie.director}</span>}
+                                            {(tmdbUrl || letterboxdUrl) && (
+                                                <span className="inline-flex items-center gap-1 ml-1">
+                                                    {tmdbUrl && (
+                                                        <a href={tmdbUrl} target="_blank" rel="noopener noreferrer" title="View on TMDB">
+                                                            <img src={TMDB_FAVICON} alt="TMDB" className="w-4 h-4 opacity-60 hover:opacity-100" />
+                                                        </a>
+                                                    )}
+                                                    {letterboxdUrl && (
+                                                        <a href={letterboxdUrl} target="_blank" rel="noopener noreferrer" title="View on Letterboxd">
+                                                            <img src="https://letterboxd.com/favicon.ico" alt="Letterboxd" className="w-4 h-4 opacity-60 hover:opacity-100" />
+                                                        </a>
+                                                    )}
+                                                </span>
+                                            )}
                                         </div>
                                     )}
                                 </td>

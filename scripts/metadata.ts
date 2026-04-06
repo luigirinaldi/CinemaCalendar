@@ -138,7 +138,7 @@ async function searchDirector(director: string) {
 async function discoverMovie(film: Film, director_id: number) {
     const response = await fetch(
         // it is possible (and maybe better) to remove the runtime/duration filter
-        `${API_URL}/discover/movie?language=${film.default_lang}&sort_by=popularity.desc&with_crew=${director_id}&with_origin_country=&with_runtime.gte=${film.duration ? film.duration - 10 : ''}&year=${film.release_year ?? ''}`,
+        `${API_URL}/discover/movie?language=en-GB&sort_by=popularity.desc&with_crew=${director_id}&with_origin_country=&with_runtime.gte=${film.duration ? film.duration - 10 : ''}&year=${film.release_year ?? ''}`,
         OPTIONS
     );
     const discover = (await response.json()) as TMDBDiscoverMovie;

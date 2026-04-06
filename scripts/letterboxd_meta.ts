@@ -107,7 +107,6 @@ async function fetchFilmInfo(
             slug = page.url().split('/').filter(Boolean).at(-1);
         }
         if (slug === undefined) throw new Error('Slug is undefined');
-        if (!isNaN(Number(slug))) throw new Error(`Slug is a number: ${slug}`);
 
         try {
             await page.goto(
@@ -149,7 +148,9 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
         `Found ${nullLtbxdFilms.length} movies with no letterboxd info`
     );
 
-    nullLtbxdFilms = nullLtbxdFilms.slice(0, 43);
+    if (!doUpdate) {
+        nullLtbxdFilms = nullLtbxdFilms.slice(0, 10);
+    }
 
     const browser = await chromium.launch();
     let letterboxdInfo: LetterboxdInfo[] = [];
@@ -209,8 +210,9 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
 
 // Run only if the file is being run as a script
 if (import.meta.url === `file://${process.argv[1]}`) {
-    console.log('Running as script');
+    const doUpdate = !process.argv.includes('--test');
+    console.log(`Running as script (doUpdate=${doUpdate})`);
     const db = await connectDB();
-    await updateLetterboxdMeta(db, true);
+    await updateLetterboxdMeta(db, doUpdate);
     await db.destroy();
 }

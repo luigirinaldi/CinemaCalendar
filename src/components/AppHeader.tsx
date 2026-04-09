@@ -1,4 +1,4 @@
-import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Film, List, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
@@ -290,6 +290,8 @@ function LetterboxdFilter({
         setError(null);
     };
 
+    const [collapsed, setCollapsed] = useState(false);
+
     const filmList = pendingFilms ?? appliedFilms;
     const listUsername = pendingFilms ? pendingUsername : appliedUsername;
     const isPending = pendingFilms !== null;
@@ -329,12 +331,20 @@ function LetterboxdFilter({
             {filmList && (
                 <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700">
-                        <span className="text-sm font-medium text-white">
+                        <button
+                            onClick={() => setCollapsed((c) => !c)}
+                            className="flex items-center gap-1.5 text-sm font-medium text-white hover:text-neutral-300 transition"
+                        >
+                            {collapsed ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-neutral-400" />
+                            ) : (
+                                <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />
+                            )}
                             @{listUsername}
-                            <span className="text-neutral-400 font-normal ml-2">
+                            <span className="text-neutral-400 font-normal">
                                 — {filmList.length} films
                             </span>
-                        </span>
+                        </button>
                         {isPending ? (
                             <div className="flex gap-2">
                                 <button
@@ -360,24 +370,26 @@ function LetterboxdFilter({
                             </button>
                         )}
                     </div>
-                    <ul className={`overflow-y-auto divide-y divide-neutral-800 ${isPending ? 'max-h-64' : 'max-h-40'}`}>
-                        {filmList.map((film) => (
-                            <li key={film.slug}>
-                                <a
-                                    href={`https://letterboxd.com/film/${film.slug}/`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`flex items-baseline gap-1.5 px-3 text-neutral-300 hover:text-white hover:bg-neutral-800 transition ${isPending ? 'py-1.5 text-sm' : 'py-1 text-xs'}`}
-                                >
-                                    <span className="text-neutral-500 text-xs">↗</span>
-                                    <span>{film.title}</span>
-                                    {film.year && (
-                                        <span className="text-neutral-500 text-xs">({film.year})</span>
-                                    )}
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
+                    {!collapsed && (
+                        <ul className={`overflow-y-auto divide-y divide-neutral-800 ${isPending ? 'max-h-64' : 'max-h-40'}`}>
+                            {filmList.map((film) => (
+                                <li key={film.slug}>
+                                    <a
+                                        href={`https://letterboxd.com/film/${film.slug}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`flex items-baseline gap-1.5 px-3 text-neutral-300 hover:text-white hover:bg-neutral-800 transition ${isPending ? 'py-1.5 text-sm' : 'py-1 text-xs'}`}
+                                    >
+                                        <span className="text-neutral-500 text-xs">↗</span>
+                                        <span>{film.title}</span>
+                                        {film.year && (
+                                            <span className="text-neutral-500 text-xs">({film.year})</span>
+                                        )}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
             )}
         </div>

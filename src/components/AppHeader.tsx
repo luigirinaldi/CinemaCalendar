@@ -2,6 +2,7 @@ import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-
 import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
+import LetterboxdFilter from './LetterboxdFilter';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -239,6 +240,7 @@ function GroupByTabs({
     );
 }
 
+
 interface AppHeaderProps {
     city: string;
     cities: string[];
@@ -257,6 +259,7 @@ interface AppHeaderProps {
     onSetRangeEndDate: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
+    onLetterboxdFilterChange: (filter: Set<string> | null) => void;
 }
 
 export default function AppHeader({
@@ -277,6 +280,7 @@ export default function AppHeader({
     onSetRangeEndDate,
     groupBy,
     onGroupByChange,
+    onLetterboxdFilterChange,
 }: AppHeaderProps) {
 
     return (
@@ -301,6 +305,7 @@ export default function AppHeader({
             <div className="bg-neutral-950 border-b border-red-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+                    <LetterboxdFilter onChange={onLetterboxdFilterChange} />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}

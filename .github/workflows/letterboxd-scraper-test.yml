@@ -1,0 +1,38 @@
+name: Letterboxd Scraper Test
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+        paths:
+            - 'scripts/test_letterboxd_profiles.ts'
+            - 'supabase/functions/letterboxd-list/**'
+    schedule:
+        - cron: '0 3 * * *'
+    workflow_dispatch:
+
+jobs:
+    scraper-test:
+        name: Letterboxd scraper test
+        if: github.event_name != 'schedule'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: denoland/setup-deno@v2
+
+            - name: Run Letterboxd scraper test
+              run: deno run --allow-net scripts/test_letterboxd_profiles.ts
+
+    nightly-scraper-test:
+        name: Letterboxd scraper test (nightly, full)
+        if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: denoland/setup-deno@v2
+
+            - name: Run Letterboxd scraper test (full)
+              run: deno run --allow-net scripts/test_letterboxd_profiles.ts --full

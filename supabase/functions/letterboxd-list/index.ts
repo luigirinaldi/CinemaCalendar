@@ -1,3 +1,5 @@
+type Film = { slug: string; title: string; year: number | null };
+
 const FETCH_HEADERS = {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
@@ -10,19 +12,28 @@ const CORS_HEADERS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function extractSlugs(html: string): string[] {
-    return [...html.matchAll(/data-item-slug="([^"]+)"/g)].map((m) => m[1]);
+function extractFilms(html: string): Film[] {
+    // data-item-name appears before data-item-slug on the same element; extract in parallel arrays
+    const slugs = [...html.matchAll(/data-item-slug="([^"]+)"/g)].map((m) => m[1]);
+    const names = [...html.matchAll(/data-item-name="([^"]+)"/g)].map((m) => m[1]);
+
+    return slugs.map((slug, i) => {
+        const rawName = (names[i] ?? slug).trim();
+        const yearMatch = /\((\d{4})\)$/.exec(rawName);
+        const year = yearMatch ? parseInt(yearMatch[1]) : null;
+        const title = yearMatch ? rawName.slice(0, rawName.lastIndexOf(' (')).trim() : rawName;
+        return { slug, title, year };
+    });
 }
 
 function extractNextPageUrl(html: string): string | null {
-    // Letterboxd pagination: <a class="next" href="/user/watchlist/page/2/">
     const m = html.match(/class="next"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*class="next"/);
     return m ? (m[1] ?? m[2] ?? null) : null;
 }
 
-async function scrapeList(startUrl: string): Promise<string[]> {
+async function scrapeList(startUrl: string): Promise<Film[]> {
     const base = 'https://letterboxd.com';
-    const slugs: string[] = [];
+    const films: Film[] = [];
     let pageUrl: string | null = startUrl.startsWith('http') ? startUrl : `${base}${startUrl}`;
 
     while (pageUrl) {
@@ -30,8 +41,7 @@ async function scrapeList(startUrl: string): Promise<string[]> {
         if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${pageUrl}`);
         const html = await res.text();
 
-        const pageSlugs = extractSlugs(html);
-        slugs.push(...pageSlugs);
+        films.push(...extractFilms(html));
 
         const nextHref = extractNextPageUrl(html);
         pageUrl = nextHref ? `${base}${nextHref}` : null;
@@ -39,7 +49,9 @@ async function scrapeList(startUrl: string): Promise<string[]> {
         if (pageUrl) await new Promise((r) => setTimeout(r, 300));
     }
 
-    return [...new Set(slugs)];
+    // Deduplicate by slug
+    const seen = new Set<string>();
+    return films.filter((f) => f.slug && !seen.has(f.slug) && seen.add(f.slug));
 }
 
 Deno.serve(async (req: Request) => {
@@ -62,8 +74,8 @@ Deno.serve(async (req: Request) => {
             );
         }
 
-        const slugs = await scrapeList(url);
-        return Response.json({ slugs }, { headers: CORS_HEADERS });
+        const films = await scrapeList(url);
+        return Response.json({ films }, { headers: CORS_HEADERS });
     } catch (e: unknown) {
         const message = e instanceof Error ? e.message : String(e);
         return Response.json({ error: message }, { status: 500, headers: CORS_HEADERS });

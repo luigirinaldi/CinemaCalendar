@@ -1,5 +1,7 @@
 import { parse } from 'node-html-parser';
 
+export type Film = { slug: string; title: string; year: number | null };
+
 const FETCH_HEADERS = {
     'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
@@ -13,13 +15,21 @@ async function fetchPage(url: string): Promise<string> {
     return res.text();
 }
 
-function parseFilmSlugs(html: string): string[] {
+function parseFilms(html: string): Film[] {
     const root = parse(html);
-    // Letterboxd uses data-item-slug on react-component divs for film entries
     return root
         .querySelectorAll('[data-item-slug]')
-        .map((el) => el.getAttribute('data-item-slug')!)
-        .filter(Boolean);
+        .map((el) => {
+            const slug = el.getAttribute('data-item-slug')!;
+            const rawName = (el.getAttribute('data-item-name') ?? slug).trim();
+            const yearMatch = /\((\d{4})\)$/.exec(rawName);
+            const year = yearMatch ? parseInt(yearMatch[1]) : null;
+            const title = yearMatch
+                ? rawName.slice(0, rawName.lastIndexOf(' (')).trim()
+                : rawName;
+            return { slug, title, year };
+        })
+        .filter((f) => Boolean(f.slug));
 }
 
 function parseNextPageUrl(html: string): string | null {
@@ -27,18 +37,18 @@ function parseNextPageUrl(html: string): string | null {
     return root.querySelector('a.next')?.getAttribute('href') ?? null;
 }
 
-export async function scrapeLetterboxdUrl(url: string): Promise<string[]> {
+export async function scrapeLetterboxdUrl(url: string): Promise<Film[]> {
     const base = 'https://letterboxd.com';
-    const slugs: string[] = [];
+    const films: Film[] = [];
 
     let pageUrl: string | null = url.startsWith('http') ? url : `${base}${url}`;
 
     while (pageUrl) {
         console.error(`Fetching ${pageUrl}...`);
         const html = await fetchPage(pageUrl);
-        const pageSlugs = parseFilmSlugs(html);
-        slugs.push(...pageSlugs);
-        console.error(`  → ${pageSlugs.length} films (total: ${slugs.length})`);
+        const pageFilms = parseFilms(html);
+        films.push(...pageFilms);
+        console.error(`  → ${pageFilms.length} films (total: ${films.length})`);
 
         const nextHref = parseNextPageUrl(html);
         pageUrl = nextHref ? `${base}${nextHref}` : null;
@@ -46,10 +56,12 @@ export async function scrapeLetterboxdUrl(url: string): Promise<string[]> {
         if (pageUrl) await new Promise((r) => setTimeout(r, 500));
     }
 
-    return [...new Set(slugs)];
+    // Deduplicate by slug
+    const seen = new Set<string>();
+    return films.filter((f) => !seen.has(f.slug) && seen.add(f.slug));
 }
 
-export async function scrapeWatchlist(username: string): Promise<string[]> {
+export async function scrapeWatchlist(username: string): Promise<Film[]> {
     return scrapeLetterboxdUrl(`https://letterboxd.com/${username}/watchlist/`);
 }
 
@@ -60,20 +72,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         console.error(
             'Usage: npx tsx scripts/letterboxd_list.ts <letterboxd-username|list-url>'
         );
-        console.error(
-            'Examples:\n  npx tsx scripts/letterboxd_list.ts someuser\n  npx tsx scripts/letterboxd_list.ts https://letterboxd.com/bfi/list/sight-sound-greatest-films-of-all-time/'
-        );
         process.exit(1);
     }
 
     try {
-        const slugs =
+        const films =
             arg.startsWith('http') || arg.startsWith('/')
                 ? await scrapeLetterboxdUrl(arg)
                 : await scrapeWatchlist(arg);
 
-        console.log(`\nFound ${slugs.length} films:`);
-        slugs.forEach((s) => console.log(s));
+        console.log(`\nFound ${films.length} films:`);
+        films.forEach((f) => console.log(`${f.title}${f.year ? ` (${f.year})` : ''} — ${f.slug}`));
     } catch (e: unknown) {
         console.error('Error:', e instanceof Error ? e.message : e);
         process.exit(1);

@@ -2,7 +2,7 @@ import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-
 import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
-import { fetchLetterboxdSlugs } from '../api';
+import { fetchLetterboxdList, type LetterboxdFilm } from '../api';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -250,14 +250,19 @@ function LetterboxdFilter({
     const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pendingFilms, setPendingFilms] = useState<LetterboxdFilm[] | null>(null);
+    const [pendingUsername, setPendingUsername] = useState('');
 
-    const handleFilter = async () => {
-        if (!username.trim()) return;
+    const handleFetch = async () => {
+        const trimmed = username.trim();
+        if (!trimmed) return;
         setLoading(true);
         setError(null);
+        setPendingFilms(null);
         try {
-            const slugs = await fetchLetterboxdSlugs(username.trim());
-            onChange(slugs);
+            const films = await fetchLetterboxdList(trimmed);
+            setPendingFilms(films);
+            setPendingUsername(trimmed);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to fetch watchlist');
         } finally {
@@ -265,8 +270,19 @@ function LetterboxdFilter({
         }
     };
 
+    const handleApply = () => {
+        if (!pendingFilms) return;
+        onChange(new Set(pendingFilms.map((f) => f.slug)));
+        setPendingFilms(null);
+    };
+
+    const handleCancel = () => {
+        setPendingFilms(null);
+    };
+
     const handleClear = () => {
         setUsername('');
+        setPendingFilms(null);
         onChange(null);
         setError(null);
     };
@@ -274,17 +290,18 @@ function LetterboxdFilter({
     return (
         <div>
             <label className="text-sm text-neutral-400 mb-2 block">Letterboxd Watchlist</label>
+
             <div className="flex gap-2">
                 <input
                     type="text"
                     placeholder="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+                    onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
                     disabled={loading}
                     className="bg-neutral-800 text-white px-3 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none text-sm w-40"
                 />
-                {filter ? (
+                {filter && !pendingFilms ? (
                     <button
                         onClick={handleClear}
                         className="px-3 py-2 rounded-lg bg-red-700 text-white text-sm hover:bg-red-600 transition whitespace-nowrap"
@@ -293,15 +310,68 @@ function LetterboxdFilter({
                     </button>
                 ) : (
                     <button
-                        onClick={handleFilter}
+                        onClick={handleFetch}
                         disabled={loading || !username.trim()}
                         className={`${tabClass(false)} text-sm disabled:opacity-50 whitespace-nowrap`}
                     >
-                        {loading ? 'Loading…' : 'Filter'}
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <span className="inline-block w-3 h-3 rounded-full border-2 border-neutral-400 border-t-white animate-spin" />
+                                Loading…
+                            </span>
+                        ) : (
+                            'Filter'
+                        )}
                     </button>
                 )}
             </div>
+
             {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+
+            {pendingFilms && (
+                <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700">
+                        <span className="text-sm font-medium text-white">
+                            @{pendingUsername}
+                            <span className="text-neutral-400 font-normal ml-2">
+                                — {pendingFilms.length} films
+                            </span>
+                        </span>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleApply}
+                                className="px-3 py-1 rounded bg-red-700 text-white text-xs hover:bg-red-600 transition"
+                            >
+                                Apply filter
+                            </button>
+                            <button
+                                onClick={handleCancel}
+                                className="px-3 py-1 rounded bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600 transition"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                    <ul className="overflow-y-auto max-h-64 divide-y divide-neutral-800">
+                        {pendingFilms.map((film) => (
+                            <li key={film.slug}>
+                                <a
+                                    href={`https://letterboxd.com/film/${film.slug}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-baseline gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+                                >
+                                    <span className="text-neutral-500 text-xs">↗</span>
+                                    <span>{film.title}</span>
+                                    {film.year && (
+                                        <span className="text-neutral-500 text-xs">({film.year})</span>
+                                    )}
+                                </a>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
         </div>
     );
 }

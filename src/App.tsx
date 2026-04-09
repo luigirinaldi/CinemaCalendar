@@ -43,6 +43,7 @@ function App() {
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
+    const [letterboxdFilter, setLetterboxdFilter] = useState<Set<string> | null>(null);
     const initialLoadDone = useRef(false);
     const [city, setCity] = useState<string>('');
 
@@ -103,6 +104,18 @@ function App() {
     const getMovie = (id: number) => movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
+    const visibleMovies = letterboxdFilter
+        ? movies.filter((m) => {
+              const slug = m.tmdb_info?.letterboxd_slug;
+              return slug != null && letterboxdFilter.has(slug);
+          })
+        : movies;
+
+    const visibleMovieIds = new Set(visibleMovies.map((m) => m.id));
+    const visibleScreenings = letterboxdFilter
+        ? screenings.filter((s) => visibleMovieIds.has(s.film_id))
+        : screenings;
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -131,18 +144,22 @@ function App() {
                 onSetRangeEndDate={setRangeEndDate}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
+                letterboxdFilter={letterboxdFilter}
+                onLetterboxdFilterChange={setLetterboxdFilter}
             />
             <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
-                {screenings.length === 0 ? (
+                {visibleScreenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />
                         <p className="text-xl text-neutral-400">
-                            No screenings found for the selected date range
+                            {letterboxdFilter
+                                ? 'No screenings match your Letterboxd watchlist'
+                                : 'No screenings found for the selected date range'}
                         </p>
                     </div>
                 ) : groupBy === 'movie' ? (
                     <div className="flex flex-wrap gap-6 justify-around">
-                        {groupByMovie(screenings, getMovie)
+                        {groupByMovie(visibleScreenings, getMovie)
                             .sort(sortGroupedByStartTime)
                             .map(([key, movieScreenings]) => (
                                 <MovieCard
@@ -156,13 +173,13 @@ function App() {
                     </div>
                 ) : groupBy === 'cinema' ? (
                     <ByCinemaView
-                        screenings={screenings}
+                        screenings={visibleScreenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
                     />
                 ) : (
                     <TableView
-                        screenings={screenings}
+                        screenings={visibleScreenings}
                         getMovie={getMovie}
                         getCinema={getCinema}
                         showTimes={showTimes}

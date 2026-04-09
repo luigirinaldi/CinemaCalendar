@@ -2,6 +2,7 @@ import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-
 import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
+import { fetchLetterboxdSlugs } from '../api';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -239,6 +240,72 @@ function GroupByTabs({
     );
 }
 
+function LetterboxdFilter({
+    filter,
+    onChange,
+}: {
+    filter: Set<string> | null;
+    onChange: (f: Set<string> | null) => void;
+}) {
+    const [username, setUsername] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFilter = async () => {
+        if (!username.trim()) return;
+        setLoading(true);
+        setError(null);
+        try {
+            const slugs = await fetchLetterboxdSlugs(username.trim());
+            onChange(slugs);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to fetch watchlist');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleClear = () => {
+        setUsername('');
+        onChange(null);
+        setError(null);
+    };
+
+    return (
+        <div>
+            <label className="text-sm text-neutral-400 mb-2 block">Letterboxd Watchlist</label>
+            <div className="flex gap-2">
+                <input
+                    type="text"
+                    placeholder="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleFilter()}
+                    disabled={loading}
+                    className="bg-neutral-800 text-white px-3 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none text-sm w-40"
+                />
+                {filter ? (
+                    <button
+                        onClick={handleClear}
+                        className="px-3 py-2 rounded-lg bg-red-700 text-white text-sm hover:bg-red-600 transition whitespace-nowrap"
+                    >
+                        ✕ {filter.size} films
+                    </button>
+                ) : (
+                    <button
+                        onClick={handleFilter}
+                        disabled={loading || !username.trim()}
+                        className={`${tabClass(false)} text-sm disabled:opacity-50 whitespace-nowrap`}
+                    >
+                        {loading ? 'Loading…' : 'Filter'}
+                    </button>
+                )}
+            </div>
+            {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
+        </div>
+    );
+}
+
 interface AppHeaderProps {
     city: string;
     cities: string[];
@@ -257,6 +324,8 @@ interface AppHeaderProps {
     onSetRangeEndDate: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
+    letterboxdFilter: Set<string> | null;
+    onLetterboxdFilterChange: (filter: Set<string> | null) => void;
 }
 
 export default function AppHeader({
@@ -277,6 +346,8 @@ export default function AppHeader({
     onSetRangeEndDate,
     groupBy,
     onGroupByChange,
+    letterboxdFilter,
+    onLetterboxdFilterChange,
 }: AppHeaderProps) {
 
     return (
@@ -301,6 +372,10 @@ export default function AppHeader({
             <div className="bg-neutral-950 border-b border-red-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+                    <LetterboxdFilter
+                        filter={letterboxdFilter}
+                        onChange={onLetterboxdFilterChange}
+                    />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}

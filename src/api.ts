@@ -123,6 +123,14 @@ function screeningsCacheKey(date_range: [Date, Date] | null, cinema_ids: number[
     return `${ids}::${range}`;
 }
 
+export const fetchLetterboxdSlugs = async (username: string): Promise<Set<string>> => {
+    const { data, error } = await supabase.functions.invoke('letterboxd-list', {
+        body: { username },
+    });
+    if (error) throw error;
+    return new Set<string>(data.slugs);
+};
+
 export const fetchScreenings = async (
     date_range: [Date, Date] | null,
     cinema_ids: number[]

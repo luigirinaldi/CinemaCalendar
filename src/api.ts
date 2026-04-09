@@ -123,12 +123,27 @@ function screeningsCacheKey(date_range: [Date, Date] | null, cinema_ids: number[
     return `${ids}::${range}`;
 }
 
+// VITE_FUNCTIONS_URL overrides the functions endpoint (useful for local dev).
+// Falls back to the standard Supabase functions URL derived from VITE_SUPABASE_URL.
+const functionsUrl =
+    import.meta.env.VITE_FUNCTIONS_URL ??
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
+
 export const fetchLetterboxdSlugs = async (username: string): Promise<Set<string>> => {
-    const { data, error } = await supabase.functions.invoke('letterboxd-list', {
-        body: { username },
+    const res = await fetch(`${functionsUrl}/letterboxd-list`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY}`,
+        },
+        body: JSON.stringify({ username }),
     });
-    if (error) throw error;
-    return new Set<string>(data.slugs);
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+    }
+    const { slugs } = await res.json();
+    return new Set<string>(slugs);
 };
 
 export const fetchScreenings = async (

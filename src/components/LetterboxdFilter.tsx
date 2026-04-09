@@ -229,7 +229,9 @@ export default function LetterboxdFilter({
                     {/* Per-filter sections */}
                     {!panelCollapsed && (
                         <div className="max-h-48 overflow-y-auto">
-                            {appliedFilters.map((filter, i) => (
+                            {appliedFilters.length === 1 ? (
+                                <FilmList films={appliedFilters[0].films} />
+                            ) : appliedFilters.map((filter, i) => (
                                 <div
                                     key={filter.username}
                                     className={i < appliedFilters.length - 1 ? 'border-b border-neutral-700' : ''}

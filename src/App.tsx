@@ -144,7 +144,6 @@ function App() {
                 onSetRangeEndDate={setRangeEndDate}
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
-                letterboxdFilter={letterboxdFilter}
                 onLetterboxdFilterChange={setLetterboxdFilter}
             />
             <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>

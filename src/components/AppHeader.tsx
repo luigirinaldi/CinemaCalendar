@@ -241,10 +241,8 @@ function GroupByTabs({
 }
 
 function LetterboxdFilter({
-    filter,
     onChange,
 }: {
-    filter: Set<string> | null;
     onChange: (f: Set<string> | null) => void;
 }) {
     const [username, setUsername] = useState('');
@@ -252,6 +250,8 @@ function LetterboxdFilter({
     const [error, setError] = useState<string | null>(null);
     const [pendingFilms, setPendingFilms] = useState<LetterboxdFilm[] | null>(null);
     const [pendingUsername, setPendingUsername] = useState('');
+    const [appliedFilms, setAppliedFilms] = useState<LetterboxdFilm[] | null>(null);
+    const [appliedUsername, setAppliedUsername] = useState('');
 
     const handleFetch = async () => {
         const trimmed = username.trim();
@@ -273,6 +273,8 @@ function LetterboxdFilter({
     const handleApply = () => {
         if (!pendingFilms) return;
         onChange(new Set(pendingFilms.map((f) => f.slug)));
+        setAppliedFilms(pendingFilms);
+        setAppliedUsername(pendingUsername);
         setPendingFilms(null);
     };
 
@@ -283,9 +285,14 @@ function LetterboxdFilter({
     const handleClear = () => {
         setUsername('');
         setPendingFilms(null);
+        setAppliedFilms(null);
         onChange(null);
         setError(null);
     };
+
+    const filmList = pendingFilms ?? appliedFilms;
+    const listUsername = pendingFilms ? pendingUsername : appliedUsername;
+    const isPending = pendingFilms !== null;
 
     return (
         <div>
@@ -301,65 +308,66 @@ function LetterboxdFilter({
                     disabled={loading}
                     className="bg-neutral-800 text-white px-3 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none text-sm w-40"
                 />
-                {filter && !pendingFilms ? (
-                    <button
-                        onClick={handleClear}
-                        className="px-3 py-2 rounded-lg bg-red-700 text-white text-sm hover:bg-red-600 transition whitespace-nowrap"
-                    >
-                        ✕ {filter.size} films
-                    </button>
-                ) : (
-                    <button
-                        onClick={handleFetch}
-                        disabled={loading || !username.trim()}
-                        className={`${tabClass(false)} text-sm disabled:opacity-50 whitespace-nowrap`}
-                    >
-                        {loading ? (
-                            <span className="flex items-center gap-2">
-                                <span className="inline-block w-3 h-3 rounded-full border-2 border-neutral-400 border-t-white animate-spin" />
-                                Loading…
-                            </span>
-                        ) : (
-                            'Filter'
-                        )}
-                    </button>
-                )}
+                <button
+                    onClick={handleFetch}
+                    disabled={loading || !username.trim()}
+                    className={`${tabClass(false)} text-sm disabled:opacity-50 whitespace-nowrap`}
+                >
+                    {loading ? (
+                        <span className="flex items-center gap-2">
+                            <span className="inline-block w-3 h-3 rounded-full border-2 border-neutral-400 border-t-white animate-spin" />
+                            Loading…
+                        </span>
+                    ) : (
+                        'Filter'
+                    )}
+                </button>
             </div>
 
             {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
 
-            {pendingFilms && (
+            {filmList && (
                 <div className="mt-2 rounded-lg border border-neutral-700 bg-neutral-900 overflow-hidden">
                     <div className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700">
                         <span className="text-sm font-medium text-white">
-                            @{pendingUsername}
+                            @{listUsername}
                             <span className="text-neutral-400 font-normal ml-2">
-                                — {pendingFilms.length} films
+                                — {filmList.length} films
                             </span>
                         </span>
-                        <div className="flex gap-2">
+                        {isPending ? (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleApply}
+                                    className="px-3 py-1 rounded bg-red-700 text-white text-xs hover:bg-red-600 transition"
+                                >
+                                    Apply filter
+                                </button>
+                                <button
+                                    onClick={handleCancel}
+                                    className="px-3 py-1 rounded bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600 transition"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        ) : (
                             <button
-                                onClick={handleApply}
-                                className="px-3 py-1 rounded bg-red-700 text-white text-xs hover:bg-red-600 transition"
+                                onClick={handleClear}
+                                className="px-2 py-1 rounded bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600 transition"
+                                title="Clear filter"
                             >
-                                Apply filter
+                                ✕ Clear
                             </button>
-                            <button
-                                onClick={handleCancel}
-                                className="px-3 py-1 rounded bg-neutral-700 text-neutral-300 text-xs hover:bg-neutral-600 transition"
-                            >
-                                Cancel
-                            </button>
-                        </div>
+                        )}
                     </div>
-                    <ul className="overflow-y-auto max-h-64 divide-y divide-neutral-800">
-                        {pendingFilms.map((film) => (
+                    <ul className={`overflow-y-auto divide-y divide-neutral-800 ${isPending ? 'max-h-64' : 'max-h-40'}`}>
+                        {filmList.map((film) => (
                             <li key={film.slug}>
                                 <a
                                     href={`https://letterboxd.com/film/${film.slug}/`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="flex items-baseline gap-1.5 px-3 py-1.5 text-sm text-neutral-300 hover:text-white hover:bg-neutral-800 transition"
+                                    className={`flex items-baseline gap-1.5 px-3 text-neutral-300 hover:text-white hover:bg-neutral-800 transition ${isPending ? 'py-1.5 text-sm' : 'py-1 text-xs'}`}
                                 >
                                     <span className="text-neutral-500 text-xs">↗</span>
                                     <span>{film.title}</span>
@@ -394,7 +402,6 @@ interface AppHeaderProps {
     onSetRangeEndDate: (v: string) => void;
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
-    letterboxdFilter: Set<string> | null;
     onLetterboxdFilterChange: (filter: Set<string> | null) => void;
 }
 
@@ -416,7 +423,6 @@ export default function AppHeader({
     onSetRangeEndDate,
     groupBy,
     onGroupByChange,
-    letterboxdFilter,
     onLetterboxdFilterChange,
 }: AppHeaderProps) {
 
@@ -442,10 +448,7 @@ export default function AppHeader({
             <div className="bg-neutral-950 border-b border-red-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
                     <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
-                    <LetterboxdFilter
-                        filter={letterboxdFilter}
-                        onChange={onLetterboxdFilterChange}
-                    />
+                    <LetterboxdFilter onChange={onLetterboxdFilterChange} />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}

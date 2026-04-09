@@ -134,13 +134,7 @@ async function fetchFilmInfo(
 export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
     let nullLtbxdFilms = await db
         .selectFrom('tmdb_films')
-        .where((cond) =>
-            cond('letterboxd_slug', 'is', null).or(
-                'letterboxd_avg_rating',
-                'is',
-                null
-            )
-        )
+        .where('letterboxd_slug', 'is', null)
         .select(['id', 'title', 'letterboxd_slug'])
         .execute();
 
@@ -194,6 +188,33 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
                             value: info.slug,
                         })),
                         'letterboxd_slug'
+                    ),
+                    letterboxd_avg_rating: buildCaseStatement(
+                        letterboxdInfo
+                            .filter((info) => info.ratings_info !== undefined)
+                            .map((info) => ({
+                                id: info.film_id,
+                                value: info.ratings_info!.averageRating,
+                            })),
+                        'letterboxd_avg_rating'
+                    ),
+                    letterboxd_num_ratings: buildCaseStatement(
+                        letterboxdInfo
+                            .filter((info) => info.ratings_info !== undefined)
+                            .map((info) => ({
+                                id: info.film_id,
+                                value: info.ratings_info!.totalRatings,
+                            })),
+                        'letterboxd_num_ratings'
+                    ),
+                    letterboxd_ratings: buildCaseStatement(
+                        letterboxdInfo
+                            .filter((info) => info.ratings_info !== undefined)
+                            .map((info) => ({
+                                id: info.film_id,
+                                value: JSON.stringify(info.ratings_info!.ratingsByValue),
+                            })),
+                        'letterboxd_ratings'
                     ),
                 })
                 .where(

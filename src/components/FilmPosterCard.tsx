@@ -63,9 +63,15 @@ interface FilmPosterCardProps {
     className?: string;
 }
 
-export default function FilmPosterCard({ movie, children, className = 'bg-neutral-800' }: FilmPosterCardProps) {
+export default function FilmPosterCard({
+    movie,
+    children,
+    className = 'bg-neutral-800',
+}: FilmPosterCardProps) {
     return (
-        <div className={`${className} rounded-lg overflow-hidden flex flex-col w-40 sm:w-48`}>
+        <div
+            className={`${className} rounded-lg overflow-hidden flex flex-col w-40 sm:w-48`}
+        >
             {movie?.poster_url ? (
                 <img
                     src={movie.poster_url}
@@ -112,9 +118,13 @@ export default function FilmPosterCard({ movie, children, className = 'bg-neutra
                         )}
                     </div>
                     {movie?.director ? (
-                        <p className="text-neutral-400 text-xs mt-1">{movie.director}</p>
+                        <p className="text-neutral-400 text-xs mt-1">
+                            {movie.director}
+                        </p>
                     ) : null}
-                    <p className="text-neutral-500 text-xs mt-1">{movie?.duration} min</p>
+                    <p className="text-neutral-500 text-xs mt-1">
+                        {movie?.duration} min
+                    </p>
                 </div>
                 {children}
             </div>

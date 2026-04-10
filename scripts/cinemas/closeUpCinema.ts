@@ -15,6 +15,7 @@ const BASE_URL = 'https://www.closeupfilmcentre.com';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.closeupfilmcentre.com',
     coordinates: {
         lat: `51° 31' 25.00396" N`,
         lng: `- 0° 4' 19.382" W`,

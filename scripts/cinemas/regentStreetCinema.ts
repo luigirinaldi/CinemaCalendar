@@ -10,6 +10,7 @@ import type {
 const CINEMA: Cinema = {
     name: 'RegentStreetCinema',
     location: 'London',
+    website: 'https://www.regentstreetcinema.com',
     defaultLanguage: 'en-GB',
 };
 

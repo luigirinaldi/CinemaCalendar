@@ -16,11 +16,18 @@ import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
 import TableView from './components/TableView';
+import MapView from './components/MapView';
 
 function App() {
-    const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'table');
-    const [showMode, setShowMode] = useState<ShowMode>(getUrlSearchParams().showMode ?? 'compact');
-    const [tableSort, setTableSort] = useState<TableSort | null>(getUrlSearchParams().tableSort ?? null);
+    const [groupBy, setGroupBy] = useState<GroupBy>(
+        getUrlSearchParams().groupBy ?? 'table'
+    );
+    const [showMode, setShowMode] = useState<ShowMode>(
+        getUrlSearchParams().showMode ?? 'compact'
+    );
+    const [tableSort, setTableSort] = useState<TableSort | null>(
+        getUrlSearchParams().tableSort ?? null
+    );
     const {
         dateRange,
         currentDate,
@@ -43,7 +50,8 @@ function App() {
     const [cinemas, setCinemas] = useState<CinemaTable[]>([]);
     const [screenings, setScreenings] = useState<ShowingsTable[]>([]);
     const [loading, setLoading] = useState(true);
-    const [letterboxdFilter, setLetterboxdFilter] = useState<Set<string> | null>(null);
+    const [letterboxdFilter, setLetterboxdFilter] =
+        useState<Set<string> | null>(null);
     const initialLoadDone = useRef(false);
     const [city, setCity] = useState<string>('');
 
@@ -52,7 +60,9 @@ function App() {
         const fetchData = async () => {
             const cinemaData = await fetchCinemas();
             setCinemas(cinemaData);
-            const cities = getCities(cinemaData).filter((c): c is string => c !== null);
+            const cities = getCities(cinemaData).filter(
+                (c): c is string => c !== null
+            );
             const urlCity = getUrlSearchParams().city;
             const matched = urlCity
                 ? cities.find((c) => c.toLowerCase() === urlCity.toLowerCase())
@@ -86,7 +96,10 @@ function App() {
     // Re-fetch screenings whenever filters change
     useEffect(() => {
         const fetchData = async () => {
-            const data = await fetchScreenings(computedRange, getCityCinemaIds(cinemas, city));
+            const data = await fetchScreenings(
+                computedRange,
+                getCityCinemaIds(cinemas, city)
+            );
             setMovies(data.map(filmWithPoster));
             setScreenings(data.flatMap((f) => f.new_showings));
             if (!initialLoadDone.current) {
@@ -97,11 +110,14 @@ function App() {
         fetchData();
     }, [computedRange, city, cinemas]);
 
-    const getCities = (cinemas: CinemaTable[]) => [...new Set(cinemas.map((c) => c.location))];
+    const getCities = (cinemas: CinemaTable[]) => [
+        ...new Set(cinemas.map((c) => c.location)),
+    ];
     const getCityCinemaIds = (cinemas: CinemaTable[], city: string) =>
         cinemas.filter((c) => c.location === city).map((c) => c.id);
 
-    const getMovie = (id: number) => movies.find((m) => m.id === id) as FilmWithPoster | undefined;
+    const getMovie = (id: number) =>
+        movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
     const visibleMovies = letterboxdFilter
@@ -116,6 +132,19 @@ function App() {
         ? screenings.filter((s) => visibleMovieIds.has(s.film_id))
         : screenings;
 
+    const activeCinemaIds = new Set(screenings.map((s) => s.cinema_id));
+
+    // cinema id → number of unique films in current date range
+    const cinemaFilmSets = new Map<number, Set<number>>();
+    for (const s of screenings) {
+        if (!cinemaFilmSets.has(s.cinema_id))
+            cinemaFilmSets.set(s.cinema_id, new Set());
+        cinemaFilmSets.get(s.cinema_id)!.add(s.film_id);
+    }
+    const cinemaMovieCounts = new Map(
+        [...cinemaFilmSets].map(([id, films]) => [id, films.size])
+    );
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -128,7 +157,9 @@ function App() {
         <div className="min-h-screen bg-neutral-900 text-white">
             <AppHeader
                 city={city}
-                cities={getCities(cinemas).filter((c): c is string => c !== null)}
+                cities={getCities(cinemas).filter(
+                    (c): c is string => c !== null
+                )}
                 onCityChange={setCity}
                 dateRange={dateRange}
                 currentDate={currentDate}
@@ -146,8 +177,17 @@ function App() {
                 onGroupByChange={setGroupBy}
                 onLetterboxdFilterChange={setLetterboxdFilter}
             />
-            <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
-                {visibleScreenings.length === 0 ? (
+            <main
+                className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}
+            >
+                {groupBy === 'map' ? (
+                    <MapView
+                        cinemas={cinemas}
+                        activeCinemaIds={activeCinemaIds}
+                        selectedCity={city}
+                        cinemaMovieCounts={cinemaMovieCounts}
+                    />
+                ) : visibleScreenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />
                         <p className="text-xl text-neutral-400">

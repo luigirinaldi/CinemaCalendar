@@ -9,6 +9,7 @@ import type {
 const CINEMA: Cinema = {
     name: 'The Space Cinema Limena',
     location: 'Padova',
+    website: 'https://www.thespacecinema.it',
     defaultLanguage: 'it-IT',
 };
 

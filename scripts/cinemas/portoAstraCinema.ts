@@ -90,6 +90,7 @@ export interface Userdata {
 const CINEMA: Cinema = {
     name: 'Porto Astra',
     location: 'Padova',
+    website: 'https://www.portoastra.it',
     coordinates: {
         lat: '45.38365',
         lng: '11.8656',

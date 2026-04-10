@@ -115,6 +115,7 @@ export interface Venue {
 const CINEMA: Cinema = {
     name: 'Lux Cinema',
     location: 'Padova',
+    website: 'http://cinemaluxpadova.it',
     defaultLanguage: 'it-IT',
 };
 

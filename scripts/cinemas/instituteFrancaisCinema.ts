@@ -15,6 +15,7 @@ const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.institut-francais.org.uk/cine-lumiere/',
     defaultLanguage: 'en-GB',
 };
 

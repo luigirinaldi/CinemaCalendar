@@ -51,7 +51,10 @@ export function buildDayUrl(date: Date): string {
     return url.toString();
 }
 
-export function setUrlSearchParams(set: Record<string, string>, del: string[] = []) {
+export function setUrlSearchParams(
+    set: Record<string, string>,
+    del: string[] = []
+) {
     const url = new URL(window.location.href);
     Object.entries(set).forEach(([k, v]) => url.searchParams.set(k, v));
     del.forEach((k) => url.searchParams.delete(k));

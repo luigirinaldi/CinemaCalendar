@@ -48,6 +48,7 @@ interface RexApiResponse {
 const CINEMA: Cinema = {
     name: 'Rex Cinema',
     location: 'Padova',
+    website: 'https://www.cinemarex.it',
     defaultLanguage: 'it-IT',
 };
 

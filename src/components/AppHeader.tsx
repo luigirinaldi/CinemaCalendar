@@ -1,4 +1,11 @@
-import { Calendar, ChevronLeft, ChevronRight, Film, List, MapPin } from 'lucide-react';
+import {
+    Calendar,
+    ChevronLeft,
+    ChevronRight,
+    Film,
+    List,
+    MapPin,
+} from 'lucide-react';
 import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
@@ -6,7 +13,9 @@ import LetterboxdFilter from './LetterboxdFilter';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
-        active ? 'bg-red-700 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+        active
+            ? 'bg-red-700 text-white'
+            : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
     }`;
 
 function DateRangeTabs({
@@ -20,25 +29,33 @@ function DateRangeTabs({
 }) {
     return (
         <div>
-            <label className="text-sm text-neutral-400 mb-2 block">Date Range</label>
+            <label className="text-sm text-neutral-400 mb-2 block">
+                Date Range
+            </label>
             <div className="flex flex-wrap gap-2">
                 <button
-                    onClick={() => { onDateRangeChange('today'); onResetToToday(); }}
+                    onClick={() => {
+                        onDateRangeChange('today');
+                        onResetToToday();
+                    }}
                     className={tabClass(dateRange === 'today')}
                 >
-                    <Calendar className="inline w-4 h-4 mr-2" />Today
+                    <Calendar className="inline w-4 h-4 mr-2" />
+                    Today
                 </button>
                 <button
                     onClick={() => onDateRangeChange('range')}
                     className={tabClass(dateRange === 'range')}
                 >
-                    <Calendar className="inline w-4 h-4 mr-2" />Range
+                    <Calendar className="inline w-4 h-4 mr-2" />
+                    Range
                 </button>
                 <button
                     onClick={() => onDateRangeChange('anytime')}
                     className={tabClass(dateRange === 'anytime')}
                 >
-                    <Calendar className="inline w-4 h-4 mr-2" />Anytime
+                    <Calendar className="inline w-4 h-4 mr-2" />
+                    Anytime
                 </button>
             </div>
         </div>
@@ -77,7 +94,12 @@ function DateNavigator({
                 <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex-1 text-center">
-                <DateCell value={dateStr} onChange={onSetCurrentDate} label="date" large />
+                <DateCell
+                    value={dateStr}
+                    onChange={onSetCurrentDate}
+                    label="date"
+                    large
+                />
                 {!isToday() && (
                     <button
                         onClick={onResetToToday}
@@ -130,7 +152,10 @@ function DateCell({
                 type="date"
                 value={value}
                 autoFocus
-                onChange={(e) => { onChange(e.target.value); setEditing(false); }}
+                onChange={(e) => {
+                    onChange(e.target.value);
+                    setEditing(false);
+                }}
                 onBlur={() => setEditing(false)}
                 className="bg-neutral-700 text-white text-sm font-semibold rounded px-2 py-0.5 outline-none border border-neutral-500 w-36"
             />
@@ -182,9 +207,17 @@ function RangeDateNavigator({
                 </button>
             </div>
             <div className="flex-1 text-center">
-                <DateCell value={rangeStartDate} onChange={onSetStart} label="start" />
+                <DateCell
+                    value={rangeStartDate}
+                    onChange={onSetStart}
+                    label="start"
+                />
                 <span className="text-neutral-500 mx-2">—</span>
-                <DateCell value={rangeEndDate} onChange={onSetEnd} label="end" />
+                <DateCell
+                    value={rangeEndDate}
+                    onChange={onSetEnd}
+                    label="end"
+                />
             </div>
             <div className="flex rounded-lg overflow-hidden">
                 <button
@@ -215,31 +248,42 @@ function GroupByTabs({
 }) {
     return (
         <div>
-            <label className="text-sm text-neutral-400 mb-2 block">Group By</label>
+            <label className="text-sm text-neutral-400 mb-2 block">
+                Group By
+            </label>
             <div className="flex gap-2">
                 <button
                     onClick={() => onGroupByChange('table')}
                     className={tabClass(groupBy === 'table')}
                 >
-                    <List className="inline w-4 h-4 mr-2" />Table
+                    <List className="inline w-4 h-4 mr-2" />
+                    Table
                 </button>
                 <button
                     onClick={() => onGroupByChange('movie')}
                     className={tabClass(groupBy === 'movie')}
                 >
-                    <Film className="inline w-4 h-4 mr-2" />By Movie
+                    <Film className="inline w-4 h-4 mr-2" />
+                    By Movie
                 </button>
                 <button
                     onClick={() => onGroupByChange('cinema')}
                     className={tabClass(groupBy === 'cinema')}
                 >
-                    <MapPin className="inline w-4 h-4 mr-2" />By Cinema
+                    <MapPin className="inline w-4 h-4 mr-2" />
+                    By Cinema
+                </button>
+                <button
+                    onClick={() => onGroupByChange('map')}
+                    className={tabClass(groupBy === 'map')}
+                >
+                    <MapPin className="inline w-4 h-4 mr-2" />
+                    Map
                 </button>
             </div>
         </div>
     );
 }
-
 
 interface AppHeaderProps {
     city: string;
@@ -282,7 +326,6 @@ export default function AppHeader({
     onGroupByChange,
     onLetterboxdFilterChange,
 }: AppHeaderProps) {
-
     return (
         <>
             <div className="bg-neutral-950 border-b border-red-900/30">
@@ -297,14 +340,19 @@ export default function AppHeader({
                         className="bg-neutral-800 text-white px-4 py-2 rounded-lg border border-neutral-700 focus:border-red-600 outline-none w-48"
                     >
                         {cities.map((c) => (
-                            <option key={c} value={c}>{c}</option>
+                            <option key={c} value={c}>
+                                {c}
+                            </option>
                         ))}
                     </select>
                 </div>
             </div>
             <div className="bg-neutral-950 border-b border-red-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-3 space-y-3">
-                    <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+                    <GroupByTabs
+                        groupBy={groupBy}
+                        onGroupByChange={onGroupByChange}
+                    />
                     <LetterboxdFilter onChange={onLetterboxdFilterChange} />
                     <DateRangeTabs
                         dateRange={dateRange}

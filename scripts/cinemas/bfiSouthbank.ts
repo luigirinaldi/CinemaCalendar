@@ -25,6 +25,7 @@ const LONDON_TZ = 'Europe/London';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.bfi.org.uk/bfi-southbank',
     coordinates: {
         lat: `51° 30' 18.36" N`,
         lng: `0° 6' 48.60" W`,

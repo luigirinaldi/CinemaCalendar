@@ -173,12 +173,14 @@ async function main() {
                 }
 
                 if (apply) {
+                    const update: Record<string, unknown> = { coordinates: { lat: match.lat, lng: match.lng } };
+                    if (match.website) update.website = match.website;
                     await db
                         .updateTable('new_cinemas')
-                        .set({ coordinates: { lat: match.lat, lng: match.lng } })
+                        .set(update as any)
                         .where('id', '=', cinema.id)
                         .execute();
-                    console.log(`      → Updated in DB`);
+                    console.log(`      → Updated coords${match.website ? ' + website' : ''} in DB`);
                 }
             }
         }

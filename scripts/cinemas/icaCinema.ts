@@ -15,6 +15,7 @@ const BASE_URL = 'https://www.ica.art';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.ica.art',
     coordinates: {
         lat: `51º30'14.39" N`,
         lng: `0º07'30" W`,

@@ -9,6 +9,7 @@ const BASE_URL = 'https://www.thegardencinema.co.uk';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.thegardencinema.co.uk',
     coordinates: {
         lat: '51.5135',
         lng: '-0.1244',

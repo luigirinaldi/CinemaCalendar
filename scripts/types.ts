@@ -25,6 +25,7 @@ export const FilmShowingsSchema = z.object({
 export const CinemaSchema = z.object({
     name: z.string(),
     location: z.string(),
+    website: z.string().optional(),
     coordinates: z.object({ lat: z.string(), lng: z.string() }).optional(),
     defaultLanguage: z
         .string()

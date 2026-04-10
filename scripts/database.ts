@@ -104,7 +104,7 @@ export async function storeCinemaData(
         .insertInto('new_cinemas')
         .values({ ...rest, default_lang: defaultLanguage, last_updated: now })
         .onConflict((oc) =>
-            oc.column('name').doUpdateSet({ last_updated: now })
+            oc.column('name').doUpdateSet({ last_updated: now, website: cinemaShowing.cinema.website ?? null })
         )
         .returning('id')
         .executeTakeFirstOrThrow(

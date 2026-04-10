@@ -7,6 +7,7 @@ const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://riversidestudios.co.uk',
     defaultLanguage: 'en-GB',
 };
 

@@ -96,12 +96,26 @@ async function test(scrapers_to_check: string[] = []) {
                 }
                 const pct = (n: number, total: number) =>
                     total === 0 ? '0.0%' : ((n / total) * 100).toFixed(1) + '%';
-                const filmCounts = [countDirector, countDuration, countLanguage, countYear, countCountry, countCover];
+                const filmCounts = [
+                    countDirector,
+                    countDuration,
+                    countLanguage,
+                    countYear,
+                    countCountry,
+                    countCover,
+                ];
                 const showingCounts = [countBookingUrl, countTheatre];
                 const totalPct =
-                    filmCounts.reduce((sum, n) => sum + n / (totalFilms || 1), 0) +
-                    showingCounts.reduce((sum, n) => sum + n / (totalShowings || 1), 0);
-                const avgPct = totalPct / (filmCounts.length + showingCounts.length);
+                    filmCounts.reduce(
+                        (sum, n) => sum + n / (totalFilms || 1),
+                        0
+                    ) +
+                    showingCounts.reduce(
+                        (sum, n) => sum + n / (totalShowings || 1),
+                        0
+                    );
+                const avgPct =
+                    totalPct / (filmCounts.length + showingCounts.length);
 
                 statsTable.push({
                     cinema: cinema.cinema.name,
@@ -141,7 +155,9 @@ async function test(scrapers_to_check: string[] = []) {
     ];
     const table = new Table({ head: columns });
     for (const row of statsTable) {
-        table.push(columns.map((c) => String((row as Record<string, unknown>)[c])));
+        table.push(
+            columns.map((c) => String((row as Record<string, unknown>)[c]))
+        );
     }
     console.log('\n' + table.toString());
 }

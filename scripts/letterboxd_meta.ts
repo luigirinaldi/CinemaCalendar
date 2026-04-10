@@ -212,7 +212,9 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
                             .filter((info) => info.ratings_info !== undefined)
                             .map((info) => ({
                                 id: info.film_id,
-                                value: JSON.stringify(info.ratings_info!.ratingsByValue),
+                                value: JSON.stringify(
+                                    info.ratings_info!.ratingsByValue
+                                ),
                             })),
                         'letterboxd_ratings'
                     ),

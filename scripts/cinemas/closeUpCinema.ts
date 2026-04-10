@@ -26,7 +26,9 @@ const CINEMA: Cinema = {
 export async function scraper(): Promise<CinemaShowing[]> {
     const browser = await chromium.launch();
     const page = await browser.newPage();
-    await page.goto(BASE_URL + '/search_film_programmes/', { waitUntil: 'domcontentloaded' });
+    await page.goto(BASE_URL + '/search_film_programmes/', {
+        waitUntil: 'domcontentloaded',
+    });
     const html = await page.content();
     await browser.close();
     const root = parse(html);

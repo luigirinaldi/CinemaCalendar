@@ -8,40 +8,27 @@ const FETCH_HEADERS = {
 };
 
 function extractFilms(html: string): Film[] {
-    const slugs = [...html.matchAll(/data-item-slug="([^"]+)"/g)].map(
-        (m) => m[1]
-    );
-    const names = [...html.matchAll(/data-item-name="([^"]+)"/g)].map(
-        (m) => m[1]
-    );
+    const slugs = [...html.matchAll(/data-item-slug="([^"]+)"/g)].map((m) => m[1]);
+    const names = [...html.matchAll(/data-item-name="([^"]+)"/g)].map((m) => m[1]);
 
     return slugs.map((slug, i) => {
         const rawName = (names[i] ?? slug).trim();
         const yearMatch = /\((\d{4})\)$/.exec(rawName);
         const year = yearMatch ? parseInt(yearMatch[1]) : null;
-        const title = yearMatch
-            ? rawName.slice(0, rawName.lastIndexOf(' (')).trim()
-            : rawName;
+        const title = yearMatch ? rawName.slice(0, rawName.lastIndexOf(' (')).trim() : rawName;
         return { slug, title, year };
     });
 }
 
 function extractNextPageUrl(html: string): string | null {
-    const m = html.match(
-        /class="next"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*class="next"/
-    );
+    const m = html.match(/class="next"[^>]*href="([^"]+)"|href="([^"]+)"[^>]*class="next"/);
     return m ? (m[1] ?? m[2] ?? null) : null;
 }
 
-export async function scrapeList(
-    startUrl: string,
-    maxPages = Infinity
-): Promise<Film[]> {
+export async function scrapeList(startUrl: string, maxPages = Infinity): Promise<Film[]> {
     const base = 'https://letterboxd.com';
     const films: Film[] = [];
-    let pageUrl: string | null = startUrl.startsWith('http')
-        ? startUrl
-        : `${base}${startUrl}`;
+    let pageUrl: string | null = startUrl.startsWith('http') ? startUrl : `${base}${startUrl}`;
     let pages = 0;
 
     while (pageUrl && pages < maxPages) {

@@ -18,7 +18,8 @@ interface OsmCinema {
     website?: string;
 }
 
-// OSM relation IDs → Overpass area IDs (relation ID + 3,600,000,000)
+type MarkerStatus = 'active' | 'tracked' | 'untracked';
+
 const CITY_AREA_IDS: Record<string, number> = {
     London: 3600065606,
     Padova: 3600044836,
@@ -29,8 +30,10 @@ const BOUNDARY_URLS: Record<string, string> = {
     Padova: `${import.meta.env.BASE_URL}data/boundaries/padova.geojson`,
 };
 
-// Module-level cache so city switches don't re-fetch already-loaded data
 const osmCache = new Map<string, OsmCinema[]>();
+
+// ~200m proximity threshold in degrees²
+const PROXIMITY_THRESHOLD_SQ = 0.002 ** 2;
 
 function parseCinemaCoords(cinema: CinemaTable): Coords | null {
     const c = cinema.coordinates as { lat: number | string; lng: number | string } | null;
@@ -39,6 +42,10 @@ function parseCinemaCoords(cinema: CinemaTable): Coords | null {
     const lng = typeof c.lng === 'number' ? c.lng : parseFloat(c.lng as string);
     if (isNaN(lat) || isNaN(lng)) return null;
     return { lat, lng };
+}
+
+function normalizeHost(url: string): string {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
 }
 
 async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<OsmCinema[]> {
@@ -50,8 +57,7 @@ async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<Osm
     type OsmElement = {
         id: number;
         tags?: { name?: string; website?: string; 'contact:website'?: string };
-        lat?: number;
-        lon?: number;
+        lat?: number; lon?: number;
         center?: { lat: number; lon: number };
     };
     return (data.elements as OsmElement[])
@@ -65,50 +71,52 @@ async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<Osm
         }));
 }
 
-function faviconIcon(website: string): L.DivIcon {
-    let domain: string;
-    try {
-        domain = new URL(website).hostname;
-    } catch {
-        domain = website;
-    }
-    const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    return L.divIcon({
-        html: `<img src="${src}" width="20" height="20" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.6)" onerror="this.style.display='none'" />`,
-        className: '',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10],
-        popupAnchor: [0, -12],
-    });
-}
+const STATUS_FILTER: Record<MarkerStatus, string> = {
+    active:    'none',
+    tracked:   'grayscale(80%) brightness(0.75)',
+    untracked: 'grayscale(100%) opacity(0.45)',
+};
 
-function MapSetup() {
-    const map = useMap();
-    useEffect(() => {
-        if (!map.getPane('osmCinemasPane')) {
-            map.createPane('osmCinemasPane').style.zIndex = '400';
-        }
-        if (!map.getPane('trackedCinemasPane')) {
-            map.createPane('trackedCinemasPane').style.zIndex = '450';
-        }
-    }, [map]);
-    return null;
+const STATUS_SIZE: Record<MarkerStatus, number> = {
+    active:    16,
+    tracked:   14,
+    untracked: 12,
+};
+
+const CIRCLE_COLOR: Record<MarkerStatus, string> = {
+    active:    '#ef4444',
+    tracked:   '#f97316',
+    untracked: '#6b7280',
+};
+
+function faviconIcon(website: string, status: MarkerStatus, count: number): L.DivIcon {
+    let domain: string;
+    try { domain = new URL(website).hostname; } catch { domain = website; }
+    const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    const size = STATUS_SIZE[status];
+    const filter = STATUS_FILTER[status];
+    const badge = count > 0
+        ? `<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:999px;font-size:8px;font-weight:700;min-width:12px;height:12px;display:flex;align-items:center;justify-content:center;padding:0 2px;box-shadow:0 1px 2px rgba(0,0,0,0.5)">${count}</span>`
+        : '';
+    return L.divIcon({
+        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px"><img src="${src}" width="${size}" height="${size}" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.5);filter:${filter}" onerror="this.style.display='none'" />${badge}</div>`,
+        className: '',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -(size / 2 + 6)],
+    });
 }
 
 function BoundsFitter({ geojson }: { geojson: GeoJsonObject | null }) {
     const map = useMap();
     const prevGeojson = useRef<GeoJsonObject | null>(null);
-
     useEffect(() => {
         if (!geojson || geojson === prevGeojson.current) return;
         prevGeojson.current = geojson;
         const layer = L.geoJSON(geojson);
         const bounds = layer.getBounds();
-        if (bounds.isValid()) {
-            map.fitBounds(bounds as LatLngBoundsExpression, { padding: [20, 20] });
-        }
+        if (bounds.isValid()) map.fitBounds(bounds as LatLngBoundsExpression, { padding: [20, 20] });
     }, [geojson, map]);
-
     return null;
 }
 
@@ -116,9 +124,10 @@ interface MapViewProps {
     cinemas: CinemaTable[];
     activeCinemaIds: Set<number>;
     selectedCity: string;
+    cinemaMovieCounts: Map<number, number>;
 }
 
-export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapViewProps) {
+export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinemaMovieCounts }: MapViewProps) {
     const [boundaryGeojson, setBoundaryGeojson] = useState<GeoJsonObject | null>(null);
     const [osmCinemas, setOsmCinemas] = useState<OsmCinema[]>([]);
     const [osmLoading, setOsmLoading] = useState(false);
@@ -126,7 +135,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
 
     useEffect(() => {
         const url = BOUNDARY_URLS[selectedCity];
-        setBoundaryGeojson(null); // clear stale boundary immediately on city change
+        setBoundaryGeojson(null);
         if (!url) return;
         const controller = new AbortController();
         fetch(url, { signal: controller.signal })
@@ -139,54 +148,61 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
     useEffect(() => {
         const areaId = CITY_AREA_IDS[selectedCity];
         if (!areaId) { setOsmCinemas([]); return; }
-
-        // Serve from cache immediately — no loading state needed
         const cached = osmCache.get(selectedCity);
-        if (cached) {
-            setOsmCinemas(cached);
-            return;
-        }
-
+        if (cached) { setOsmCinemas(cached); return; }
         const controller = new AbortController();
-        // 30s client-side timeout — Overpass server timeout is 25s, so this fires if the
-        // connection hangs before the server can respond
         const timeoutId = setTimeout(() => controller.abort(), 30_000);
-
-        setOsmCinemas([]);   // clear stale data from previous city immediately
+        setOsmCinemas([]);
         setOsmLoading(true);
         setOsmError(null);
-
         fetchOsmCinemas(areaId, controller.signal)
-            .then((results) => {
-                osmCache.set(selectedCity, results);
-                setOsmCinemas(results);
-                setOsmLoading(false);
-            })
-            .catch((err) => {
-                if (err.name === 'AbortError') return; // component unmounted or timed out
-                setOsmError('Could not load cinemas from OpenStreetMap.');
-                setOsmLoading(false);
-            })
+            .then((results) => { osmCache.set(selectedCity, results); setOsmCinemas(results); setOsmLoading(false); })
+            .catch((err) => { if (err.name === 'AbortError') return; setOsmError('Could not load cinemas from OpenStreetMap.'); setOsmLoading(false); })
             .finally(() => clearTimeout(timeoutId));
-
-        return () => {
-            controller.abort();
-            clearTimeout(timeoutId);
-        };
+        return () => { controller.abort(); clearTimeout(timeoutId); };
     }, [selectedCity]);
 
-    // Tracked cinemas in the selected city that have coordinates
-    const trackedMapped = cinemas.filter(
-        (c) => c.location === selectedCity && parseCinemaCoords(c) !== null,
-    );
-    // Tracked cinemas with no coordinates (can't place on map)
+    // Tracked cinemas in the selected city with parseable coordinates
+    const trackedWithCoords = cinemas
+        .filter((c) => c.location === selectedCity)
+        .flatMap((c) => { const coords = parseCinemaCoords(c); return coords ? [{ cinema: c, coords }] : []; });
+
     const trackedUnmapped = cinemas.filter(
         (c) => c.location === selectedCity && parseCinemaCoords(c) === null,
     );
 
-    function trackedMarkerColor(cinema: CinemaTable): string {
-        return activeCinemaIds.has(cinema.id) ? '#ef4444' : '#f97316';
+    /** Match an OSM cinema to a tracked cinema by website hostname or proximity */
+    function matchTracked(osm: OsmCinema): CinemaTable | null {
+        // 1. Website match (most reliable)
+        if (osm.website) {
+            const osmHost = normalizeHost(osm.website);
+            const byWebsite = trackedWithCoords.find(({ cinema }) => {
+                const w = (cinema as CinemaTable & { website?: string | null }).website;
+                return w && normalizeHost(w) === osmHost;
+            });
+            if (byWebsite) return byWebsite.cinema;
+        }
+
+        // 2. Proximity fallback (~200m)
+        let best: { cinema: CinemaTable; distSq: number } | null = null;
+        for (const { cinema, coords } of trackedWithCoords) {
+            const d = (osm.lat - coords.lat) ** 2 + (osm.lng - coords.lng) ** 2;
+            if (d < PROXIMITY_THRESHOLD_SQ && (!best || d < best.distSq)) best = { cinema, distSq: d };
+        }
+        return best?.cinema ?? null;
     }
+
+    function osmStatus(osm: OsmCinema): { status: MarkerStatus; trackedCinema: CinemaTable | null } {
+        const trackedCinema = matchTracked(osm);
+        if (!trackedCinema) return { status: 'untracked', trackedCinema: null };
+        return { status: activeCinemaIds.has(trackedCinema.id) ? 'active' : 'tracked', trackedCinema };
+    }
+
+    // Tracked cinemas that didn't match any OSM entry (fallback circles)
+    const osmMatchedIds = new Set(
+        osmCinemas.map((osm) => matchTracked(osm)?.id).filter((id): id is number => id != null),
+    );
+    const unmatchedTracked = trackedWithCoords.filter(({ cinema }) => !osmMatchedIds.has(cinema.id));
 
     return (
         <div className="relative" style={{ height: 'calc(100vh - 220px)', minHeight: '400px' }}>
@@ -195,7 +211,6 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                 zoom={10}
                 style={{ height: '100%', width: '100%', borderRadius: '8px' }}
             >
-                <MapSetup />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -203,76 +218,80 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
 
                 {boundaryGeojson && (
                     <>
-                        <GeoJSON
-                            key={selectedCity}
-                            data={boundaryGeojson}
-                            style={{ color: '#ef4444', weight: 2, fillOpacity: 0.04, fillColor: '#ef4444' }}
-                        />
+                        <GeoJSON key={selectedCity} data={boundaryGeojson}
+                            style={{ color: '#ef4444', weight: 2, fillOpacity: 0.04, fillColor: '#ef4444' }} />
                         <BoundsFitter geojson={boundaryGeojson} />
                     </>
                 )}
 
-                {/* All OSM cinemas in city — favicon if website available, grey dot otherwise */}
-                {osmCinemas.map((osm) =>
-                    osm.website ? (
-                        <Marker
-                            key={osm.id}
-                            position={[osm.lat, osm.lng]}
-                            icon={faviconIcon(osm.website)}
-                            pane="osmCinemasPane"
-                        >
-                            <Popup>
-                                <div className="text-sm">
-                                    <p className="font-semibold">{osm.name}</p>
-                                    <a href={osm.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline">{osm.website}</a>
-                                </div>
-                            </Popup>
+                {/* OSM cinemas — sorted so active ones paint last (on top) */}
+                {[...osmCinemas]
+                    .map((osm) => ({ osm, ...osmStatus(osm) }))
+                    .sort((a, b) => ({ untracked: 0, tracked: 1, active: 2 }[a.status] - { untracked: 0, tracked: 1, active: 2 }[b.status]))
+                    .map(({ osm, status, trackedCinema }) => {
+                        const count = trackedCinema ? (cinemaMovieCounts.get(trackedCinema.id) ?? 0) : 0;
+                        const popupContent = (
+                            <div className="text-sm min-w-36">
+                                <p className="font-semibold">{trackedCinema?.name ?? osm.name}</p>
+                                {trackedCinema ? (
+                                    <>
+                                        {count > 0 && <p className="text-red-500 text-xs mt-0.5">{count} film{count !== 1 ? 's' : ''} showing</p>}
+                                        {count === 0 && <p className="text-neutral-400 text-xs mt-0.5">No screenings in current range</p>}
+                                    </>
+                                ) : (
+                                    osm.website
+                                        ? <a href={osm.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline break-all">{osm.website}</a>
+                                        : <p className="text-neutral-400 text-xs">Not yet tracked</p>
+                                )}
+                            </div>
+                        );
+
+                        const website = osm.website
+                            ?? (trackedCinema as CinemaTable & { website?: string | null })?.website
+                            ?? null;
+
+                        return website ? (
+                            <Marker key={osm.id} position={[osm.lat, osm.lng]}
+                                icon={faviconIcon(website, status, count)}>
+                                <Popup>{popupContent}</Popup>
+                            </Marker>
+                        ) : (
+                            <CircleMarker key={osm.id} center={[osm.lat, osm.lng]}
+                                radius={status === 'active' ? 8 : status === 'tracked' ? 6 : 5}
+                                pathOptions={{ color: CIRCLE_COLOR[status], fillColor: CIRCLE_COLOR[status], fillOpacity: status === 'untracked' ? 0.45 : 0.85, weight: 1.5 }}>
+                                <Popup>{popupContent}</Popup>
+                            </CircleMarker>
+                        );
+                    })}
+
+                {/* Fallback: tracked cinemas with no OSM counterpart */}
+                {unmatchedTracked.map(({ cinema, coords }) => {
+                    const status: MarkerStatus = activeCinemaIds.has(cinema.id) ? 'active' : 'tracked';
+                    const count = cinemaMovieCounts.get(cinema.id) ?? 0;
+                    const w = (cinema as CinemaTable & { website?: string | null }).website;
+                    const color = CIRCLE_COLOR[status];
+                    const popupContent = (
+                        <div className="text-sm min-w-36">
+                            <p className="font-semibold">{cinema.name}</p>
+                            {count > 0 ? <p className="text-red-500 text-xs mt-0.5">{count} film{count !== 1 ? 's' : ''} showing</p>
+                                : <p className="text-neutral-400 text-xs mt-0.5">No screenings in current range</p>}
+                        </div>
+                    );
+                    return w ? (
+                        <Marker key={cinema.id} position={[coords.lat, coords.lng]}
+                            icon={faviconIcon(w, status, count)}>
+                            <Popup>{popupContent}</Popup>
                         </Marker>
                     ) : (
-                        <CircleMarker
-                            key={osm.id}
-                            center={[osm.lat, osm.lng]}
-                            radius={7}
-                            pane="osmCinemasPane"
-                            pathOptions={{ color: '#6b7280', fillColor: '#6b7280', fillOpacity: 0.7, weight: 1.5 }}
-                        >
-                            <Popup>
-                                <div className="text-sm">
-                                    <p className="font-semibold">{osm.name}</p>
-                                    <p className="text-neutral-400 text-xs">Not yet tracked</p>
-                                </div>
-                            </Popup>
-                        </CircleMarker>
-                    )
-                )}
-
-                {/* Tracked cinemas — red (active) or orange (no screenings), higher pane */}
-                {trackedMapped.map((cinema) => {
-                    const coords = parseCinemaCoords(cinema)!;
-                    const color = trackedMarkerColor(cinema);
-                    return (
-                        <CircleMarker
-                            key={cinema.id}
-                            center={[coords.lat, coords.lng]}
-                            radius={10}
-                            pane="trackedCinemasPane"
-                            pathOptions={{ color, fillColor: color, fillOpacity: 0.9, weight: 2 }}
-                        >
-                            <Popup>
-                                <div className="text-sm">
-                                    <p className="font-semibold">{cinema.name}</p>
-                                    {activeCinemaIds.has(cinema.id)
-                                        ? <p className="text-green-600 text-xs mt-1">Screenings available</p>
-                                        : <p className="text-neutral-400 text-xs mt-1">No screenings in current range</p>
-                                    }
-                                </div>
-                            </Popup>
+                        <CircleMarker key={cinema.id} center={[coords.lat, coords.lng]}
+                            radius={status === 'active' ? 8 : 6}
+                            pathOptions={{ color, fillColor: color, fillOpacity: 0.85, weight: 1.5 }}>
+                            <Popup>{popupContent}</Popup>
                         </CircleMarker>
                     );
                 })}
             </MapContainer>
 
-            {/* OSM loading / error indicator */}
             {(osmLoading || osmError) && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-neutral-300">
                     {osmLoading ? 'Loading cinemas from OpenStreetMap…' : osmError}
@@ -280,30 +299,25 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
             )}
 
             {/* Legend */}
-            <div className="absolute bottom-6 left-4 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg p-3 text-xs text-white space-y-1">
+            <div className="absolute bottom-6 left-4 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg p-3 text-xs text-white space-y-1.5">
                 <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full inline-block" style={{ background: '#ef4444' }} />
-                    <span>Tracked — screenings this range</span>
+                    <img src="https://www.google.com/s2/favicons?domain=example.com&sz=32" width="14" height="14" className="rounded-sm" style={{ filter: STATUS_FILTER.active }} />
+                    <span>Tracked — screenings available</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full inline-block" style={{ background: '#f97316' }} />
+                    <img src="https://www.google.com/s2/favicons?domain=example.com&sz=32" width="14" height="14" className="rounded-sm" style={{ filter: STATUS_FILTER.tracked }} />
                     <span>Tracked — no current screenings</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#6b7280' }} />
+                    <img src="https://www.google.com/s2/favicons?domain=example.com&sz=32" width="14" height="14" className="rounded-sm" style={{ filter: STATUS_FILTER.untracked }} />
                     <span>On OSM — not yet tracked</span>
                 </div>
             </div>
 
-            {/* Tracked cinemas without coordinates */}
             {trackedUnmapped.length > 0 && (
                 <div className="absolute top-4 right-4 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg p-3 text-xs text-white max-w-48">
                     <p className="font-semibold mb-1 text-neutral-400">Missing coordinates:</p>
-                    <ul className="space-y-0.5">
-                        {trackedUnmapped.map((c) => (
-                            <li key={c.id}>{c.name}</li>
-                        ))}
-                    </ul>
+                    <ul className="space-y-0.5">{trackedUnmapped.map((c) => <li key={c.id}>{c.name}</li>)}</ul>
                 </div>
             )}
         </div>

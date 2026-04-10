@@ -119,6 +119,14 @@ function App() {
 
     const activeCinemaIds = new Set(screenings.map((s) => s.cinema_id));
 
+    // cinema id → number of unique films in current date range
+    const cinemaFilmSets = new Map<number, Set<number>>();
+    for (const s of screenings) {
+        if (!cinemaFilmSets.has(s.cinema_id)) cinemaFilmSets.set(s.cinema_id, new Set());
+        cinemaFilmSets.get(s.cinema_id)!.add(s.film_id);
+    }
+    const cinemaMovieCounts = new Map([...cinemaFilmSets].map(([id, films]) => [id, films.size]));
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -155,6 +163,7 @@ function App() {
                         cinemas={cinemas}
                         activeCinemaIds={activeCinemaIds}
                         selectedCity={city}
+                        cinemaMovieCounts={cinemaMovieCounts}
                     />
                 ) : visibleScreenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">

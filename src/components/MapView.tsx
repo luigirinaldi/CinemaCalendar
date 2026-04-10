@@ -80,7 +80,7 @@ function faviconIcon(website: string, available: boolean, count: number): L.DivI
     let domain: string;
     try { domain = new URL(website).hostname; } catch { domain = website; }
     const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    const size = available ? 16 : 12;
+    const size = 32;
     const filter = available ? 'none' : 'grayscale(100%) opacity(0.6)';
     const badge = available ? countBadgeHtml(count) : '';
     return L.divIcon({
@@ -95,12 +95,12 @@ function faviconIcon(website: string, available: boolean, count: number): L.DivI
 function initialsIcon(name: string, available: boolean, count: number): L.DivIcon {
     const words = name.replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
     const letters = words.slice(0, 2).map(w => w[0].toUpperCase()).join('');
-    const size = available ? 16 : 12;
-    const bg = available ? '#ef4444' : '#6b7280';
-    const opacity = available ? '1' : '0.6';
+    const size = 32;
+    const bg = available ? '#ef4444' : 'rgba(107,114,128,0.45)';
+    const shadow = available ? '0 1px 4px rgba(0,0,0,0.5)' : 'none';
     const badge = available ? countBadgeHtml(count) : '';
     return L.divIcon({
-        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px"><div style="width:${size}px;height:${size}px;background:${bg};color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${size <= 16 ? 7 : 8}px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,0.5);opacity:${opacity};letter-spacing:0">${letters}</div>${badge}</div>`,
+        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px;background:${bg};color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:${shadow}">${letters}${badge}</div>`,
         className: '',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
@@ -212,7 +212,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinema
             ? faviconIcon(website, available, count)
             : initialsIcon(name, available, count);
         return (
-            <Marker key={key} position={position} icon={icon}>
+            <Marker key={key} position={position} icon={icon} zIndexOffset={available ? 1000 : 100}>
                 <Popup>{popupContent}</Popup>
             </Marker>
         );

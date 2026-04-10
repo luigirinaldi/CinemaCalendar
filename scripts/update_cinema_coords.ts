@@ -53,9 +53,7 @@ async function fetchOsmCinemasForCity(areaId: number): Promise<OsmCinema[]> {
                 lastError = `${res.status} ${res.statusText}`;
                 if (attempt < 2) {
                     const wait = attempt * 8_000;
-                    console.log(
-                        `    ${res.status} from ${endpoint} — waiting ${wait / 1000}s…`
-                    );
+                    console.log(`    ${res.status} from ${endpoint} — waiting ${wait / 1000}s…`);
                     await new Promise((r) => setTimeout(r, wait));
                     continue;
                 }
@@ -87,11 +85,7 @@ async function fetchOsmCinemasForCity(areaId: number): Promise<OsmCinema[]> {
 }
 
 function normalize(name: string): string {
-    return name
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+    return name.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
 /** Jaccard similarity on word tokens, with substring and space-stripped comparisons */
@@ -115,10 +109,7 @@ function similarity(a: string, b: string): number {
     return union === 0 ? 0 : intersection / union;
 }
 
-function findBestMatch(
-    name: string,
-    candidates: OsmCinema[]
-): { match: OsmCinema; score: number } | null {
+function findBestMatch(name: string, candidates: OsmCinema[]): { match: OsmCinema; score: number } | null {
     let best: { match: OsmCinema; score: number } | null = null;
     for (const osm of candidates) {
         const score = similarity(name, osm.name);
@@ -136,18 +127,13 @@ async function main() {
     const db = await connectDB();
 
     try {
-        const cinemas = await db
-            .selectFrom('new_cinemas')
-            .selectAll()
-            .execute();
+        const cinemas = await db.selectFrom('new_cinemas').selectAll().execute();
         const cities = [...new Set(cinemas.map((c) => c.location))];
 
         for (const city of cities) {
             const areaId = CITY_AREA_IDS[city];
             if (!areaId) {
-                console.log(
-                    `\nSkipping ${city} — no Overpass area ID configured`
-                );
+                console.log(`\nSkipping ${city} — no Overpass area ID configured`);
                 continue;
             }
 
@@ -169,55 +155,38 @@ async function main() {
                 if (!result) {
                     console.log(`  ✗ ${cinema.name}`);
                     console.log(`      No OSM match found (score < 0.3)`);
-                    console.log(
-                        `      OSM candidates: ${osmCinemas.map((o) => `"${o.name}"`).join(', ')}`
-                    );
+                    console.log(`      OSM candidates: ${osmCinemas.map((o) => `"${o.name}"`).join(', ')}`);
                     continue;
                 }
 
                 const { match, score } = result;
-                const confidence =
-                    score >= 0.8 ? 'HIGH' : score >= 0.5 ? 'MED' : 'LOW';
+                const confidence = score >= 0.8 ? 'HIGH' : score >= 0.5 ? 'MED' : 'LOW';
                 const coords = formatCoords(match.lat, match.lng);
 
-                console.log(
-                    `  ${confidence === 'HIGH' ? '✓' : '?'} ${cinema.name}`
-                );
-                console.log(
-                    `      OSM match:   "${match.name}" (score: ${score.toFixed(2)}, ${confidence})`
-                );
-                console.log(
-                    `      Coordinates: ${coords}${match.website ? `  [${match.website}]` : ''}`
-                );
+                console.log(`  ${confidence === 'HIGH' ? '✓' : '?'} ${cinema.name}`);
+                console.log(`      OSM match:   "${match.name}" (score: ${score.toFixed(2)}, ${confidence})`);
+                console.log(`      Coordinates: ${coords}${match.website ? `  [${match.website}]` : ''}`);
 
                 if (confidence === 'LOW') {
-                    console.log(
-                        `      ⚠ Low confidence — skipping even with --apply`
-                    );
+                    console.log(`      ⚠ Low confidence — skipping even with --apply`);
                     continue;
                 }
 
                 if (apply) {
-                    const update: Record<string, unknown> = {
-                        coordinates: { lat: match.lat, lng: match.lng },
-                    };
+                    const update: Record<string, unknown> = { coordinates: { lat: match.lat, lng: match.lng } };
                     if (match.website) update.website = match.website;
                     await db
                         .updateTable('new_cinemas')
                         .set(update as any)
                         .where('id', '=', cinema.id)
                         .execute();
-                    console.log(
-                        `      → Updated coords${match.website ? ' + website' : ''} in DB`
-                    );
+                    console.log(`      → Updated coords${match.website ? ' + website' : ''} in DB`);
                 }
             }
         }
 
         if (!apply) {
-            console.log(
-                '\n(dry run) Re-run with --apply to write coordinates to the DB'
-            );
+            console.log('\n(dry run) Re-run with --apply to write coordinates to the DB');
         } else {
             console.log('\n✅ Done');
         }

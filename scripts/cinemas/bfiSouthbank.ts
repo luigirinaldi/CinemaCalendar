@@ -19,9 +19,7 @@ const BASE_URL = 'https://whatson.bfi.org.uk/Online';
 const FILMS_INDEX_URL = BASE_URL + '/article/filmsindex';
 const CONCURRENCY_LIMIT = 10;
 const MAX_RETRIES = 2;
-const TEST_LIMIT = process.env.BFI_TEST_LIMIT
-    ? parseInt(process.env.BFI_TEST_LIMIT)
-    : undefined;
+const TEST_LIMIT = process.env.BFI_TEST_LIMIT ? parseInt(process.env.BFI_TEST_LIMIT) : undefined;
 const LONDON_TZ = 'Europe/London';
 
 const CINEMA: Cinema = {
@@ -77,27 +75,15 @@ function release(sem: Semaphore): void {
     }
 }
 
-async function extractFilmInfo(
-    page: Awaited<ReturnType<BrowserContext['newPage']>>
-): Promise<FilmInfo> {
+async function extractFilmInfo(page: Awaited<ReturnType<BrowserContext['newPage']>>): Promise<FilmInfo> {
     const info: FilmInfo = {};
     const wrappers = page.locator('li.Film-info__information__wrapper');
     const count = await wrappers.count();
 
     for (let i = 0; i < count; i++) {
         const li = wrappers.nth(i);
-        const heading = (
-            await li
-                .locator('p.Film-info__information__heading')
-                .textContent()
-                .catch(() => null)
-        )?.trim();
-        const value = (
-            await li
-                .locator('p.Film-info__information__value')
-                .textContent()
-                .catch(() => null)
-        )?.trim();
+        const heading = (await li.locator('p.Film-info__information__heading').textContent().catch(() => null))?.trim();
+        const value = (await li.locator('p.Film-info__information__value').textContent().catch(() => null))?.trim();
         if (!value) continue;
 
         if (heading === 'Director' || heading === 'Directors') {
@@ -123,9 +109,7 @@ function parseStartDate(dateStr: string): string | undefined {
     if (dt.isValid) return dt.toISO() ?? undefined;
 
     // Try "dd/MM/yyyy HH:mm:ss" (Spektrix format)
-    dt = DateTime.fromFormat(dateStr, 'dd/MM/yyyy HH:mm:ss', {
-        zone: LONDON_TZ,
-    });
+    dt = DateTime.fromFormat(dateStr, 'dd/MM/yyyy HH:mm:ss', { zone: LONDON_TZ });
     if (dt.isValid) return dt.toISO() ?? undefined;
 
     // Try "dd/MM/yyyy HH:mm"
@@ -133,9 +117,7 @@ function parseStartDate(dateStr: string): string | undefined {
     if (dt.isValid) return dt.toISO() ?? undefined;
 
     // Try "cccc d MMMM yyyy HH:mm" e.g. "Tuesday 25 March 2026 18:00"
-    dt = DateTime.fromFormat(dateStr, 'cccc d MMMM yyyy HH:mm', {
-        zone: LONDON_TZ,
-    });
+    dt = DateTime.fromFormat(dateStr, 'cccc d MMMM yyyy HH:mm', { zone: LONDON_TZ });
     if (dt.isValid) return dt.toISO() ?? undefined;
 
     return undefined;
@@ -150,13 +132,9 @@ async function processFilm(
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
         await acquire(sem);
         if (attempt > 1) {
-            console.log(
-                `${LOG_PREFIX} Retry ${attempt - 1}/${MAX_RETRIES}: "${filmTitle}"`
-            );
+            console.log(`${LOG_PREFIX} Retry ${attempt - 1}/${MAX_RETRIES}: "${filmTitle}"`);
         } else {
-            console.log(
-                `${LOG_PREFIX} Processing: "${filmTitle}" (${filmUrl})`
-            );
+            console.log(`${LOG_PREFIX} Processing: "${filmTitle}" (${filmUrl})`);
         }
         const page = await context.newPage();
         try {
@@ -166,29 +144,18 @@ async function processFilm(
             let articleContext: ArticleContext | null = null;
             try {
                 articleContext = await page.evaluate(
-                    () =>
-                        (
-                            window as unknown as {
-                                articleContext?: ArticleContext;
-                            }
-                        ).articleContext ?? null
+                    () => (window as unknown as { articleContext?: ArticleContext }).articleContext ?? null
                 );
             } catch (e) {
-                console.warn(
-                    `${LOG_PREFIX} Could not evaluate articleContext for "${filmTitle}": ${e}`
-                );
+                console.warn(`${LOG_PREFIX} Could not evaluate articleContext for "${filmTitle}": ${e}`);
             }
 
             if (!articleContext) {
                 if (attempt <= MAX_RETRIES) {
-                    console.warn(
-                        `${LOG_PREFIX} No articleContext for "${filmTitle}" (attempt ${attempt}) — likely blocked, retrying`
-                    );
+                    console.warn(`${LOG_PREFIX} No articleContext for "${filmTitle}" (attempt ${attempt}) — likely blocked, retrying`);
                     continue;
                 }
-                console.warn(
-                    `${LOG_PREFIX} No articleContext for "${filmTitle}" after ${attempt} attempts — page may have no listings`
-                );
+                console.warn(`${LOG_PREFIX} No articleContext for "${filmTitle}" after ${attempt} attempts — page may have no listings`);
             }
 
             // Extract cover image
@@ -209,50 +176,38 @@ async function processFilm(
 
             // Extract director, country, year, duration, language from Film-info__information
             const filmInfo = await extractFilmInfo(page).catch((e) => {
-                console.warn(
-                    `${LOG_PREFIX} Error extracting film info for "${filmTitle}": ${e}`
-                );
+                console.warn(`${LOG_PREFIX} Error extracting film info for "${filmTitle}": ${e}`);
                 return {} as FilmInfo;
             });
             if (filmInfo.year === undefined) {
-                console.warn(
-                    `${LOG_PREFIX} Could not find release year for "${filmTitle}"`
-                );
+                console.warn(`${LOG_PREFIX} Could not find release year for "${filmTitle}"`);
             }
 
             const showings: FilmShowings['showings'] = [];
 
             if (articleContext?.searchNames && articleContext?.searchResults) {
                 const { searchNames, searchResults } = articleContext;
-                console.log(
-                    `${LOG_PREFIX} "${filmTitle}": ${searchResults.length} showings, fields: [${searchNames.join(', ')}]`
-                );
+                console.log(`${LOG_PREFIX} "${filmTitle}": ${searchResults.length} showings, fields: [${searchNames.join(', ')}]`);
                 for (const row of searchResults) {
                     const listing = Object.fromEntries(
                         searchNames.map((name, i) => [name, row[i]])
                     );
                     const startDateStr = listing['start_date'];
                     if (!startDateStr) {
-                        console.warn(
-                            `${LOG_PREFIX} Missing start_date for "${filmTitle}": ${JSON.stringify(listing)}`
-                        );
+                        console.warn(`${LOG_PREFIX} Missing start_date for "${filmTitle}": ${JSON.stringify(listing)}`);
                         continue;
                     }
 
                     const startTime = parseStartDate(String(startDateStr));
                     if (!startTime) {
-                        console.warn(
-                            `${LOG_PREFIX} Could not parse date "${startDateStr}" for "${filmTitle}"`
-                        );
+                        console.warn(`${LOG_PREFIX} Could not parse date "${startDateStr}" for "${filmTitle}"`);
                         continue;
                     }
                     showings.push({ startTime, bookingUrl: filmUrl });
                 }
             }
 
-            console.log(
-                `${LOG_PREFIX} "${filmTitle}": ${showings.length} showings parsed`
-            );
+            console.log(`${LOG_PREFIX} "${filmTitle}": ${showings.length} showings parsed`);
             return {
                 film: { title: filmTitle, url: filmUrl, coverUrl, ...filmInfo },
                 showings,
@@ -278,10 +233,7 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
         // Scrape index page for film links
         const indexPage = await context.newPage();
-        await indexPage.goto(FILMS_INDEX_URL, {
-            waitUntil: 'networkidle',
-            timeout: 60000,
-        });
+        await indexPage.goto(FILMS_INDEX_URL, { waitUntil: 'networkidle', timeout: 60000 });
 
         const filmLinks: { url: string; title: string }[] = [];
         const seenUrls = new Set<string>();
@@ -307,28 +259,19 @@ export async function scraper(): Promise<CinemaShowing[]> {
         await indexPage.close();
         console.log(`${LOG_PREFIX} Found ${filmLinks.length} films`);
 
-        const filmsToProcess =
-            TEST_LIMIT !== undefined
-                ? filmLinks.slice(0, TEST_LIMIT)
-                : filmLinks;
+        const filmsToProcess = TEST_LIMIT !== undefined ? filmLinks.slice(0, TEST_LIMIT) : filmLinks;
         if (TEST_LIMIT !== undefined) {
-            console.log(
-                `${LOG_PREFIX} Test mode: processing ${filmsToProcess.length} of ${filmLinks.length} films`
-            );
+            console.log(`${LOG_PREFIX} Test mode: processing ${filmsToProcess.length} of ${filmLinks.length} films`);
         }
 
         // Process all film pages concurrently (limited by semaphore)
         const sem = createSemaphore(CONCURRENCY_LIMIT);
 
         const filmShowings = await Promise.all(
-            filmsToProcess.map(({ url, title }) =>
-                processFilm(context, url, title, sem)
-            )
+            filmsToProcess.map(({ url, title }) => processFilm(context, url, title, sem))
         );
 
-        const withShowings = filmShowings.filter(
-            (fs) => fs.showings.length > 0
-        );
+        const withShowings = filmShowings.filter((fs) => fs.showings.length > 0);
         console.log(
             `${LOG_PREFIX} ${withShowings.length}/${filmShowings.length} films have showings`
         );

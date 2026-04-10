@@ -37,10 +37,14 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
     // Collect flat list of (title, url, startTime, duration)
     const flatShowings = result
-        .filter((event) => event.slot_tag === 'Cinema')
+        .filter(
+            (event) => event.slot_tag === 'Cinema'
+        )
         .flatMap((event) => {
             let duration: number | undefined;
-            const durationMatch = (event.duration ?? '').match(/(\d+)/);
+            const durationMatch = (event.duration ?? '').match(
+                /(\d+)/
+            );
             if (!durationMatch) {
                 console.warn(
                     `${LOG_PREFIX} Could not parse duration from '${event.run_time}' for '${event.title}'`

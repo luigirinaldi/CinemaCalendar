@@ -73,19 +73,11 @@ export async function dryRunStoreCinemaData(
     const toKey = (title: string, time: string) =>
         `${title}|${new Date(time).getTime()}`;
 
-    const currentKeys = new Set(
-        currentShowings.map((s) => toKey(s.title, s.start_time))
-    );
-    const incomingKeys = new Set(
-        incomingShowings.map((s) => toKey(s.title, s.start_time))
-    );
+    const currentKeys = new Set(currentShowings.map((s) => toKey(s.title, s.start_time)));
+    const incomingKeys = new Set(incomingShowings.map((s) => toKey(s.title, s.start_time)));
 
-    const added = incomingShowings.filter(
-        (s) => !currentKeys.has(toKey(s.title, s.start_time))
-    );
-    const removed = currentShowings.filter(
-        (s) => !incomingKeys.has(toKey(s.title, s.start_time))
-    );
+    const added = incomingShowings.filter((s) => !currentKeys.has(toKey(s.title, s.start_time)));
+    const removed = currentShowings.filter((s) => !incomingKeys.has(toKey(s.title, s.start_time)));
 
     if (added.length === 0 && removed.length === 0) {
         console.log(`${LOG_PREFIX} No changes`);
@@ -112,12 +104,7 @@ export async function storeCinemaData(
         .insertInto('new_cinemas')
         .values({ ...rest, default_lang: defaultLanguage, last_updated: now })
         .onConflict((oc) =>
-            oc
-                .column('name')
-                .doUpdateSet({
-                    last_updated: now,
-                    website: cinemaShowing.cinema.website ?? null,
-                })
+            oc.column('name').doUpdateSet({ last_updated: now, website: cinemaShowing.cinema.website ?? null })
         )
         .returning('id')
         .executeTakeFirstOrThrow(

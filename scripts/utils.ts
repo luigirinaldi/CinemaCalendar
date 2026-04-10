@@ -18,18 +18,14 @@ export async function scrapeAndStore(
         if (dryRun) {
             await db
                 .transaction()
-                .execute(
-                    async (trx) => await dryRunStoreCinemaData(trx, cinema)
-                );
+                .execute(async (trx) => await dryRunStoreCinemaData(trx, cinema));
         } else {
             await db
                 .transaction()
                 .execute(async (trx) => await storeCinemaData(trx, cinema));
         }
     }
-    console.log(
-        `[main]${dryRun ? '[dry-run]' : ''} DB update for ${name} completed`
-    );
+    console.log(`[main]${dryRun ? '[dry-run]' : ''} DB update for ${name} completed`);
 }
 
 /**

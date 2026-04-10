@@ -56,6 +56,19 @@ async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<Osm
         }));
 }
 
+function MapSetup() {
+    const map = useMap();
+    useEffect(() => {
+        if (!map.getPane('osmCinemasPane')) {
+            map.createPane('osmCinemasPane').style.zIndex = '400';
+        }
+        if (!map.getPane('trackedCinemasPane')) {
+            map.createPane('trackedCinemasPane').style.zIndex = '450';
+        }
+    }, [map]);
+    return null;
+}
+
 function BoundsFitter({ geojson }: { geojson: GeoJsonObject | null }) {
     const map = useMap();
     const prevGeojson = useRef<GeoJsonObject | null>(null);
@@ -87,7 +100,8 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
 
     useEffect(() => {
         const url = BOUNDARY_URLS[selectedCity];
-        if (!url) { setBoundaryGeojson(null); return; }
+        setBoundaryGeojson(null); // clear stale boundary immediately on city change
+        if (!url) return;
         const controller = new AbortController();
         fetch(url, { signal: controller.signal })
             .then((r) => r.json())
@@ -155,6 +169,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                 zoom={10}
                 style={{ height: '100%', width: '100%', borderRadius: '8px' }}
             >
+                <MapSetup />
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -171,12 +186,13 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                     </>
                 )}
 
-                {/* All OSM cinemas in city — grey */}
+                {/* All OSM cinemas in city — grey, lower pane */}
                 {osmCinemas.map((osm) => (
                     <CircleMarker
                         key={osm.id}
                         center={[osm.lat, osm.lng]}
                         radius={7}
+                        pane="osmCinemasPane"
                         pathOptions={{ color: '#6b7280', fillColor: '#6b7280', fillOpacity: 0.7, weight: 1.5 }}
                     >
                         <Popup>
@@ -188,7 +204,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                     </CircleMarker>
                 ))}
 
-                {/* Tracked cinemas — red (active) or orange (no screenings) — rendered on top */}
+                {/* Tracked cinemas — red (active) or orange (no screenings), higher pane */}
                 {trackedMapped.map((cinema) => {
                     const coords = parseCinemaCoords(cinema)!;
                     const color = trackedMarkerColor(cinema);
@@ -197,6 +213,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                             key={cinema.id}
                             center={[coords.lat, coords.lng]}
                             radius={10}
+                            pane="trackedCinemasPane"
                             pathOptions={{ color, fillColor: color, fillOpacity: 0.9, weight: 2 }}
                         >
                             <Popup>

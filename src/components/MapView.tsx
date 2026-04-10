@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { GeoJsonObject } from 'geojson';
@@ -15,6 +15,7 @@ interface OsmCinema {
     name: string;
     lat: number;
     lng: number;
+    website?: string;
 }
 
 // OSM relation IDs → Overpass area IDs (relation ID + 3,600,000,000)
@@ -46,14 +47,39 @@ async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<Osm
     const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`Overpass error ${res.status}`);
     const data = await res.json();
-    return (data.elements as Array<{ id: number; tags?: { name?: string }; lat?: number; lon?: number; center?: { lat: number; lon: number } }>)
+    type OsmElement = {
+        id: number;
+        tags?: { name?: string; website?: string; 'contact:website'?: string };
+        lat?: number;
+        lon?: number;
+        center?: { lat: number; lon: number };
+    };
+    return (data.elements as OsmElement[])
         .filter((el) => el.lat != null || el.center != null)
         .map((el) => ({
             id: el.id,
             name: el.tags?.name ?? 'Unknown cinema',
             lat: el.lat ?? el.center!.lat,
             lng: el.lon ?? el.center!.lon,
+            website: el.tags?.website ?? el.tags?.['contact:website'],
         }));
+}
+
+function faviconIcon(website: string): L.DivIcon {
+    let domain: string;
+    try {
+        domain = new URL(website).hostname;
+    } catch {
+        domain = website;
+    }
+    const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+    return L.divIcon({
+        html: `<img src="${src}" width="20" height="20" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.6)" onerror="this.style.display='none'" />`,
+        className: '',
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+        popupAnchor: [0, -12],
+    });
 }
 
 function MapSetup() {
@@ -186,23 +212,39 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                     </>
                 )}
 
-                {/* All OSM cinemas in city — grey, lower pane */}
-                {osmCinemas.map((osm) => (
-                    <CircleMarker
-                        key={osm.id}
-                        center={[osm.lat, osm.lng]}
-                        radius={7}
-                        pane="osmCinemasPane"
-                        pathOptions={{ color: '#6b7280', fillColor: '#6b7280', fillOpacity: 0.7, weight: 1.5 }}
-                    >
-                        <Popup>
-                            <div className="text-sm">
-                                <p className="font-semibold">{osm.name}</p>
-                                <p className="text-neutral-400 text-xs">Not yet tracked</p>
-                            </div>
-                        </Popup>
-                    </CircleMarker>
-                ))}
+                {/* All OSM cinemas in city — favicon if website available, grey dot otherwise */}
+                {osmCinemas.map((osm) =>
+                    osm.website ? (
+                        <Marker
+                            key={osm.id}
+                            position={[osm.lat, osm.lng]}
+                            icon={faviconIcon(osm.website)}
+                            pane="osmCinemasPane"
+                        >
+                            <Popup>
+                                <div className="text-sm">
+                                    <p className="font-semibold">{osm.name}</p>
+                                    <a href={osm.website} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline">{osm.website}</a>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    ) : (
+                        <CircleMarker
+                            key={osm.id}
+                            center={[osm.lat, osm.lng]}
+                            radius={7}
+                            pane="osmCinemasPane"
+                            pathOptions={{ color: '#6b7280', fillColor: '#6b7280', fillOpacity: 0.7, weight: 1.5 }}
+                        >
+                            <Popup>
+                                <div className="text-sm">
+                                    <p className="font-semibold">{osm.name}</p>
+                                    <p className="text-neutral-400 text-xs">Not yet tracked</p>
+                                </div>
+                            </Popup>
+                        </CircleMarker>
+                    )
+                )}
 
                 {/* Tracked cinemas — red (active) or orange (no screenings), higher pane */}
                 {trackedMapped.map((cinema) => {
@@ -248,8 +290,8 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                     <span>Tracked — no current screenings</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full inline-block" style={{ background: '#6b7280' }} />
-                    <span>Cinema on OSM (not yet tracked)</span>
+                    <span className="w-3 h-3 rounded-sm inline-block" style={{ background: '#6b7280' }} />
+                    <span>On OSM — not yet tracked</span>
                 </div>
             </div>
 

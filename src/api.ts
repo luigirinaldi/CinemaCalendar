@@ -6,7 +6,6 @@ export type FilmTable = Tables<'new_films'>;
 export type CinemaTable = Tables<'new_cinemas'>;
 export type ShowingsTable = Tables<'new_showings'>;
 
-
 export type TMDBFilm = {
     id: number;
     created_at: string;
@@ -30,10 +29,10 @@ export type TMDBFilm = {
 };
 
 // Extended film type used by the frontend: includes a resolved poster_url
-export type FilmWithPoster = FilmTable & { 
+export type FilmWithPoster = FilmTable & {
     poster_url?: string | null;
     tmdb_info: TMDBFilm | null;
- };
+};
 
 export type FilmWithShowingsAndTMDB = FilmTable & {
     new_showings: ShowingsTable[];
@@ -113,9 +112,15 @@ export const fetchCinemas = async (): Promise<CinemaTable[]> => {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const screeningsCache = new Map<string, { data: FilmWithShowingsAndTMDB[]; fetchedAt: number }>();
+const screeningsCache = new Map<
+    string,
+    { data: FilmWithShowingsAndTMDB[]; fetchedAt: number }
+>();
 
-function screeningsCacheKey(date_range: [Date, Date] | null, cinema_ids: number[]): string {
+function screeningsCacheKey(
+    date_range: [Date, Date] | null,
+    cinema_ids: number[]
+): string {
     const ids = [...cinema_ids].sort().join(',');
     const range = date_range
         ? `${date_range[0].toISOString()}|${date_range[1].toISOString()}`
@@ -123,7 +128,11 @@ function screeningsCacheKey(date_range: [Date, Date] | null, cinema_ids: number[
     return `${ids}::${range}`;
 }
 
-export type LetterboxdFilm = { slug: string; title: string; year: number | null };
+export type LetterboxdFilm = {
+    slug: string;
+    title: string;
+    year: number | null;
+};
 
 // VITE_FUNCTIONS_URL overrides the functions endpoint (useful for local dev).
 // Falls back to the standard Supabase functions URL derived from VITE_SUPABASE_URL.
@@ -131,7 +140,9 @@ const functionsUrl =
     import.meta.env.VITE_FUNCTIONS_URL ??
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`;
 
-export const fetchLetterboxdList = async (username: string): Promise<LetterboxdFilm[]> => {
+export const fetchLetterboxdList = async (
+    username: string
+): Promise<LetterboxdFilm[]> => {
     const res = await fetch(`${functionsUrl}/letterboxd-list`, {
         method: 'POST',
         headers: {
@@ -154,29 +165,67 @@ export const fetchScreenings = async (
 ): Promise<FilmWithShowingsAndTMDB[]> => {
     const key = screeningsCacheKey(date_range, cinema_ids);
     const cached = screeningsCache.get(key);
+    let data: FilmWithShowingsAndTMDB[];
     if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
-        return cached.data;
-    }
-
-    let response;
-    if (date_range === null) {
-        response = await supabase
-            .from('new_films')
-            .select('*, new_showings!inner(*), tmdb_films(*)')
-            .in('cinema_id', cinema_ids);
+        data = cached.data;
     } else {
-        const [start, end] = date_range;
-        response = await supabase
-            .from('new_films')
-            .select('*, new_showings!inner(*), tmdb_films(*)')
-            .in('cinema_id', cinema_ids)
-            .lte('new_showings.start_time', end.toISOString())
-            .gte('new_showings.start_time', start.toISOString());
-    }
-    if (response.error !== null || response.data === null)
-        throw new Error(`Failed to fetch screenings: ${response.error}`);
+        let response;
+        if (date_range === null) {
+            response = await supabase
+                .from('new_films')
+                .select('*, new_showings!inner(*), tmdb_films(*)')
+                .gte('new_showings.start_time', new Date().toISOString())
+                .in('cinema_id', cinema_ids);
+        } else {
+            const [start, end] = date_range;
+            response = await supabase
+                .from('new_films')
+                .select('*, new_showings!inner(*), tmdb_films(*)')
+                .in('cinema_id', cinema_ids)
+                .lte('new_showings.start_time', end.toISOString())
+                .gte('new_showings.start_time', start.toISOString());
+        }
+        if (response.error !== null || response.data === null)
+            throw new Error(`Failed to fetch screenings: ${response.error}`);
 
-    const data = response.data as FilmWithShowingsAndTMDB[];
-    screeningsCache.set(key, { data, fetchedAt: Date.now() });
+        data = response.data as FilmWithShowingsAndTMDB[];
+        screeningsCache.set(key, { data, fetchedAt: Date.now() });
+    }
+    if (date_range !== null) {
+        const today = new Date();
+        console.log(date_range, today);
+        const [start, end] = date_range;
+        console.log(
+            today.getUTCDate(),
+            today.getUTCMonth(),
+            today.getUTCFullYear(),
+            start.getUTCDate(),
+            start.getUTCMonth(),
+            start.getUTCFullYear()
+        );
+        if (
+            today.getUTCDay() === start.getUTCDay() &&
+            today.getUTCMonth() === start.getUTCMonth() &&
+            today.getUTCFullYear() === start.getUTCFullYear()
+        ) {
+            console.log('Entering here', today);
+            data = data
+                .map((value: FilmWithShowingsAndTMDB) => {
+                    return {
+                        ...value,
+                        new_showings: value.new_showings.filter((showing) => {
+                            if (new Date(showing.start_time) >= today) {
+                                return showing;
+                            }
+                        }),
+                    };
+                })
+                .filter((value) => {
+                    if (value.new_showings.length > 0) {
+                        return value;
+                    }
+                });
+        }
+    }
     return data;
 };

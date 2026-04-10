@@ -4,10 +4,16 @@ import { fetchLetterboxdList, type LetterboxdFilm } from '../api';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
-        active ? 'bg-red-700 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+        active
+            ? 'bg-red-700 text-white'
+            : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
     }`;
 
-type AppliedFilter = { username: string; films: LetterboxdFilm[]; collapsed: boolean };
+type AppliedFilter = {
+    username: string;
+    films: LetterboxdFilm[];
+    collapsed: boolean;
+};
 
 function computeSlugs(
     filters: AppliedFilter[],
@@ -18,13 +24,21 @@ function computeSlugs(
     if (filters.length === 1 || mode === 'union') {
         return new Set(slugSets.flatMap((s) => [...s]));
     }
-    return slugSets.slice(1).reduce(
-        (acc, s) => new Set([...acc].filter((slug) => s.has(slug))),
-        new Set(slugSets[0])
-    );
+    return slugSets
+        .slice(1)
+        .reduce(
+            (acc, s) => new Set([...acc].filter((slug) => s.has(slug))),
+            new Set(slugSets[0])
+        );
 }
 
-function FilmList({ films, className }: { films: LetterboxdFilm[]; className?: string }) {
+function FilmList({
+    films,
+    className,
+}: {
+    films: LetterboxdFilm[];
+    className?: string;
+}) {
     return (
         <ul className={`divide-y divide-neutral-800 ${className ?? ''}`}>
             {films.map((film) => (
@@ -37,7 +51,11 @@ function FilmList({ films, className }: { films: LetterboxdFilm[]; className?: s
                     >
                         <span className="text-neutral-600">↗</span>
                         <span>{film.title}</span>
-                        {film.year && <span className="text-neutral-600">({film.year})</span>}
+                        {film.year && (
+                            <span className="text-neutral-600">
+                                ({film.year})
+                            </span>
+                        )}
                     </a>
                 </li>
             ))}
@@ -53,10 +71,14 @@ export default function LetterboxdFilter({
     const [username, setUsername] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [pendingFilms, setPendingFilms] = useState<LetterboxdFilm[] | null>(null);
+    const [pendingFilms, setPendingFilms] = useState<LetterboxdFilm[] | null>(
+        null
+    );
     const [pendingUsername, setPendingUsername] = useState('');
     const [appliedFilters, setAppliedFilters] = useState<AppliedFilter[]>([]);
-    const [filterMode, setFilterMode] = useState<'union' | 'intersect'>('union');
+    const [filterMode, setFilterMode] = useState<'union' | 'intersect'>(
+        'union'
+    );
     const [panelCollapsed, setPanelCollapsed] = useState(false);
 
     const handleFetch = async () => {
@@ -70,7 +92,9 @@ export default function LetterboxdFilter({
             setPendingFilms(films);
             setPendingUsername(trimmed);
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to fetch watchlist');
+            setError(
+                e instanceof Error ? e.message : 'Failed to fetch watchlist'
+            );
         } finally {
             setLoading(false);
         }
@@ -78,11 +102,22 @@ export default function LetterboxdFilter({
 
     const handleApply = () => {
         if (!pendingFilms) return;
-        const newFilters = appliedFilters.some((f) => f.username === pendingUsername)
+        const newFilters = appliedFilters.some(
+            (f) => f.username === pendingUsername
+        )
             ? appliedFilters.map((f) =>
-                  f.username === pendingUsername ? { ...f, films: pendingFilms } : f
+                  f.username === pendingUsername
+                      ? { ...f, films: pendingFilms }
+                      : f
               )
-            : [...appliedFilters, { username: pendingUsername, films: pendingFilms, collapsed: false }];
+            : [
+                  ...appliedFilters,
+                  {
+                      username: pendingUsername,
+                      films: pendingFilms,
+                      collapsed: false,
+                  },
+              ];
         setAppliedFilters(newFilters);
         onChange(computeSlugs(newFilters, filterMode));
         setPendingFilms(null);
@@ -108,7 +143,9 @@ export default function LetterboxdFilter({
 
     const toggleFilterCollapsed = (uname: string) => {
         setAppliedFilters((prev) =>
-            prev.map((f) => (f.username === uname ? { ...f, collapsed: !f.collapsed } : f))
+            prev.map((f) =>
+                f.username === uname ? { ...f, collapsed: !f.collapsed } : f
+            )
         );
     };
 
@@ -116,7 +153,9 @@ export default function LetterboxdFilter({
 
     return (
         <div>
-            <label className="text-sm text-neutral-400 mb-2 block">Letterboxd Watchlist</label>
+            <label className="text-sm text-neutral-400 mb-2 block">
+                Letterboxd Watchlist
+            </label>
 
             <div className="flex gap-2">
                 <input
@@ -161,7 +200,9 @@ export default function LetterboxdFilter({
                                 onClick={handleApply}
                                 className="px-3 py-1 rounded bg-red-700 text-white text-xs hover:bg-red-600 transition"
                             >
-                                {appliedFilters.some((f) => f.username === pendingUsername)
+                                {appliedFilters.some(
+                                    (f) => f.username === pendingUsername
+                                )
                                     ? 'Update'
                                     : appliedFilters.length > 0
                                       ? 'Add filter'
@@ -175,7 +216,10 @@ export default function LetterboxdFilter({
                             </button>
                         </div>
                     </div>
-                    <FilmList films={pendingFilms} className="overflow-y-auto max-h-64" />
+                    <FilmList
+                        films={pendingFilms}
+                        className="overflow-y-auto max-h-64"
+                    />
                 </div>
             )}
 
@@ -210,7 +254,9 @@ export default function LetterboxdFilter({
                                         Union
                                     </button>
                                     <button
-                                        onClick={() => handleSetMode('intersect')}
+                                        onClick={() =>
+                                            handleSetMode('intersect')
+                                        }
                                         className={`px-2 py-0.5 transition ${filterMode === 'intersect' ? 'bg-red-700 text-white' : 'bg-neutral-700 text-neutral-300 hover:bg-neutral-600'}`}
                                     >
                                         Intersect
@@ -231,37 +277,54 @@ export default function LetterboxdFilter({
                         <div className="max-h-48 overflow-y-auto">
                             {appliedFilters.length === 1 ? (
                                 <FilmList films={appliedFilters[0].films} />
-                            ) : appliedFilters.map((filter, i) => (
-                                <div
-                                    key={filter.username}
-                                    className={i < appliedFilters.length - 1 ? 'border-b border-neutral-700' : ''}
-                                >
-                                    <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-800/50">
-                                        <button
-                                            onClick={() => toggleFilterCollapsed(filter.username)}
-                                            className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white transition"
-                                        >
-                                            {filter.collapsed ? (
-                                                <ChevronDown className="w-3 h-3 text-neutral-500" />
-                                            ) : (
-                                                <ChevronUp className="w-3 h-3 text-neutral-500" />
-                                            )}
-                                            @{filter.username}
-                                            <span className="text-neutral-500">
-                                                — {filter.films.length} films
-                                            </span>
-                                        </button>
-                                        <button
-                                            onClick={() => handleRemoveFilter(filter.username)}
-                                            className="text-neutral-500 hover:text-neutral-300 text-xs transition px-1"
-                                            title={`Remove @${filter.username}`}
-                                        >
-                                            ✕
-                                        </button>
+                            ) : (
+                                appliedFilters.map((filter, i) => (
+                                    <div
+                                        key={filter.username}
+                                        className={
+                                            i < appliedFilters.length - 1
+                                                ? 'border-b border-neutral-700'
+                                                : ''
+                                        }
+                                    >
+                                        <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-800/50">
+                                            <button
+                                                onClick={() =>
+                                                    toggleFilterCollapsed(
+                                                        filter.username
+                                                    )
+                                                }
+                                                className="flex items-center gap-1.5 text-xs text-neutral-300 hover:text-white transition"
+                                            >
+                                                {filter.collapsed ? (
+                                                    <ChevronDown className="w-3 h-3 text-neutral-500" />
+                                                ) : (
+                                                    <ChevronUp className="w-3 h-3 text-neutral-500" />
+                                                )}
+                                                @{filter.username}
+                                                <span className="text-neutral-500">
+                                                    — {filter.films.length}{' '}
+                                                    films
+                                                </span>
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    handleRemoveFilter(
+                                                        filter.username
+                                                    )
+                                                }
+                                                className="text-neutral-500 hover:text-neutral-300 text-xs transition px-1"
+                                                title={`Remove @${filter.username}`}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                        {!filter.collapsed && (
+                                            <FilmList films={filter.films} />
+                                        )}
                                     </div>
-                                    {!filter.collapsed && <FilmList films={filter.films} />}
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </div>
                     )}
                 </div>

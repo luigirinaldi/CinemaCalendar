@@ -37,7 +37,11 @@ export const groupByMovie = (
     screeningsList: ShowingsTable[],
     getMovie: (id: number) => FilmTable | undefined
 ): Array<[string, ShowingsTable[]]> => {
-    type Group = { key: string; movie: FilmTable | null; screenings: ShowingsTable[] };
+    type Group = {
+        key: string;
+        movie: FilmTable | null;
+        screenings: ShowingsTable[];
+    };
     const groups: Group[] = [];
 
     screeningsList.forEach((s) => {
@@ -47,7 +51,9 @@ export const groupByMovie = (
         if (movie) {
             if (movie.tmdb_id != null) {
                 existing = groups.find(
-                    (g) => g.movie?.tmdb_id != null && g.movie.tmdb_id === movie.tmdb_id
+                    (g) =>
+                        g.movie?.tmdb_id != null &&
+                        g.movie.tmdb_id === movie.tmdb_id
                 );
             }
             if (!existing) {
@@ -55,8 +61,13 @@ export const groupByMovie = (
                     const gm = g.movie;
                     if (!gm) return false;
                     if (movie.title && gm.title !== movie.title) return false;
-                    if (movie.duration != null && gm.duration !== movie.duration) return false;
-                    if (movie.director && gm.director !== movie.director) return false;
+                    if (
+                        movie.duration != null &&
+                        gm.duration !== movie.duration
+                    )
+                        return false;
+                    if (movie.director && gm.director !== movie.director)
+                        return false;
                     return true;
                 });
             }

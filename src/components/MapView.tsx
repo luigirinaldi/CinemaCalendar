@@ -28,6 +28,9 @@ const BOUNDARY_URLS: Record<string, string> = {
     Padova: `${import.meta.env.BASE_URL}data/boundaries/padova.geojson`,
 };
 
+// Module-level cache so city switches don't re-fetch already-loaded data
+const osmCache = new Map<string, OsmCinema[]>();
+
 function parseCinemaCoords(cinema: CinemaTable): Coords | null {
     const c = cinema.coordinates as { lat: number | string; lng: number | string } | null;
     if (!c) return null;
@@ -37,10 +40,11 @@ function parseCinemaCoords(cinema: CinemaTable): Coords | null {
     return { lat, lng };
 }
 
-async function fetchOsmCinemas(areaId: number): Promise<OsmCinema[]> {
+async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<OsmCinema[]> {
     const query = `[out:json][timeout:25];area(${areaId})->.city;(node["amenity"="cinema"](area.city);way["amenity"="cinema"](area.city););out center;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`Overpass error ${res.status}`);
     const data = await res.json();
     return (data.elements as Array<{ id: number; tags?: { name?: string }; lat?: number; lon?: number; center?: { lat: number; lon: number } }>)
         .filter((el) => el.lat != null || el.center != null)
@@ -79,27 +83,56 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
     const [boundaryGeojson, setBoundaryGeojson] = useState<GeoJsonObject | null>(null);
     const [osmCinemas, setOsmCinemas] = useState<OsmCinema[]>([]);
     const [osmLoading, setOsmLoading] = useState(false);
+    const [osmError, setOsmError] = useState<string | null>(null);
 
     useEffect(() => {
         const url = BOUNDARY_URLS[selectedCity];
         if (!url) { setBoundaryGeojson(null); return; }
-        let cancelled = false;
-        fetch(url)
+        const controller = new AbortController();
+        fetch(url, { signal: controller.signal })
             .then((r) => r.json())
-            .then((data) => { if (!cancelled) setBoundaryGeojson(data); })
-            .catch(() => { if (!cancelled) setBoundaryGeojson(null); });
-        return () => { cancelled = true; };
+            .then((data) => setBoundaryGeojson(data))
+            .catch((err) => { if (err.name !== 'AbortError') setBoundaryGeojson(null); });
+        return () => controller.abort();
     }, [selectedCity]);
 
     useEffect(() => {
         const areaId = CITY_AREA_IDS[selectedCity];
         if (!areaId) { setOsmCinemas([]); return; }
-        let cancelled = false;
+
+        // Serve from cache immediately — no loading state needed
+        const cached = osmCache.get(selectedCity);
+        if (cached) {
+            setOsmCinemas(cached);
+            return;
+        }
+
+        const controller = new AbortController();
+        // 30s client-side timeout — Overpass server timeout is 25s, so this fires if the
+        // connection hangs before the server can respond
+        const timeoutId = setTimeout(() => controller.abort(), 30_000);
+
+        setOsmCinemas([]);   // clear stale data from previous city immediately
         setOsmLoading(true);
-        fetchOsmCinemas(areaId)
-            .then((results) => { if (!cancelled) { setOsmCinemas(results); setOsmLoading(false); } })
-            .catch(() => { if (!cancelled) { setOsmCinemas([]); setOsmLoading(false); } });
-        return () => { cancelled = true; };
+        setOsmError(null);
+
+        fetchOsmCinemas(areaId, controller.signal)
+            .then((results) => {
+                osmCache.set(selectedCity, results);
+                setOsmCinemas(results);
+                setOsmLoading(false);
+            })
+            .catch((err) => {
+                if (err.name === 'AbortError') return; // component unmounted or timed out
+                setOsmError('Could not load cinemas from OpenStreetMap.');
+                setOsmLoading(false);
+            })
+            .finally(() => clearTimeout(timeoutId));
+
+        return () => {
+            controller.abort();
+            clearTimeout(timeoutId);
+        };
     }, [selectedCity]);
 
     // Tracked cinemas in the selected city that have coordinates
@@ -180,10 +213,10 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity }: MapV
                 })}
             </MapContainer>
 
-            {/* OSM loading indicator */}
-            {osmLoading && (
+            {/* OSM loading / error indicator */}
+            {(osmLoading || osmError) && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-neutral-300">
-                    Loading cinemas from OpenStreetMap…
+                    {osmLoading ? 'Loading cinemas from OpenStreetMap…' : osmError}
                 </div>
             )}
 

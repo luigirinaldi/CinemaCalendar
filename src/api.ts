@@ -194,7 +194,7 @@ export const fetchScreenings = async (
     if (date_range !== null) {
         const today = new Date();
         console.log(date_range, today);
-        const [start, end] = date_range;
+        const [start, _end] = date_range;
         console.log(
             today.getUTCDate(),
             today.getUTCMonth(),

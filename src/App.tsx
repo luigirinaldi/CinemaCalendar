@@ -16,6 +16,7 @@ import AppHeader from './components/AppHeader';
 import MovieCard from './components/MovieCard';
 import ByCinemaView from './components/ByCinemaView';
 import TableView from './components/TableView';
+import MapView from './components/MapView';
 
 function App() {
     const [groupBy, setGroupBy] = useState<GroupBy>(getUrlSearchParams().groupBy ?? 'table');
@@ -116,6 +117,8 @@ function App() {
         ? screenings.filter((s) => visibleMovieIds.has(s.film_id))
         : screenings;
 
+    const activeCinemaIds = new Set(screenings.map((s) => s.cinema_id));
+
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -147,7 +150,13 @@ function App() {
                 onLetterboxdFilterChange={setLetterboxdFilter}
             />
             <main className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}>
-                {visibleScreenings.length === 0 ? (
+                {groupBy === 'map' ? (
+                    <MapView
+                        cinemas={cinemas}
+                        activeCinemaIds={activeCinemaIds}
+                        selectedCity={city}
+                    />
+                ) : visibleScreenings.length === 0 ? (
                     <div className="bg-neutral-800 rounded-lg p-12 text-center">
                         <Calendar className="w-16 h-16 mx-auto text-neutral-700 mb-4" />
                         <p className="text-xl text-neutral-400">

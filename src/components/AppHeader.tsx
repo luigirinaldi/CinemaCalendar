@@ -235,6 +235,12 @@ function GroupByTabs({
                 >
                     <MapPin className="inline w-4 h-4 mr-2" />By Cinema
                 </button>
+                <button
+                    onClick={() => onGroupByChange('map')}
+                    className={tabClass(groupBy === 'map')}
+                >
+                    <MapPin className="inline w-4 h-4 mr-2" />Map
+                </button>
             </div>
         </div>
     );

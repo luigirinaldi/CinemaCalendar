@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { GeoJsonObject } from 'geojson';
@@ -30,7 +30,9 @@ const BOUNDARY_URLS: Record<string, string> = {
 
 const osmCache = new Map<string, OsmCinema[]>();
 
-// ~200m in degrees²
+// ~111m threshold — coords come from OSM so matched pairs are essentially identical;
+// this just needs to be generous enough to survive minor float differences while
+// keeping truly separate buildings (e.g. BFI Southbank vs BFI IMAX ~300m away) apart.
 const PROXIMITY_THRESHOLD_SQ = 0.0001 ** 2;
 
 function parseCinemaCoords(cinema: CinemaTable): Coords | null {
@@ -69,17 +71,36 @@ async function fetchOsmCinemas(areaId: number, signal: AbortSignal): Promise<Osm
         }));
 }
 
+function countBadgeHtml(count: number): string {
+    if (count <= 0) return '';
+    return `<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:999px;font-size:8px;font-weight:700;min-width:12px;height:12px;display:flex;align-items:center;justify-content:center;padding:0 2px;box-shadow:0 1px 2px rgba(0,0,0,0.5)">${count}</span>`;
+}
+
 function faviconIcon(website: string, available: boolean, count: number): L.DivIcon {
     let domain: string;
     try { domain = new URL(website).hostname; } catch { domain = website; }
     const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
     const size = available ? 16 : 12;
-    const filter = available ? 'none' : 'grayscale(100%) opacity(0.45)';
-    const badge = available && count > 0
-        ? `<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:999px;font-size:8px;font-weight:700;min-width:12px;height:12px;display:flex;align-items:center;justify-content:center;padding:0 2px;box-shadow:0 1px 2px rgba(0,0,0,0.5)">${count}</span>`
-        : '';
+    const filter = available ? 'none' : 'grayscale(100%) opacity(0.6)';
+    const badge = available ? countBadgeHtml(count) : '';
     return L.divIcon({
         html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px"><img src="${src}" width="${size}" height="${size}" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.5);filter:${filter}" onerror="this.style.display='none'" />${badge}</div>`,
+        className: '',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, -(size / 2 + 6)],
+    });
+}
+
+function initialsIcon(name: string, available: boolean, count: number): L.DivIcon {
+    const words = name.replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean);
+    const letters = words.slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    const size = available ? 16 : 12;
+    const bg = available ? '#ef4444' : '#6b7280';
+    const opacity = available ? '1' : '0.6';
+    const badge = available ? countBadgeHtml(count) : '';
+    return L.divIcon({
+        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px"><div style="width:${size}px;height:${size}px;background:${bg};color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:${size <= 16 ? 7 : 8}px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,0.5);opacity:${opacity};letter-spacing:0">${letters}</div>${badge}</div>`,
         className: '',
         iconSize: [size, size],
         iconAnchor: [size / 2, size / 2],
@@ -151,25 +172,23 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinema
     );
 
     /** Match an OSM cinema to a tracked cinema.
-     *  Primary: website hostname comparison (uses new cinema.website DB column).
-     *  Fallback: proximity within ~200m.
+     *  When both OSM and DB cinema have websites: require hostname match AND proximity.
+     *  When either lacks a website: use proximity alone.
+     *  This prevents BFI Southbank/IMAX mixup (same hostname, different buildings).
      */
     function matchTracked(osm: OsmCinema): CinemaTable | null {
-        // Website match — compare OSM website against cinema.website in DB
-        if (osm.website) {
-            const osmHost = normalizeHost(osm.website);
-            if (osmHost) {
-                const byWebsite = trackedWithCoords.find(({ cinema }) =>
-                    cinema.website && normalizeHost(cinema.website) === osmHost
-                );
-                if (byWebsite) return byWebsite.cinema;
-            }
-        }
-        // Proximity fallback
+        const osmHost = osm.website ? normalizeHost(osm.website) : '';
+
         let best: { cinema: CinemaTable; distSq: number } | null = null;
         for (const { cinema, coords } of trackedWithCoords) {
-            const d = (osm.lat - coords.lat) ** 2 + (osm.lng - coords.lng) ** 2;
-            if (d < PROXIMITY_THRESHOLD_SQ && (!best || d < best.distSq)) best = { cinema, distSq: d };
+            const distSq = (osm.lat - coords.lat) ** 2 + (osm.lng - coords.lng) ** 2;
+            if (distSq >= PROXIMITY_THRESHOLD_SQ) continue;
+
+            const dbHost = cinema.website ? normalizeHost(cinema.website) : '';
+            // If both sides have a website, require hostname to also match
+            if (osmHost && dbHost && osmHost !== dbHost) continue;
+
+            if (!best || distSq < best.distSq) best = { cinema, distSq };
         }
         return best?.cinema ?? null;
     }
@@ -184,24 +203,18 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinema
         key: number | string,
         position: [number, number],
         website: string | null | undefined,
+        name: string,
         available: boolean,
         count: number,
         popupContent: React.ReactNode,
     ) {
-        if (website) {
-            return (
-                <Marker key={key} position={position} icon={faviconIcon(website, available, count)}>
-                    <Popup>{popupContent}</Popup>
-                </Marker>
-            );
-        }
-        const color = available ? '#ef4444' : '#6b7280';
+        const icon = website
+            ? faviconIcon(website, available, count)
+            : initialsIcon(name, available, count);
         return (
-            <CircleMarker key={key} center={position}
-                radius={available ? 8 : 5}
-                pathOptions={{ color, fillColor: color, fillOpacity: available ? 0.9 : 0.45, weight: 1.5 }}>
+            <Marker key={key} position={position} icon={icon}>
                 <Popup>{popupContent}</Popup>
-            </CircleMarker>
+            </Marker>
         );
     }
 
@@ -250,7 +263,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinema
                                 }
                             </div>
                         );
-                        return renderMarker(osm.id, [osm.lat, osm.lng], website, available, count, popup);
+                        return renderMarker(osm.id, [osm.lat, osm.lng], website, label, available, count, popup);
                     })}
 
                 {/* Fallback markers for tracked cinemas with no OSM entry */}
@@ -265,7 +278,7 @@ export default function MapView({ cinemas, activeCinemaIds, selectedCity, cinema
                                 : <p className="text-neutral-400 text-xs mt-0.5">No screenings in current range</p>}
                         </div>
                     );
-                    return renderMarker(cinema.id, [coords.lat, coords.lng], cinema.website, available, count, popup);
+                    return renderMarker(cinema.id, [coords.lat, coords.lng], cinema.website, cinema.name, available, count, popup);
                 })}
             </MapContainer>
 

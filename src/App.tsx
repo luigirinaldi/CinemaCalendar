@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Calendar } from 'lucide-react';
 import {
     fetchCinemas,
@@ -121,12 +121,16 @@ function App() {
         movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
-    const movieYears = movies
-        .map((m) => {
-            const d = m.tmdb_info?.release_date;
-            return d ? parseInt(d.slice(0, 4)) : null;
-        })
-        .filter((y): y is number => y !== null);
+    const movieYears = useMemo(
+        () =>
+            movies
+                .map((m) => {
+                    const d = m.tmdb_info?.release_date;
+                    return d ? parseInt(d.slice(0, 4)) : null;
+                })
+                .filter((y): y is number => y !== null),
+        [movies]
+    );
 
     const visibleMovies = movies.filter((m) => {
         if (letterboxdFilter) {

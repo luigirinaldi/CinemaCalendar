@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 type YearFilterPreset =
@@ -27,6 +27,16 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
         currentYear,
     ]);
     const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null);
+    const isFirstRender = useRef(true);
+
+    // Reset to 'all' when the underlying movie data changes (e.g. date range change)
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        setSelectedPreset('all');
+    }, [movieYears]);
 
     const histogram = useMemo(() => {
         if (movieYears.length === 0) {
@@ -59,14 +69,15 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
         }
     }, [histogram.minYear, histogram.maxYear, selectedPreset]);
 
-    // Emit filter to parent whenever range or preset changes
+    // Emit filter to parent on range/preset changes, but not while dragging
     useEffect(() => {
+        if (isDragging) return;
         if (selectedPreset === 'all') {
             onChange(null);
         } else {
             onChange(customRange);
         }
-    }, [customRange, selectedPreset, onChange]);
+    }, [customRange, selectedPreset, isDragging, onChange]);
 
     const handlePresetClick = (preset: YearFilterPreset) => {
         setSelectedPreset(preset);
@@ -111,7 +122,10 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
         const rect = e.currentTarget.getBoundingClientRect();
         const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
         const percentage = x / rect.width;
-        const year = Math.round(minYear + (maxYear - minYear) * percentage);
+        const year = Math.min(
+            maxYear,
+            Math.max(minYear, minYear + Math.floor(percentage * (rangeSpan + 1)))
+        );
 
         if (isDragging === 'start') {
             setCustomRange([Math.min(year, customRange[1]), customRange[1]]);
@@ -130,10 +144,11 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
         ).length;
 
     const rangeSpan = histogram.maxYear - histogram.minYear || 1;
+    const totalSlots = rangeSpan + 1;
     const startPercentage =
-        ((customRange[0] - histogram.minYear) / rangeSpan) * 100;
+        ((customRange[0] - histogram.minYear) / totalSlots) * 100;
     const endPercentage =
-        ((customRange[1] - histogram.minYear) / rangeSpan) * 100;
+        ((customRange[1] - histogram.minYear + 1) / totalSlots) * 100;
 
     const presetBtn = (preset: YearFilterPreset, label: string) => (
         <button
@@ -222,7 +237,7 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
                                     ) {
                                         const pos =
                                             ((decade - histogram.minYear) /
-                                                rangeSpan) *
+                                                totalSlots) *
                                             100;
                                         lines.push(
                                             <div
@@ -250,7 +265,7 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
                                     ) {
                                         const pos =
                                             ((half - histogram.minYear) /
-                                                rangeSpan) *
+                                                totalSlots) *
                                             100;
                                         lines.push(
                                             <div
@@ -275,15 +290,14 @@ function YearFilter({ movieYears, onChange }: YearFilterProps) {
                                         yearNum >= customRange[0] &&
                                         yearNum <= customRange[1];
                                     const height =
-                                        count > 0
-                                            ? (count / histogram.maxCount) *
-                                              100
-                                            : 0;
+                                        (Math.log1p(count) /
+                                            Math.log1p(histogram.maxCount)) *
+                                        100;
                                     const pos =
                                         ((yearNum - histogram.minYear) /
-                                            rangeSpan) *
+                                            totalSlots) *
                                         100;
-                                    const width = (1 / (rangeSpan + 1)) * 100;
+                                    const width = (1 / totalSlots) * 100;
 
                                     return (
                                         <div

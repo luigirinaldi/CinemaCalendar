@@ -52,6 +52,7 @@ function App() {
     const [loading, setLoading] = useState(true);
     const [letterboxdFilter, setLetterboxdFilter] =
         useState<Set<string> | null>(null);
+    const [yearFilter, setYearFilter] = useState<[number, number] | null>(null);
     const initialLoadDone = useRef(false);
     const [city, setCity] = useState<string>('');
 
@@ -120,17 +121,32 @@ function App() {
         movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
-    const visibleMovies = letterboxdFilter
-        ? movies.filter((m) => {
-              const slug = m.tmdb_info?.letterboxd_slug;
-              return slug != null && letterboxdFilter.has(slug);
-          })
-        : movies;
+    const movieYears = [
+        ...new Set(
+            movies
+                .map((m) => m.release_year)
+                .filter((y): y is number => y !== null)
+        ),
+    ];
+
+    const visibleMovies = movies.filter((m) => {
+        if (letterboxdFilter) {
+            const slug = m.tmdb_info?.letterboxd_slug;
+            if (slug == null || !letterboxdFilter.has(slug)) return false;
+        }
+        if (yearFilter) {
+            if (m.release_year == null) return false;
+            if (m.release_year < yearFilter[0] || m.release_year > yearFilter[1])
+                return false;
+        }
+        return true;
+    });
 
     const visibleMovieIds = new Set(visibleMovies.map((m) => m.id));
-    const visibleScreenings = letterboxdFilter
-        ? screenings.filter((s) => visibleMovieIds.has(s.film_id))
-        : screenings;
+    const visibleScreenings =
+        letterboxdFilter || yearFilter
+            ? screenings.filter((s) => visibleMovieIds.has(s.film_id))
+            : screenings;
 
     const activeCinemaIds = new Set(screenings.map((s) => s.cinema_id));
 
@@ -176,6 +192,8 @@ function App() {
                 groupBy={groupBy}
                 onGroupByChange={setGroupBy}
                 onLetterboxdFilterChange={setLetterboxdFilter}
+                movieYears={movieYears}
+                onYearFilterChange={setYearFilter}
             />
             <main
                 className={`max-w-7xl mx-auto py-2 ${groupBy === 'cinema' ? 'px-2 md:px-4' : groupBy === 'table' ? 'px-0 md:px-4' : 'px-4'}`}
@@ -193,7 +211,9 @@ function App() {
                         <p className="text-xl text-neutral-400">
                             {letterboxdFilter
                                 ? 'No screenings match your Letterboxd watchlist'
-                                : 'No screenings found for the selected date range'}
+                                : yearFilter
+                                  ? 'No screenings match the selected year range'
+                                  : 'No screenings found for the selected date range'}
                         </p>
                     </div>
                 ) : groupBy === 'movie' ? (

@@ -10,6 +10,7 @@ import { useState } from 'react';
 import type { DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
 import LetterboxdFilter from './LetterboxdFilter';
+import YearFilter from './YearFilter';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${
@@ -304,6 +305,8 @@ interface AppHeaderProps {
     groupBy: GroupBy;
     onGroupByChange: (groupBy: GroupBy) => void;
     onLetterboxdFilterChange: (filter: Set<string> | null) => void;
+    movieYears: number[];
+    onYearFilterChange: (range: [number, number] | null) => void;
 }
 
 export default function AppHeader({
@@ -325,6 +328,8 @@ export default function AppHeader({
     groupBy,
     onGroupByChange,
     onLetterboxdFilterChange,
+    movieYears,
+    onYearFilterChange,
 }: AppHeaderProps) {
     return (
         <>
@@ -354,6 +359,7 @@ export default function AppHeader({
                         onGroupByChange={onGroupByChange}
                     />
                     <LetterboxdFilter onChange={onLetterboxdFilterChange} />
+                    <YearFilter movieYears={movieYears} onChange={onYearFilterChange} />
                     <DateRangeTabs
                         dateRange={dateRange}
                         onDateRangeChange={onDateRangeChange}

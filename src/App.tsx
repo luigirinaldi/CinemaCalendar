@@ -121,13 +121,12 @@ function App() {
         movies.find((m) => m.id === id) as FilmWithPoster | undefined;
     const getCinema = (id: number) => cinemas.find((c) => c.id === id);
 
-    const movieYears = [
-        ...new Set(
-            movies
-                .map((m) => m.release_year)
-                .filter((y): y is number => y !== null)
-        ),
-    ];
+    const movieYears = movies
+        .map((m) => {
+            const d = m.tmdb_info?.release_date;
+            return d ? parseInt(d.slice(0, 4)) : null;
+        })
+        .filter((y): y is number => y !== null);
 
     const visibleMovies = movies.filter((m) => {
         if (letterboxdFilter) {
@@ -135,9 +134,10 @@ function App() {
             if (slug == null || !letterboxdFilter.has(slug)) return false;
         }
         if (yearFilter) {
-            if (m.release_year == null) return false;
-            if (m.release_year < yearFilter[0] || m.release_year > yearFilter[1])
-                return false;
+            const d = m.tmdb_info?.release_date;
+            const year = d ? parseInt(d.slice(0, 4)) : null;
+            if (year == null) return false;
+            if (year < yearFilter[0] || year > yearFilter[1]) return false;
         }
         return true;
     });

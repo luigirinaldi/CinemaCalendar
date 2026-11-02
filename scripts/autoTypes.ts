@@ -1,6 +1,10 @@
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import {
+    InputData,
+    jsonInputForTargetLanguage,
+    quicktype,
+} from 'quicktype-core';
 
 (async () => {
     if (process.argv[2] === 'help' || process.argv.length !== 4) {
@@ -13,24 +17,26 @@ import { execSync } from 'child_process';
     const scraperName = process.argv[2];
     const url = process.argv[3];
 
-    const TEMP_DIR = 'temp';
-    const FILE_PATH = path.join(TEMP_DIR, 'temp.json');
-
     // fetch json
     const res = await fetch(url);
     const data = await res.json();
-
-    // create temp folder
-    mkdirSync(TEMP_DIR, { recursive: true });
-
-    // write json to temp file
-    writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
-    console.log('+ donwloaded json file');
+    console.log('+ downloaded json');
 
     // generate types
-    const cmd = `npx quicktype --src ${FILE_PATH} --lang typescript --just-types --quiet --top-level ApiResponse`;
-    const types = execSync(cmd).toString();
     console.log('generating types...');
+    const jsonInput = jsonInputForTargetLanguage('typescript');
+    await jsonInput.addSource({
+        name: 'ApiResponse',
+        samples: [JSON.stringify(data)],
+    });
+    const inputData = new InputData();
+    inputData.addInput(jsonInput);
+    const { lines } = await quicktype({
+        inputData,
+        lang: 'typescript',
+        rendererOptions: { 'just-types': 'true' },
+    });
+    const types = lines.join('\n');
 
     // prepend types to scraper file
     const scraperPath = path.join('scripts', 'cinemas', scraperName);
@@ -38,7 +44,4 @@ import { execSync } from 'child_process';
     const newFileContent = types + '\n\n' + scraperFile;
 
     writeFileSync(scraperPath, newFileContent);
-
-    // cleanup temp folder
-    rmSync(TEMP_DIR, { recursive: true, force: true });
 })();

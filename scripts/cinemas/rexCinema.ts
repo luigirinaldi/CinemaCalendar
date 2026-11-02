@@ -1,3 +1,4 @@
+import { fetchPage } from '../http';
 import type { CinemaShowing, FilmShowings, Cinema } from '../types';
 
 interface RexApiEvent {
@@ -51,19 +52,10 @@ const CINEMA: Cinema = {
     defaultLanguage: 'it-IT',
 };
 
-const LOG_PREFIX = '[' + CINEMA.name + ']';
 const BASE_URL = 'https://www.cinemarex.it';
 
 export async function scraper(): Promise<CinemaShowing[]> {
-    const response = await fetch(`${BASE_URL}/pages/rexJsonCompact.php`);
-
-    if (response.status !== 200) {
-        console.warn(
-            `${LOG_PREFIX} The request to rexcinema API gave response code: `,
-            response.status
-        );
-        return []; // Return empty list on error to avoid stopping the getData script
-    }
+    const response = await fetchPage(`${BASE_URL}/pages/rexJsonCompact.php`);
 
     const data = (await response.json()) as RexApiResponse;
 

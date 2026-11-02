@@ -1,48 +1,47 @@
-import { readdirSync } from 'fs';
-import { ScraperFunction } from './types';
-
+import { readdir } from 'node:fs/promises';
 import 'dotenv/config';
-import { ZodError } from 'zod';
 import { connectDB } from './database';
 import { scrapeAndStore } from './utils';
 import { updateFilmMetadata } from './metadata';
+import { mapConcurrent } from './http';
+import { startRunLog } from './runLog';
 
 async function main() {
-    const stepFiles = readdirSync('./scripts/cinemas');
-
-    const scrapers: [string, ScraperFunction][] = [];
-
-    // Dynamically import all scraper scripts
-    for (const file of stepFiles) {
-        const module = await import('./cinemas/' + file); // dynamic import
-        if (typeof module.scraper === 'function') {
-            scrapers.push([file, module.scraper as ScraperFunction]);
-            console.log(`☑️ Loaded scraper from ${file}`);
-        } else {
-            console.warn(`❌ No 'scraper' function found in ${file}`);
-        }
-    }
-
+    startRunLog('get-data');
+    const files = (await readdir(new URL('./cinemas/', import.meta.url)))
+        .filter((file) => file.endsWith('Cinema.ts'))
+        .sort();
     const db = await connectDB();
-
-    await Promise.all(
-        scrapers.map(async ([name, fun]) => {
-            try {
-                await scrapeAndStore(name, fun, db);
-            } catch (e) {
-                if (e instanceof ZodError) {
-                    console.log(`📜 Scraper '${name}' parsing error`);
-                } else {
-                    console.error(`‼️ Scraper '${name}' threw an error:`);
-                    console.error(e);
+    const failures: string[] = [];
+    try {
+        await mapConcurrent(
+            files,
+            async (name) => {
+                try {
+                    const module = await import(`./cinemas/${name}`);
+                    if (typeof module.scraper !== 'function')
+                        throw new Error('Missing scraper export');
+                    await scrapeAndStore(name, module.scraper, db);
+                } catch (error) {
+                    failures.push(name);
+                    console.error(`Scraper ${name} failed:`, error);
                 }
-            }
-        })
-    );
-
-    await updateFilmMetadata(db);
-
-    await db.destroy();
+            },
+            3
+        );
+        try {
+            await updateFilmMetadata(db);
+        } catch (error) {
+            failures.push('TMDB metadata');
+            console.error('TMDB metadata failed:', error);
+        }
+        if (failures.length)
+            throw new Error(`Failed data tasks: ${failures.join(', ')}`);
+    } finally {
+        await db.destroy();
+    }
 }
-
-main();
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

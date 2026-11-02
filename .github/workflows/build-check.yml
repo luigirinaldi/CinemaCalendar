@@ -6,6 +6,10 @@ on:
         branches: ['main']
         paths:
             - 'src/**'
+            - 'scripts/**'
+            - 'tests/**'
+            - 'database.types.ts'
+            - '.github/workflows/build-check.yml'
             - '*.json' # shared trigger (root)
 
     # Allows you to run this workflow manually from the Actions tab
@@ -21,6 +25,15 @@ jobs:
               uses: actions/checkout@v4
 
             - uses: ./.github/workflows/node-cache
+
+            - name: Typecheck
+              run: npm run typecheck
+
+            - name: Regression tests
+              run: npm test
+
+            - name: Lint
+              run: npm run lint
 
             - name: Build
               run: npm run build

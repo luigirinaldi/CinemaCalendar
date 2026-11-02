@@ -1,197 +1,81 @@
-import { ZodError } from 'zod';
-import { CinemaShowingsSchema, ScraperFunction } from './types';
-import { printCinemaStats } from './utils';
-import fs from 'fs';
-import path from 'path';
-
-async function test(scrapers_to_check: string[] = []) {
-    if (!scrapers_to_check || scrapers_to_check.length === 0) {
-        scrapers_to_check = ['']; // all scrapers
-    }
-    const dir = path.join('./scripts', 'cinemas');
-    const scraper_files = new Set();
-    const files = fs.readdirSync(dir).filter((f) => f.endsWith('Cinema.ts'));
-    scrapers_to_check.forEach((str) => {
-        files
-            .filter((f) => f.toLowerCase().includes(str.toLowerCase()))
-            .forEach((f) => scraper_files.add(f));
-    });
-
-    const statsTable: Array<{
-        cinema: string;
-        films: number;
-        showings: number;
-        director: string;
-        duration: string;
-        language: string;
-        year: string;
-        country: string;
-        coverUrl: string;
-        bookingUrl: string;
-        theatre: string;
-    }> = [];
-
-    await Promise.all(
-        // [...Set] is equivalent to Array.from(Set)
-        [...scraper_files].map(async (file) => {
-            let module;
-            try {
-                module = await import('./cinemas/' + file);
-            } catch (err) {
-                console.error(`❌ Failed to import ${file}:`, err);
-                return;
-            }
-            if (typeof module.scraper !== 'function') {
-                console.warn(`❌ No 'scraper' function found in ${file}`);
-                return;
-            }
-            console.log(`☑️ Loaded scraper from ${file}`);
-            const scraperFun = module.scraper as ScraperFunction;
-            let trustedResult;
-            try {
-                const rawResult = await scraperFun();
-                trustedResult = CinemaShowingsSchema.parse(rawResult);
-            } catch (e) {
-                if (e instanceof ZodError) {
-                    console.error(e);
-                    console.error(
-                        `📜 Scraper failed to return data in correct format for ${file}`
-                    );
-                    return;
-                } else {
-                    console.error(`‼️ Scraper '${file}' threw an error:`);
-                    console.error(e);
-                    return;
-                }
-            }
-            for (const cinema of trustedResult) {
-                const totalFilms = cinema.showings.length;
-                const totalShowings = cinema.showings.reduce(
-                    (acc, f) => acc + f.showings.length,
-                    0
-                );
-                let countDirector = 0,
-                    countYear = 0,
-                    countCountry = 0,
-                    countCover = 0,
-                    countDuration = 0,
-                    countLanguage = 0;
-                let countBookingUrl = 0,
-                    countTheatre = 0;
-                for (const fs of cinema.showings) {
-                    const film = fs.film;
-                    if (film.director) countDirector++;
-                    if (typeof film.year === 'number') countYear++;
-                    if (film.country) countCountry++;
-                    if (film.coverUrl) countCover++;
-                    if (typeof film.duration === 'number' && film.duration > 0)
-                        countDuration++;
-                    if (film.language) countLanguage++;
-                    for (const s of fs.showings) {
-                        if (s.bookingUrl) countBookingUrl++;
-                        if (s.theatre) countTheatre++;
-                    }
-                }
-                const pct = (n: number, total: number) =>
-                    total === 0 ? '0.0%' : ((n / total) * 100).toFixed(1) + '%';
-                statsTable.push({
-                    cinema: cinema.cinema.name,
-                    films: totalFilms,
-                    showings: totalShowings,
-                    director: `${countDirector} (${pct(countDirector, totalFilms)})`,
-                    duration: `${countDuration} (${pct(countDuration, totalFilms)})`,
-                    language: `${countLanguage} (${pct(countLanguage, totalFilms)})`,
-                    year: `${countYear} (${pct(countYear, totalFilms)})`,
-                    country: `${countCountry} (${pct(countCountry, totalFilms)})`,
-                    coverUrl: `${countCover} (${pct(countCover, totalFilms)})`,
-                    bookingUrl: `${countBookingUrl} (${pct(countBookingUrl, totalShowings)})`,
-                    theatre: `${countTheatre} (${pct(countTheatre, totalShowings)})`,
-                });
-            }
-        })
-    );
-    // Print table
-    if (statsTable.length === 0) {
-        console.log('No valid cinema data found.');
-        return;
-    }
-    const columns = [
-        'cinema',
-        'films',
-        'showings',
-        'director',
-        'duration',
-        'language',
-        'year',
-        'country',
-        'coverUrl',
-        'bookingUrl',
-        'theatre',
-    ];
-    const header = columns.map((c) => c.padEnd(16)).join('');
-    console.log('\n' + header);
-    for (const row of statsTable) {
-        const line = columns
-            .map((c) => String((row as Record<string, unknown>)[c]).padEnd(16))
-            .join('');
-        console.log(line);
-    }
-}
+import { readdir } from 'node:fs/promises';
+import { CinemaShowingsSchema, type ScraperFunction } from './types';
+import { collectCinemaStats } from './utils';
+import { mapConcurrent } from './http';
 
 async function main() {
-    const scraperName = process.env.SCRAPER;
-    if (scraperName === undefined) {
-        const args = process.argv.slice(2);
-        if (args) {
-            await test(args);
-        } else {
-            await test();
-        }
-        return;
-    }
-    // Single scraper mode
-    const module = await import('./cinemas/' + scraperName); // dynamic import
-    if (typeof module.scraper !== 'function') {
-        throw new Error(`❌ No 'scraper' function found in ${scraperName}`);
-    }
-    console.log(`☑️ Loaded scraper from ${scraperName}`);
-    const scraperFun = module.scraper as ScraperFunction;
-    const rawResult = await scraperFun();
-    try {
-        const trustedResult = CinemaShowingsSchema.parse(rawResult);
-        console.log(
-            `[main] Successfully scraped and parsed data from ${scraperName}`
-        );
-        for (const cinema of trustedResult) {
-            console.log(
-                `Cinema: ${cinema.cinema.name}, ${cinema.showings.length} Films and ${cinema.showings.reduce((acc, s) => acc + s.showings.length, 0)} total showings`
-            );
-            for (const film of cinema.showings.slice(0, 3)) {
-                console.log(film.film);
-                console.log(film.showings.slice(0, 3));
-            }
-            // print aggregated statistics for this cinema
+    const filters = process.env.SCRAPER
+        ? [process.env.SCRAPER]
+        : process.argv.slice(2);
+    const files = (await readdir(new URL('./cinemas/', import.meta.url)))
+        .filter(
+            (file) =>
+                file.endsWith('Cinema.ts') &&
+                (!filters.length ||
+                    filters.some((filter) =>
+                        file.toLowerCase().includes(filter.toLowerCase())
+                    ))
+        )
+        .sort();
+    if (!files.length) throw new Error('No matching scrapers');
+    const rows = await mapConcurrent(
+        files,
+        async (file) => {
             try {
-                printCinemaStats(cinema);
-            } catch (err) {
-                console.warn(
-                    '[validateScraper] Failed to compute stats for',
-                    cinema.cinema.name,
-                    err
+                const module = await import(`./cinemas/${file}`);
+                if (typeof module.scraper !== 'function')
+                    throw new Error('Missing scraper export');
+                const result = CinemaShowingsSchema.parse(
+                    await (module.scraper as ScraperFunction)()
                 );
+                if (!result.length) throw new Error('No cinema data returned');
+                const stats = result.map(collectCinemaStats);
+                const films = stats.reduce(
+                    (n, value) => n + value.totalFilms,
+                    0
+                );
+                const showings = stats.reduce(
+                    (n, value) => n + value.totalShowings,
+                    0
+                );
+                const future = result
+                    .flatMap((c) => c.showings)
+                    .flatMap((f) => f.showings)
+                    .filter(
+                        (s) => Date.parse(s.startTime) >= Date.now()
+                    ).length;
+                console.log(
+                    `${file}: ${films} films, ${showings} showings (${future} upcoming)`
+                );
+                return {
+                    scraper: file,
+                    status: showings ? 'OK' : 'EMPTY',
+                    films,
+                    showings,
+                    future,
+                };
+            } catch (error) {
+                process.exitCode = 1;
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                console.error(`${file}: ${message}`);
+                return { scraper: file, status: 'FAILED', error: message };
             }
-        }
-    } catch (e) {
-        if (e instanceof ZodError) {
-            console.error(e);
-            throw new Error(
-                `📜 Scraper failed to return data in correct format`
-            );
-        } else {
-            console.error(`‼️ Scraper '${scraperName}' threw an error:`);
-            throw e;
-        }
-    }
+        },
+        3
+    );
+    console.table(rows);
+    // Empty programmes can be legitimate, but strict CI can flag them explicitly.
+    if (
+        process.env.SCRAPER_REQUIRE_SHOWINGS === '1' &&
+        rows.some(
+            (row) =>
+                row.status === 'EMPTY' || ('future' in row && row.future === 0)
+        )
+    )
+        process.exitCode = 1;
 }
-
-main();
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

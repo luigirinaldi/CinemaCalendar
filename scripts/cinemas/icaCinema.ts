@@ -1,3 +1,5 @@
+import { fetchPage, mapConcurrent } from '../http';
+import { upcomingDate } from '../dates';
 import { DateTime } from 'luxon';
 import {
     CinemaShowings,
@@ -71,7 +73,7 @@ function parseDuration(
 // }
 
 async function getUpcomingShowings(): Promise<FilmShowings[]> {
-    const response = await fetch(BASE_URL + '/upcoming');
+    const response = await fetchPage(BASE_URL + '/upcoming');
 
     const html = await response.text();
     const root = parse(html);
@@ -104,10 +106,21 @@ async function getUpcomingShowings(): Promise<FilmShowings[]> {
             // Extract the time
             const timeElement = element.querySelector('.time-slot');
 
-            const parseDate = DateTime.fromFormat(
-                currentDate + ' ' + timeElement?.text.trim(),
-                'cccc, d LLLL h:mm a'
-            );
+            // Untimed programme entries are not bookable screenings. Detail pages may have dates.
+            const time = timeElement?.text.trim();
+            if (!time) {
+                const href = element.querySelector('a')?.getAttribute('href');
+                if (name && href)
+                    movies.push({
+                        film: {
+                            title: name,
+                            url: new URL(href, BASE_URL).href,
+                        },
+                        showings: [],
+                    });
+                return;
+            }
+            const parseDate = upcomingDate(currentDate.replace(',', ''), time);
             if (!parseDate.isValid)
                 throw new Error(
                     `${LOG_PREFIX} Failed to parse datetime: ${currentDate} ${timeElement?.text.trim()}, \n${name}`
@@ -150,7 +163,7 @@ async function getUpcomingShowings(): Promise<FilmShowings[]> {
 }
 
 async function getMovieInfo(url: string): Promise<FilmShowings | null> {
-    const response = await fetch(url);
+    const response = await fetchPage(url);
     const html = await response.text();
     const root = parse(html);
 
@@ -225,7 +238,8 @@ async function getMovieInfo(url: string): Promise<FilmShowings | null> {
             const theatre = theatreElement?.text.trim();
             const parseDate = DateTime.fromFormat(
                 date + ' ' + time,
-                'ccc, d LLL yyyy h:mm a'
+                'ccc, d LLL yyyy h:mm a',
+                { zone: 'Europe/London', locale: 'en-GB' }
             );
             if (!parseDate.isValid)
                 throw new Error(
@@ -251,28 +265,26 @@ export async function scraper(): Promise<CinemaShowings> {
     const firstPass = await getUpcomingShowings();
 
     const filmShowings = (
-        await Promise.all(
-            firstPass.map(async (movieShowing) => {
-                try {
-                    const moreInfo = await getMovieInfo(movieShowing.film.url);
+        await mapConcurrent(firstPass, async (movieShowing) => {
+            try {
+                const moreInfo = await getMovieInfo(movieShowing.film.url);
 
-                    if (moreInfo) {
-                        return moreInfo;
-                    } else {
-                        console.warn(
-                            `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title.replace('\n', '')}, ${movieShowing.film.url}`
-                        );
-                        return movieShowing;
-                    }
-                } catch (e) {
-                    console.error(
-                        `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
+                if (moreInfo && moreInfo.showings.length > 0) {
+                    return moreInfo;
+                } else {
+                    console.warn(
+                        `${LOG_PREFIX} Couldn't get more info for: ${movieShowing.film.title.replace('\n', '')}, ${movieShowing.film.url}`
                     );
-                    console.error(e);
                     return movieShowing;
                 }
-            })
-        )
+            } catch (e) {
+                console.error(
+                    `${LOG_PREFIX} Something went wrong trying to get more info for: ${movieShowing}`
+                );
+                console.error(e);
+                return movieShowing;
+            }
+        })
     ).filter((fs) => fs.showings.length > 0);
 
     return [

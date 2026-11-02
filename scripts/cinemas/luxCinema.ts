@@ -1,176 +1,83 @@
+import { parse } from 'node-html-parser';
 import type { CinemaShowing, Cinema, FilmShowings } from '../types';
+import { fetchPage } from '../http';
+import { cinemaDate } from '../dates';
 
-export interface LuxAPIResponse {
-    events: Event[];
-    rest_url: string;
-    total: number;
+interface LuxEvent {
+    id: number;
+    title: string;
+    website?: string;
+    url: string;
+    image?: { url?: string } | false;
+    start_date: string;
+    utc_start_date?: string;
+    timezone?: string;
+}
+interface LuxResponse {
+    events: LuxEvent[];
     total_pages: number;
 }
-
-export interface Event {
-    id: number;
-    global_id: string;
-    global_id_lineage: string[];
-    author: string;
-    status: string;
-    date: Date;
-    date_utc: Date;
-    modified: Date;
-    modified_utc: Date;
-    url: string;
-    rest_url: string;
-    title: string;
-    description: string;
-    excerpt: string;
-    slug: string;
-    image: Image;
-    all_day: boolean;
-    start_date: Date;
-    start_date_details: DateDetails;
-    end_date: Date;
-    end_date_details: DateDetails;
-    utc_start_date: Date;
-    utc_start_date_details: DateDetails;
-    utc_end_date: Date;
-    utc_end_date_details: DateDetails;
-    timezone: string;
-    timezone_abbr: string;
-    cost: string;
-    cost_details: CostDetails;
-    website: string;
-    show_map: boolean;
-    show_map_link: boolean;
-    hide_from_listings: boolean;
-    sticky: boolean;
-    featured: boolean;
-    categories: any[];
-    tags: any[];
-    venue: Venue;
-    organizer: any[];
-    custom_fields: any[];
-    is_virtual: boolean;
-    virtual_url: null;
-    virtual_video_source: string;
-}
-
-export interface CostDetails {
-    currency_symbol: string;
-    currency_code: string;
-    currency_position: string;
-    values: any[];
-}
-
-export interface DateDetails {
-    year: string;
-    month: string;
-    day: string;
-    hour: string;
-    minutes: string;
-    seconds: string;
-}
-
-export interface Image {
-    url: string;
-    id: number;
-    extension: string;
-    width: number;
-    height: number;
-    filesize: number;
-    sizes: { [key: string]: Size };
-}
-
-export interface Size {
-    width: number;
-    height: number;
-    'mime-type': MIMEType;
-    filesize: number;
-    url: string;
-}
-
-export enum MIMEType {
-    ImageJPEG = 'image/jpeg',
-}
-
-export interface Venue {
-    id: number;
-    author: string;
-    status: string;
-    date: Date;
-    date_utc: Date;
-    modified: Date;
-    modified_utc: Date;
-    url: string;
-    venue: string;
-    slug: string;
-    address: string;
-    city: string;
-    country: string;
-    zip: string;
-    show_map: boolean;
-    show_map_link: boolean;
-    global_id: string;
-    global_id_lineage: string[];
-}
-
 const CINEMA: Cinema = {
     name: 'Lux Cinema',
     location: 'Padova',
     defaultLanguage: 'it-IT',
 };
-
-const LOG_PREFIX = '[' + CINEMA.name + ']';
-const BASE_URL = 'https://www.movieconnection.it';
 const API_URL = 'https://www.movieconnection.it/wp-json/tribe/events/v1/events';
 
-export async function scraper(): Promise<CinemaShowing[]> {
-    const res = await fetch(API_URL);
-    const json = (await res.json()) as LuxAPIResponse;
-    const filmMap = new Map() as Map<string, FilmShowings>;
-
-    json.events.forEach((event) => {
-        const filmKey = event.website; // questionable choice for a key
-
-        if (!filmMap.has(filmKey)) {
-            let [title, director, moreInfo] = event.title
-                .trim()
-                .split(/\s*(?:&#8211;|\s#)\s*/);
-            let vos = false;
-            if (title.endsWith('[v.o.s.]')) {
-                vos = true;
-                title = title.slice(0, -8).trimEnd();
-            }
-            const country = moreInfo.match(/([^\d]+) \d/)?.[1];
-            const year = moreInfo
-                .slice((country ?? '').length)
-                .match(/ +(\d+) +\(/)?.[1];
-            const duration = moreInfo.match(/\((\d+)(?:&#8242;|’|′)\)/)?.[1];
-            const filmShowing: FilmShowings = {
+export function parseLuxEvents(events: LuxEvent[]): FilmShowings[] {
+    const films = new Map<string, FilmShowings>();
+    for (const event of events) {
+        const decoded = parse(event.title).textContent.trim();
+        const [rawTitle, director, moreInfo = ''] =
+            decoded.split(/\s+[–—]\s+|\s+#\s*/);
+        const vos = /\[v\.o\.s\.\]$/i.test(rawTitle);
+        const title = rawTitle.replace(/\s*\[v\.o\.s\.\]$/i, '').trim();
+        // A missing website previously collapsed every such event into one film.
+        const key = event.website?.trim() || event.url || String(event.id);
+        if (!films.has(key))
+            films.set(key, {
                 film: {
-                    title: title,
-                    url: event.url,
-                    director: director,
-                    duration: duration ? parseInt(duration) : undefined,
+                    title,
+                    url: event.website?.trim() || event.url,
+                    director,
+                    duration:
+                        Number(moreInfo.match(/\((\d+)\s*[’′']/)?.[1]) ||
+                        undefined,
+                    year:
+                        Number(moreInfo.match(/\b(19\d{2}|20\d{2})\b/)?.[1]) ||
+                        undefined,
+                    country: moreInfo.match(/^([^\d]+)\s+\d/)?.[1]?.trim(),
                     language: vos ? undefined : CINEMA.defaultLanguage,
-                    year: year ? parseInt(year) : undefined,
-                    country: country,
-                    coverUrl: event.image.url, // smaller sizes could be used
+                    coverUrl: event.image ? event.image.url : undefined,
                 },
                 showings: [],
-            };
-            filmMap.set(filmKey, filmShowing);
-        }
-
-        // Add showing to existing film entry
-        const filmEntry = filmMap.get(filmKey)!;
-        filmEntry.showings.push({
-            startTime: new Date(event.start_date).toISOString(), // utc_start_date also available
-            bookingUrl: `https://www.liveticket.it/cinemaluxpadova#EventsTitleAnchor`, // no way to access the real url
+            });
+        films.get(key)!.showings.push({
+            startTime: event.utc_start_date
+                ? cinemaDate(event.utc_start_date, 'UTC')
+                : cinemaDate(event.start_date, event.timezone || 'Europe/Rome'),
+            bookingUrl:
+                'https://www.liveticket.it/cinemaluxpadova#EventsTitleAnchor',
         });
-    });
-    return [
-        {
-            cinema: CINEMA,
-            showings: Array.from(filmMap.values()),
-        },
-    ];
+    }
+    return [...films.values()];
+}
+export async function scraper(): Promise<CinemaShowing[]> {
+    const events: LuxEvent[] = [];
+    let totalPages = 1;
+    for (let page = 1; page <= totalPages; page++) {
+        const response = await fetchPage(
+            `${API_URL}?per_page=100&page=${page}`
+        );
+        const data = (await response.json()) as LuxResponse;
+        if (
+            !Array.isArray(data.events) ||
+            !Number.isInteger(data.total_pages) ||
+            data.total_pages < 0
+        )
+            throw new Error('Unexpected Lux API response');
+        totalPages = data.total_pages;
+        events.push(...data.events);
+    }
+    return [{ cinema: CINEMA, showings: parseLuxEvents(events) }];
 }

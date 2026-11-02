@@ -1,54 +1,62 @@
-import supabase from './supabase';
+import type { QueryData } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '../database.types';
+import { fetchAllPages } from './lib/pagination';
 
-import type { Tables } from '../database.types';
+const cinemaQuery = (supabase: SupabaseClient<Database>) =>
+    supabase
+        .from('new_cinemas')
+        .select('id, name, location', { count: 'exact' })
+        .order('id');
+// Explicit FK names avoid ambiguity through new_films.cinema_id.
+const screeningQuery = (supabase: SupabaseClient<Database>) =>
+    supabase
+        .from('new_showings')
+        .select(
+            `
+    id, film_id, cinema_id, start_time, booking_url,
+    film:new_films!new_showings_film_id_fkey(id, title, duration, director, release_year, tmdb_id),
+    cinema:new_cinemas!new_showings_cinema_id_fkey!inner(id, name, location)
+`,
+            { count: 'exact' }
+        )
+        .order('start_time')
+        .order('id');
 
-export type FilmTable = Tables<'new_films'>;
-export type CinemaTable = Tables<'new_cinemas'>;
-export type ShowingsTable = Tables<'new_showings'>;
+export type Cinema = QueryData<ReturnType<typeof cinemaQuery>>[number];
+export type Screening = QueryData<ReturnType<typeof screeningQuery>>[number];
 
-export const fetchMovies = async (): Promise<FilmTable[]> => {
-    const response = await supabase.from('new_films').select();
-    if (response.error !== null || response.data === null)
-        throw new Error(`Failed to fetch films: ${response.error}`);
-    if (response.data.length === 0) {
-        console.error(response);
-        throw new Error(`Empty films`);
-    }
-    return response.data;
-};
+export async function fetchCinemas(
+    supabase: SupabaseClient<Database>,
+    signal: AbortSignal
+): Promise<Cinema[]> {
+    return fetchAllPages(async (from, to) => {
+        const { data, error, count } = await cinemaQuery(supabase)
+            .range(from, to)
+            .abortSignal(signal);
+        if (error) throw new Error(`Failed to fetch cinemas: ${error.message}`);
+        return { data: data ?? [], count };
+    });
+}
 
-export const fetchCinemas = async (): Promise<CinemaTable[]> => {
-    const response = await supabase.from('new_cinemas').select();
-    if (response.error !== null || response.data === null)
-        throw new Error(`Failed to fetch cinemas: ${response.error}`);
-    if (response.data.length === 0) {
-        console.error(response);
-        throw new Error(`Empty cinemas`);
-    }
-    return response.data;
-};
-
-export const fetchScreenings = async (
-    date_range: [Date, Date] | null,
-    cinema_ids: number[]
-): Promise<ShowingsTable[]> => {
-    let response;
-    if (date_range === null) {
-        response = await supabase
-            .from('new_showings')
-            .select()
-            .in('cinema_id', cinema_ids);
-    } else {
-        const [start, end] = date_range;
-        response = await supabase
-            .from('new_showings')
-            .select()
-            .in('cinema_id', cinema_ids)
-            .lte('start_time', end.toISOString())
-            .gte('start_time', start.toISOString());
-    }
-    if (response.error !== null || response.data === null)
-        throw new Error(`Failed to fetch screenings: ${response.error}`);
-    console.log(date_range, response.data.length);
-    return response.data;
-};
+export async function fetchScreenings(
+    supabase: SupabaseClient<Database>,
+    city: string,
+    start: string | null,
+    end: string | null,
+    signal: AbortSignal
+): Promise<Screening[]> {
+    if (!city) return [];
+    return fetchAllPages(async (from, to) => {
+        // The !inner join filters the parent rows by city on the server.
+        let query = screeningQuery(supabase).eq('cinema.location', city);
+        if (start) query = query.gte('start_time', start);
+        if (end) query = query.lt('start_time', end);
+        const { data, error, count } = await query
+            .range(from, to)
+            .abortSignal(signal);
+        if (error)
+            throw new Error(`Failed to fetch screenings: ${error.message}`);
+        return { data: data ?? [], count };
+    });
+}

@@ -1,3 +1,5 @@
+import { cinemaDate } from '../dates';
+import { fetchPage } from '../http';
 import type {
     CinemaShowing,
     FilmShowings,
@@ -9,7 +11,7 @@ import type {
 const CINEMA: Cinema = {
     name: 'The Space Cinema Limena',
     location: 'Padova',
-    defaultLanguage: 'en-GB',
+    defaultLanguage: 'it-IT',
 };
 
 // Extended interfaces for additional fields
@@ -59,19 +61,19 @@ interface SpaceFilm {
     }>;
 }
 
-const CINEMA_NAME = 'The Space Cinema';
-const LOG_PREFIX = '[' + CINEMA_NAME + ']';
-
 export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
     // TODO - extend to every the space cinema
     // get a microservicesToken from the main page
-    let response = await fetch('https://www.thespacecinema.it');
+    let response = await fetchPage('https://www.thespacecinema.it');
     const regex: RegExpMatchArray | undefined | null = response.headers
         .get('set-cookie')
-        ?.match(/(?<=microservicesToken\=)[^;]+/);
+        ?.match(/(?<=microservicesToken=)[^;]+/);
     const microservicesToken: string = regex ? regex[0] : '';
 
-    response = await fetch(
+    await response.body?.cancel();
+    if (!microservicesToken)
+        throw new Error('The Space did not provide a microservicesToken');
+    response = await fetchPage(
         `https://www.thespacecinema.it/api/microservice/showings/cinemas/${cinema}/films`,
         {
             headers: {
@@ -81,14 +83,6 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
             },
         }
     );
-
-    if (response.status !== 200) {
-        console.warn(
-            `${LOG_PREFIX} The request to thespacecinema API gave response code: `,
-            response.status
-        );
-        return []; // This returns an empty list of movies so the getData script won't be stopped in case of an error
-    }
 
     const data = await response.json();
 
@@ -126,10 +120,13 @@ export async function scraper(cinema: number = 1012): Promise<CinemaShowing[]> {
             showings: film.showingGroups.flatMap((day) =>
                 day.sessions.map((show) => {
                     const showing: SpaceShowingData = {
-                        startTime: show.startTime,
+                        startTime: cinemaDate(show.startTime, 'Europe/Rome'),
                         theatre: show.screenName,
                         bookingUrl: show.bookingUrl
-                            ? `https://www.thespacecinema.it${show.bookingUrl}`
+                            ? new URL(
+                                  show.bookingUrl,
+                                  'https://www.thespacecinema.it'
+                              ).href
                             : undefined,
                     };
 

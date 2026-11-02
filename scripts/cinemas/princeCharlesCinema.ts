@@ -11,63 +11,15 @@ import type {
     Showing,
     Cinema,
 } from '../types';
-import { DateTime } from 'luxon';
+import type { DateTime } from 'luxon';
+import { upcomingDate } from '../dates';
+import { fetchPage } from '../http';
 
 const CINEMA: Cinema = {
     name: 'Prince Charles Cinema',
     location: 'London',
     defaultLanguage: 'en-GB',
 };
-
-const months: Record<string, number> = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-].reduce(
-    (acc, month, index) => ({ ...acc, [month]: index }),
-    {} as Record<string, number>
-);
-
-function parseDate(day: string, time: string): DateTime {
-    const [, dom, mon] = day.split(' ');
-    const [, h, m, am] = time.match(/^(\d{1,2}):(\d{2}) (am|pm)$/) || [];
-    const today = new Date();
-    const date = parseInt(dom);
-    const monthIdx = months[mon] + 1;
-    const year =
-        today.getFullYear() +
-        (monthIdx < today.getMonth() ||
-        (monthIdx === today.getMonth() && date < today.getDate())
-            ? 1
-            : 0);
-    const hour =
-        parseInt(h) +
-        (am === 'pm'
-            ? parseInt(h) === 12
-                ? 0
-                : 12
-            : parseInt(h) === 12
-              ? -12
-              : 0);
-    const minute = parseInt(m);
-    //   console.log({ today, day, time, date, monthIdx, year, hour, minute });
-    const value = DateTime.fromObject(
-        { year: year, month: monthIdx, day: date, hour: hour, minute: minute },
-        { zone: 'Europe/London' }
-    );
-    // console.log(`${day} ${time}`, value, value.toLocal().toISO());
-    if (!value.isValid) throw new Error(`Invalid date: ${day} ${time}`);
-    return value;
-}
 
 type ScrapedShowing = {
     title: string;
@@ -150,7 +102,7 @@ function scrape(page: any, callback: (s: ScrapedShowing) => void) {
                         ).trim();
                         const url = buttonEl.href;
                         try {
-                            const start = parseDate(day, time);
+                            const start = upcomingDate(day, time);
                             const end = start.plus({ minutes: durationNum });
                             const soldOut = listEl.matches(
                                 '.soldfilm_book_button'
@@ -203,78 +155,89 @@ export const scraper: ScraperFunction = async () => {
         },
     });
 
-    const page = browser.newPage();
-    await page.goto('https://princecharlescinema.com/whats-on/');
-    await page.waitUntilComplete();
+    try {
+        const page = browser.newPage();
+        const response = await fetchPage(
+            'https://princecharlescinema.com/whats-on/'
+        );
+        page.mainFrame.document.write(await response.text());
+        if (!page.mainFrame.document.querySelector('.jacrofilm-list'))
+            throw new Error('Prince Charles programme markup not found');
 
-    // Map films by a key (prefer filmUrl, fall back to title)
-    const filmsMap = new Map<string, { film: Film; showings: Showing[] }>();
+        // Map films by a key (prefer filmUrl, fall back to title)
+        const filmsMap = new Map<string, { film: Film; showings: Showing[] }>();
 
-    scrape(
-        page.mainFrame.document,
-        ({
-            title,
-            start,
-            duration,
-            url,
-            filmUrl,
-            filmDirector,
-            filmYear,
-            filmCountry,
-            coverUrl,
-        }) => {
-            const key = filmUrl || title;
-            const filmUrlFinal = (filmUrl || url || '').toString();
+        scrape(
+            page.mainFrame.document,
+            ({
+                title,
+                start,
+                duration,
+                url,
+                filmUrl,
+                filmDirector,
+                filmYear,
+                filmCountry,
+                coverUrl,
+            }) => {
+                const key = filmUrl || title;
+                const filmUrlFinal = new URL(
+                    filmUrl || url || '/',
+                    'https://princecharlescinema.com'
+                ).href;
 
-            if (!filmsMap.has(key)) {
-                const film: Film = {
-                    title: title,
-                    url: filmUrlFinal,
-                    // Optional fields left undefined when unknown
+                if (!filmsMap.has(key)) {
+                    const film: Film = {
+                        title: title,
+                        url: filmUrlFinal,
+                        // Optional fields left undefined when unknown
+                    };
+                    filmsMap.set(key, { film, showings: [] });
+                }
+
+                const entry = filmsMap.get(key)!;
+                const showing: Showing = {
+                    startTime: start.toISO()!,
+                    bookingUrl: url
+                        ? new URL(url, 'https://princecharlescinema.com').href
+                        : undefined,
+                    // theatre is not available in this scraper
                 };
-                filmsMap.set(key, { film, showings: [] });
+                // attach duration to film if available and not already set
+                if (
+                    typeof duration === 'number' &&
+                    duration > 0 &&
+                    !entry.film.duration
+                )
+                    entry.film.duration = duration;
+                if (filmDirector && !entry.film.director)
+                    entry.film.director = filmDirector;
+                if (typeof filmYear === 'number' && !entry.film.year)
+                    entry.film.year = filmYear;
+                if (filmCountry && !entry.film.country)
+                    entry.film.country = filmCountry;
+                if (coverUrl && !entry.film.coverUrl)
+                    entry.film.coverUrl = coverUrl;
+
+                entry.showings.push(showing);
             }
+        );
 
-            const entry = filmsMap.get(key)!;
-            const showing: Showing = {
-                startTime: start.toISO()!,
-                bookingUrl: url || undefined,
-                // theatre is not available in this scraper
-            };
-            // attach duration to film if available and not already set
-            if (
-                typeof duration === 'number' &&
-                duration > 0 &&
-                !entry.film.duration
-            )
-                entry.film.duration = duration;
-            if (filmDirector && !entry.film.director)
-                entry.film.director = filmDirector;
-            if (typeof filmYear === 'number' && !entry.film.year)
-                entry.film.year = filmYear;
-            if (filmCountry && !entry.film.country)
-                entry.film.country = filmCountry;
-            if (coverUrl && !entry.film.coverUrl)
-                entry.film.coverUrl = coverUrl;
-
-            entry.showings.push(showing);
-        }
-    );
-
-    await browser.close();
-
-    const filmShowingsArray: FilmShowings[] = Array.from(filmsMap.values()).map(
-        ({ film, showings }) => ({
+        const filmShowingsArray: FilmShowings[] = Array.from(
+            filmsMap.values()
+        ).map(({ film, showings }) => ({
             film,
             showings,
-        })
-    );
+        }));
 
-    const result: CinemaShowing = {
-        cinema: CINEMA,
-        showings: filmShowingsArray,
-    };
+        const result: CinemaShowing = {
+            cinema: CINEMA,
+            showings: filmShowingsArray,
+        };
 
-    // Ensure we return the shape declared in scripts/types.ts
-    return [result];
+        // Ensure we return the shape declared in scripts/types.ts
+        return [result];
+    } finally {
+        await browser.close();
+    }
 };

@@ -1,3 +1,4 @@
+import { fetchPage, mapConcurrent } from '../http';
 import { DateTime } from 'luxon';
 import type {
     ScraperFunction,
@@ -26,7 +27,7 @@ function hasNoUndefined<T extends Record<string, unknown>>(
 }
 
 export const scraper: ScraperFunction = async () => {
-    const response = await fetch(
+    const response = await fetchPage(
         'https://www.institut-francais.org.uk/whats-on/?type=72&period=any&location=onsite'
     );
 
@@ -68,148 +69,140 @@ export const scraper: ScraperFunction = async () => {
     // console.debug(LOG_PREFIX,`Obtained a total of ${movie_info.length} movies`);
 
     const film_showings = (
-        await Promise.all(
-            movie_info.map(async (movie) => {
-                const movie_response = await fetch(movie.url);
-                const parsed_page = parse(await movie_response.text());
-                // console.log(movie.url)
+        await mapConcurrent(movie_info, async (movie) => {
+            const movie_response = await fetchPage(movie.url);
+            const parsed_page = parse(await movie_response.text());
+            // console.log(movie.url)
 
-                let showings = parsed_page
-                    .getElementById('more-dates')
-                    ?.querySelector('table')
-                    ?.querySelector('tbody')
-                    ?.querySelectorAll('tr')
-                    ?.flatMap((showing) => {
-                        const showing_out = {
-                            datetime: showing
-                                .querySelectorAll('time')
-                                ?.map((time) => time.getAttribute('datetime'))
-                                .join('T'),
-                            url: showing
-                                .querySelector('a')
-                                ?.getAttribute('href'),
-                            room: (showing
-                                .querySelectorAll('td')
-                                ?.flatMap((td) =>
-                                    td.childElementCount == 0
-                                        ? [td.innerHTML]
-                                        : []
-                                )[0] ?? null) as string | null,
-                        };
-                        if (hasNoUndefined(showing_out)) {
-                            return [showing_out];
-                        } else {
-                            console.warn(
-                                LOG_PREFIX,
-                                `Failed to get some information for movie ${movie.title}:`,
-                                showing_out,
-                                showing.toString(),
-                                movie
-                            );
-                            return [];
-                        }
-                    });
-
-                // the case where there is only one showing, hence the more-dates element doesn't appear
-                if (showings == undefined) {
-                    const showing_html = parsed_page.querySelector(
-                        'section.next-showing'
-                    );
-                    const showing_info = {
-                        datetime: showing_html
-                            ?.querySelectorAll('time')
+            let showings = parsed_page
+                .getElementById('more-dates')
+                ?.querySelector('table')
+                ?.querySelector('tbody')
+                ?.querySelectorAll('tr')
+                ?.flatMap((showing) => {
+                    const showing_out = {
+                        datetime: showing
+                            .querySelectorAll('time')
                             ?.map((time) => time.getAttribute('datetime'))
                             .join('T'),
-                        url: showing_html
-                            ?.querySelector('a')
-                            ?.getAttribute('href'),
-                        room:
-                            showing_html?.querySelector('span.location')
-                                ?.innerHTML ?? null,
+                        url: showing.querySelector('a')?.getAttribute('href'),
+                        room: (showing
+                            .querySelectorAll('td')
+                            ?.flatMap((td) =>
+                                td.childElementCount == 0 ? [td.innerHTML] : []
+                            )[0] ?? null) as string | null,
                     };
-                    if (hasNoUndefined(showing_info)) {
-                        showings = [showing_info];
+                    if (hasNoUndefined(showing_out)) {
+                        return [showing_out];
                     } else {
                         console.warn(
                             LOG_PREFIX,
-                            `Failed to get information for movie ${movie.title}:`,
-                            showing_info,
-                            showing_html?.toString(),
+                            `Failed to get some information for movie ${movie.title}:`,
+                            showing_out,
+                            showing.toString(),
                             movie
                         );
+                        return [];
                     }
-                }
+                });
 
-                const metadata_raw: Record<string, string> = Object.fromEntries(
-                    ((res: string[][] | null) => {
-                        if (res != null) return res;
-                        else {
-                            console.warn(
-                                LOG_PREFIX,
-                                `No metadata available for ${movie.title}`,
-                                movie.url
-                            );
-                            return [[''], ['']];
-                        }
-                    })(
-                        parsed_page
-                            .querySelector('ul.metadata')
-                            ?.querySelectorAll('li')
-                            ?.map((li) => {
-                                // remove the ':' at the end of the string
-                                const key_string = li
-                                    .querySelector('strong')
-                                    ?.innerText.trim()
-                                    ?.slice(0, -1);
-                                const value_string = li.childNodes
-                                    .at(li.childNodes.length - 1)
-                                    ?.innerText.trim();
-                                return [key_string, value_string];
-                            })
-                            // filter out any undefined values
-                            ?.filter((val) =>
-                                val.every((val) => val != undefined)
-                            ) as string[][]
-                    )
+            // the case where there is only one showing, hence the more-dates element doesn't appear
+            if (!showings?.length) {
+                const showing_html = parsed_page.querySelector(
+                    'section.next-showing'
                 );
-
-                let duration: number | null = null;
-                if ('Duration' in metadata_raw) {
-                    const match =
-                        metadata_raw['Duration'].match(/^(\d+)\s*min(s?)/);
-                    if (match) {
-                        // console.log(movie.title, 'duration:', duration );
-                        duration = +match[1];
-                    } else {
-                        console.warn(
-                            LOG_PREFIX,
-                            `Couldn't get duration for ${movie.title}\n`,
-                            metadata_raw['Duration'].toString(),
-                            movie.url
-                        );
-                        duration = null;
-                    }
+                const showing_info = {
+                    datetime: showing_html
+                        ?.querySelectorAll('time')
+                        ?.map((time) => time.getAttribute('datetime'))
+                        .join('T'),
+                    url: showing_html?.querySelector('a')?.getAttribute('href'),
+                    room:
+                        showing_html?.querySelector('span.location')
+                            ?.innerHTML ?? null,
+                };
+                if (hasNoUndefined(showing_info)) {
+                    showings = [showing_info];
                 } else {
                     console.warn(
                         LOG_PREFIX,
-                        `No duration specified for ${movie.title}`,
+                        `Failed to get information for movie ${movie.title}:`,
+                        showing_info,
+                        showing_html?.toString(),
+                        movie
+                    );
+                }
+            }
+
+            const metadata_raw: Record<string, string> = Object.fromEntries(
+                ((res: string[][] | null) => {
+                    if (res != null) return res;
+                    else {
+                        console.warn(
+                            LOG_PREFIX,
+                            `No metadata available for ${movie.title}`,
+                            movie.url
+                        );
+                        return [];
+                    }
+                })(
+                    parsed_page
+                        .querySelector('ul.metadata')
+                        ?.querySelectorAll('li')
+                        ?.map((li) => {
+                            // remove the ':' at the end of the string
+                            const key_string = li
+                                .querySelector('strong')
+                                ?.innerText.trim()
+                                ?.slice(0, -1);
+                            const value_string = li.childNodes
+                                .at(li.childNodes.length - 1)
+                                ?.innerText.trim();
+                            return [key_string, value_string];
+                        })
+                        // filter out any undefined values
+                        ?.filter((val) =>
+                            val.every((val) => val != undefined)
+                        ) as string[][]
+                )
+            );
+
+            let duration: number | null = null;
+            if ('Duration' in metadata_raw) {
+                const match =
+                    metadata_raw['Duration'].match(/^(\d+)\s*min(s?)/);
+                if (match) {
+                    // console.log(movie.title, 'duration:', duration );
+                    duration = +match[1];
+                } else {
+                    console.warn(
+                        LOG_PREFIX,
+                        `Couldn't get duration for ${movie.title}\n`,
+                        metadata_raw['Duration'].toString(),
                         movie.url
                     );
                     duration = null;
                 }
+            } else {
+                console.warn(
+                    LOG_PREFIX,
+                    `No duration specified for ${movie.title}`,
+                    movie.url
+                );
+                duration = null;
+            }
 
-                const metadata = {
-                    duration: duration,
-                    raw_meta: metadata_raw,
-                };
+            const metadata = {
+                duration: duration,
+                raw_meta: metadata_raw,
+            };
 
-                return {
-                    ...movie,
-                    ...metadata,
-                    showings: showings,
-                };
-            })
-        )
+            return {
+                ...movie,
+                ...metadata,
+                showings: showings,
+            };
+        })
     ).filter((movie) => hasNoUndefined(movie));
 
     // console.log(film_showings)

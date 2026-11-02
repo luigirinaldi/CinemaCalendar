@@ -25,6 +25,7 @@ dist-ssr
 
 # Temporary files
 temp
+.scraper-debug/
 
 # Data to be generated on the spot
 public/data/
@@ -32,3 +33,5 @@ public/data/
 
 # Secrets
 .env
+.env.*
+!.env.example

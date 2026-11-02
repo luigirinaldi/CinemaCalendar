@@ -13,7 +13,9 @@
         "get_tmdb_id": "npx tsx scripts/getTmdbId.ts",
         "test_scraper": "npx tsx scripts/validateScraper.ts",
         "gen_types": "npx tsx scripts/autoTypes.ts",
-        "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format"
+        "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format",
+        "test": "node --import tsx --test tests/*.test.ts",
+        "typecheck": "tsc -b && tsc -p tsconfig.scripts.json"
     },
     "devDependencies": {
         "@eslint/js": "^9.36.0",
@@ -38,22 +40,23 @@
         "tsx": "^4.19.4",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.45.0",
-        "vite": "^6.3.1"
+        "vite": "^6.3.1",
+        "quicktype-core": "^23.3.25"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.57.2",
         "dotenv": "^17.2.3",
         "env-cmd": "^11.0.0",
         "fullcalendar": "^6.1.17",
-        "happy-dom": "^20.0.8",
+        "happy-dom": "^21.0.4",
         "ical.js": "^2.1.0",
         "lucide-react": "^0.552.0",
         "luxon": "^3.6.1",
         "node-html-parser": "^7.0.1",
         "pg": "^8.16.3",
-        "quicktype": "^23.2.6",
         "react": "^19.2.0",
         "react-dom": "^19.1.1",
-        "zod": "^4.1.12"
+        "zod": "^4.1.12",
+        "kysely": "^0.28.8"
     }
 }

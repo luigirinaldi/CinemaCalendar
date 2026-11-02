@@ -1,3 +1,5 @@
+import { cinemaDate } from '../dates';
+import { fetchPage } from '../http';
 import type {
     ScraperFunction,
     CinemaShowing,
@@ -101,7 +103,6 @@ export const scraper: ScraperFunction = async () => {
             'Mozilla/5.0 (X11; Linux x86_64; rv:137.0) Gecko/20100101 Firefox/137.0',
         Accept: '*/*',
         'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br, zstd',
         Referer: 'https://www.regentstreetcinema.com/now-playing/',
         'content-type': 'application/json',
         'is-electron-mode': 'false',
@@ -112,14 +113,21 @@ export const scraper: ScraperFunction = async () => {
         'Sec-GPC': '1',
     };
 
-    const response = await fetch('https://www.regentstreetcinema.com/graphql', {
-        method: 'POST',
-        body: JSON.stringify(body),
-        headers: headers,
-    });
+    const response = await fetchPage(
+        'https://www.regentstreetcinema.com/graphql',
+        {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers: headers,
+        }
+    );
 
     // 👇️ const result: CreateUserResponse
     const result = await response.json();
+    if (result.errors?.length || !result.data?.showingsForDate?.data)
+        throw new Error(
+            `Regent Street GraphQL failed: ${JSON.stringify(result.errors ?? 'missing showings')}`
+        );
 
     // // Save raw result to file for inspection
     // try {
@@ -143,7 +151,7 @@ export const scraper: ScraperFunction = async () => {
         const movie = item.movie ?? item['movie'];
         if (!movie) continue;
 
-        const key = movie.id ?? movie.tmdbId ?? movie.name;
+        const key = String(movie.id ?? movie.tmdbId ?? movie.name);
 
         const filmUrl = movie.urlSlug
             ? `https://www.regentstreetcinema.com/film/${movie.urlSlug}`
@@ -185,7 +193,9 @@ export const scraper: ScraperFunction = async () => {
         const entry = filmsMap.get(String(key))!;
 
         const start = item.time || item.showing?.time || null;
-        const startISO = start ? new Date(start).toISOString() : null;
+        if (!start)
+            throw new Error(`Regent Street showing ${item.id} has no time`);
+        const startISO = cinemaDate(start, 'Europe/London');
 
         // Extra metadata to be used later if cinema screen parsing is
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -203,7 +213,7 @@ export const scraper: ScraperFunction = async () => {
             },
         };
         const showing: Showing = {
-            startTime: startISO || new Date().toISOString(),
+            startTime: startISO,
             bookingUrl: `https://www.regentstreetcinema.com/checkout/showing/${item.id}`,
             theatre: item.seatChart?.name || 'Unknown Screen',
         };

@@ -1,3 +1,4 @@
+import { fetchPage } from './http';
 import ICAL from 'ical.js';
 import { ScraperFunction } from './types';
 import { DB, storeCinemaData } from './database';
@@ -12,6 +13,8 @@ export async function scrapeAndStore(
 ) {
     const rawResult = await fun();
     const trustedResult = CinemaShowingsSchema.parse(rawResult);
+    if (!trustedResult.length)
+        throw new Error(`${name} returned no cinema data`);
     console.log(`[main] Successfully scraped and parsed data from ${name}`);
     for (const cinema of trustedResult) {
         await db
@@ -165,7 +168,7 @@ export async function fetchAndParseICS<T = unknown>(
     parseEvent: (event: ICAL.Event) => T,
     filter: boolean = false
 ): Promise<T[]> {
-    const res = await fetch(url);
+    const res = await fetchPage(url);
     const icsText = await res.text();
 
     const jcalData = ICAL.parse(icsText);

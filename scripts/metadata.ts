@@ -1,8 +1,11 @@
 import 'dotenv/config';
-import type { Movie } from '../src/types';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { DB } from './database';
+import { z } from 'zod';
+import { parse } from 'node-html-parser';
+import { fetchPage, mapConcurrent } from './http';
+import { mkdir, writeFile } from 'node:fs/promises';
 
 interface Film {
     id: number;
@@ -13,236 +16,148 @@ interface Film {
     default_lang: string;
 }
 
-export interface TMDBMovie {
-    adult: boolean;
-    backdrop_path: string;
-    genre_ids: number[];
-    id: number;
-    original_language: string;
-    original_title: string;
-    overview: string;
-    popularity: number;
-    poster_path: string;
-    release_date: string;
-    title: string;
-    video: boolean;
-    vote_average: number;
-    vote_count: number;
-}
-
-export interface TMDBDiscoverMovie {
-    page: number;
-    results: TMDBMovie[];
-    total_pages: number;
-    total_results: number;
-}
-
-type TMDBSearch = {
-    page: number;
-    results: TMDBMovie[];
-    total_pages: number;
-    total_results: number;
-};
-interface TMDBPersonSearch {
-    page: number;
-    results: Person[];
-    total_pages: number;
-    total_results: number;
-}
-
-interface Person {
-    adult: boolean;
-    gender: number;
-    id: number;
-    known_for_department: string;
-    name: string;
-    original_name: string;
-    popularity: number;
-    profile_path: string;
-    known_for: KnownFor[];
-}
-
-interface KnownFor {
-    adult: boolean;
-    backdrop_path: string;
-    id: number;
-    title: string;
-    original_title: string;
-    overview: string;
-    poster_path: string;
-    media_type: string;
-    original_language: string;
-    genre_ids: number[];
-    popularity: number;
-    release_date: Date;
-    video: boolean;
-    vote_average: number;
-    vote_count: number;
-}
+// Zod strips unknown API fields (e.g. softcore) before database insertion.
+export const TMDBMovieSchema = z.object({
+    adult: z.boolean(),
+    backdrop_path: z.string().nullable(),
+    genre_ids: z.array(z.number()),
+    id: z.number().int().positive(),
+    original_language: z.string(),
+    original_title: z.string(),
+    overview: z.string(),
+    popularity: z.number(),
+    poster_path: z.string().nullable(),
+    release_date: z.string(),
+    title: z.string(),
+    video: z.boolean(),
+    vote_average: z.number(),
+    vote_count: z.number(),
+});
+export type TMDBMovie = z.infer<typeof TMDBMovieSchema>;
 
 const API_URL = 'https://api.themoviedb.org/3';
-const OPTIONS = {
-    method: 'GET',
-    headers: {
-        accept: 'application/json',
-        Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
-    }, // kindly don't steal this access token for your personal use, instead get one for free at https://www.themoviedb.org/settings/api
-};
+const movieSearchSchema = z.object({ results: z.array(TMDBMovieSchema) });
+const personSearchSchema = z.object({
+    results: z.array(z.object({ id: z.number(), popularity: z.number() })),
+});
 
-// TODO: add search by director
-async function getTMDB(
-    film: Film,
-    verbose: boolean = false
-): Promise<TMDBMovie | null> {
-    if (process.env.TMDB_API_KEY === undefined) {
-        throw new Error('Missing Supabase Project ID');
-    }
-
-    if (film.director) {
-        const director_id = await searchDirector(film.director);
-        if (director_id) {
-            const movie = await discoverMovie(film, director_id);
-            if (movie) {
-                return movie;
-            }
-        }
-    }
-    const search = await searchOnTMDB(film, verbose);
-    if (!search || search.total_results == 0) {
-        if (verbose)
-            console.error(
-                `No TMDB results for ${film.title} (${film.release_year})`
-            );
-        return null;
-    }
-    const TMDBMovie = search.results[0];
-    // try to find the best match among multiple results
-    // if (search.results.length > 1) {
-    //     TMDBMovie = await guessMovie(search, film);
-    // }
-    return TMDBMovie;
+async function requestTMDB(path: string, params: Record<string, string>) {
+    if (!process.env.TMDB_API_KEY) throw new Error('Missing TMDB_API_KEY');
+    const url = new URL(API_URL + path);
+    url.search = new URLSearchParams(params).toString();
+    // Four workers, at most about 32 requests/second even on a fast connection.
+    await new Promise((resolve) => setTimeout(resolve, 125));
+    const response = await fetchPage(url, {
+        headers: {
+            accept: 'application/json',
+            Authorization: 'Bearer ' + process.env.TMDB_API_KEY,
+        },
+    });
+    return response.json() as Promise<unknown>;
 }
 
-async function searchDirector(director: string) {
-    const response = await fetch(
-        `${API_URL}/search/person?query=${encodeURIComponent(director)}`,
-        OPTIONS
-    );
-    const search = (await response.json()) as TMDBPersonSearch;
-    if (search.total_results === 0) return null;
-    return search.results.reduce((currentMatch, person) =>
-        person.popularity > currentMatch.popularity ? person : currentMatch
-    ).id;
+/** Remove screening annotations without reducing a double bill to one film. */
+export function cleanTMDBTitle(title: string): string {
+    return parse(title)
+        .textContent.replace(/[\u2019\u2018]/g, "'")
+        .replace(
+            /^(?:(?:(?:UK|London) )?premiere|special preview|preview|kids'? club|closing night):\s*/i,
+            ''
+        )
+        .replace(/^.+?\s+presents:?\s+/i, '')
+        .replace(
+            /\s*(?:\+|w\/|with)\s+(?:special\s+)?(?:Q&A|(?:pre-)?recorded\s+.*?intro|live organ|intro(?:duction)?|discussion|panel)\b.*$/i,
+            ''
+        )
+        .replace(
+            /\s*\((?:\d{4}|(?:\d+(?:st|nd|rd|th)\s+)?anniversary|RIED\.[^)]*|4K restoration)\)/gi,
+            ''
+        )
+        .replace(/\s*\[(?:UK premiere|extended cut|dubbed)\]/gi, '')
+        .replace(
+            /\s*(?::|[\u2013-])\s*(?:UK premiere|4K restoration|Lingua originale)\s*$/i,
+            ''
+        )
+        .trim();
 }
 
-async function discoverMovie(film: Film, director_id: number) {
-    const response = await fetch(
-        // it is possible (and maybe better) to remove the runtime/duration filter
-        `${API_URL}/discover/movie?language=${film.default_lang}&sort_by=popularity.desc&with_crew=${director_id}&with_origin_country=&with_runtime.gte=${film.duration ? film.duration - 10 : ''}&year=${film.release_year ?? ''}`,
-        OPTIONS
-    );
-    const discover = (await response.json()) as TMDBDiscoverMovie;
-    const cinemaTitle = film.title
+function comparableTitle(title: string) {
+    return cleanTMDBTitle(title)
         .normalize('NFD')
-        .replace(/\p{Diacritic}|\s/gu, '')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^\p{L}\p{N}]/gu, '')
         .toLowerCase();
-    return discover.total_results === 0
-        ? null
-        : discover.results.find((movie) => {
-              const TMDBTitle = movie.title
-                  .normalize('NFD')
-                  .replace(/\p{Diacritic}|\s/gu, '')
-                  .toLowerCase();
-              const TMDBOGTitle = movie.original_title
-                  .normalize('NFD')
-                  .replace(/\p{Diacritic}|\s/gu, '')
-                  .toLowerCase();
-              return (
-                  cinemaTitle.includes(TMDBTitle) ||
-                  cinemaTitle.includes(TMDBOGTitle) ||
-                  TMDBTitle.includes(cinemaTitle) ||
-                  TMDBOGTitle.includes(cinemaTitle)
-              );
-          });
 }
 
-async function searchOnTMDB(
-    film: Film,
-    verbose: boolean
-): Promise<TMDBSearch | null> {
-    const title = film.title;
-    for (let i = 0; i < 3; i++) {
-        // I use year because it seems the search engine is more flexible with it and it is less prone to mismatch,
-        // if it doesn't work, it could be useful retrying with primary_release_year instead of year
-        let res = await fetch(
-            `${API_URL}/search/movie?query=${encodeURI(title)}&year=${film.release_year}&page=1`,
-            OPTIONS
+export async function getTMDB(film: Film): Promise<TMDBMovie | null> {
+    if (!process.env.TMDB_API_KEY) throw new Error('Missing TMDB_API_KEY');
+    if (film.director) {
+        const people = personSearchSchema.parse(
+            await requestTMDB('/search/person', { query: film.director })
         );
-        let search: TMDBSearch = await res.json();
-        if (typeof search !== 'undefined') {
-            if (search.total_results == 0) {
-                // found no results
-                // If there are no results, we try to match without the release date.
-                res = await fetch(
-                    `${API_URL}/search/movie?query=${encodeURI(title)}&page=1`,
-                    OPTIONS
+        const director = people.results.reduce<
+            (typeof people.results)[number] | undefined
+        >(
+            (best, person) =>
+                !best || person.popularity > best.popularity ? person : best,
+            undefined
+        );
+        if (director) {
+            const params: Record<string, string> = {
+                language: film.default_lang,
+                sort_by: 'popularity.desc',
+                with_crew: String(director.id),
+            };
+            if (film.duration)
+                params['with_runtime.gte'] = String(
+                    Math.max(0, film.duration - 10)
                 );
-                search = await res.json();
-            }
-            if (search.total_results != 0) {
-                return search;
-            }
+            if (film.release_year) params.year = String(film.release_year);
+            const discover = movieSearchSchema.parse(
+                await requestTMDB('/discover/movie', params)
+            );
+            const title = comparableTitle(film.title);
+            const match = discover.results.find(
+                (movie) =>
+                    title &&
+                    (title === comparableTitle(movie.title) ||
+                        title === comparableTitle(movie.original_title))
+            );
+            if (match) return match;
         }
     }
-    // if (verbose)
-    //     console.error(
-    //         `Failed to get TMDB results for ${film.title} (${film.release_year})`
-    //     );
+    const titles = [
+        ...new Set([cleanTMDBTitle(film.title), film.title].filter(Boolean)),
+    ];
+    for (const title of titles) {
+        const params: Record<string, string> = { query: title, page: '1' };
+        if (film.release_year) params.year = String(film.release_year);
+        let search = movieSearchSchema.parse(
+            await requestTMDB('/search/movie', params)
+        );
+        if (!search.results.length && film.release_year) {
+            delete params.year;
+            search = movieSearchSchema.parse(
+                await requestTMDB('/search/movie', params)
+            );
+        }
+        if (search.results.length) return search.results[0];
+    }
     return null;
 }
 
-/**
- * Tries to fix the horrible TMDB search algorithm through a series of filters on the results.
- * @param search - The TMDB API response object.
- * @param film - The Movie object.
- */
-async function guessMovie(search: TMDBSearch, film: Film): Promise<TMDBMovie> {
-    // The first check is title exact match, as it is the most reliable.
-    // If there are no results, we try to match the release date.
-    // Year match is skipped as it is highly unreliable.
-    let results = search.results.filter((movie) => movie.title == film.title);
-    if (results.length == 0) {
-        results = search.results.filter(
-            (movie) =>
-                new Date(movie.release_date).getFullYear() == film.release_year
-        );
-        if (results.length == 0) {
-            return search.results[0];
-        }
-    } else if (results.length > 1) {
-        let filtered = results.filter(
-            (movie) =>
-                new Date(movie.release_date).getFullYear() == film.release_year
-        );
-        if (filtered.length == 0) {
-            filtered = results;
-        }
-        if (filtered.length > 1) {
-            // Filters out fakes or duplicates (yes, they can appear in the wrong order...).
-            return filtered.reduce((max, movie) =>
-                movie.popularity > max.popularity ? movie : max
-            );
-        }
-        return filtered[0];
-    }
-    return results[0];
-}
-
 async function updateFilmMetadata(db: Kysely<DB>) {
-    // pick a lower number if TMDB API blocks some requests
+    if (!process.env.TMDB_API_KEY) throw new Error('Missing TMDB_API_KEY');
     const CHUNK_DEFAULT_SIZE = 100;
 
     let tmdb_null_films = 0;
+    const lookupCache = new Map<string, Promise<TMDBMovie | null>>();
+    const unmatched: {
+        id: number;
+        title: string;
+        release_year: number | null;
+    }[] = [];
+    const errors: { id: number; title: string; error: string }[] = [];
 
     let film_data = await db
         .selectFrom('new_films')
@@ -256,6 +171,7 @@ async function updateFilmMetadata(db: Kysely<DB>) {
             'default_lang',
         ])
         .where('tmdb_id', 'is', null)
+        .orderBy('new_films.id')
         .limit(CHUNK_DEFAULT_SIZE)
         .execute();
 
@@ -273,10 +189,29 @@ async function updateFilmMetadata(db: Kysely<DB>) {
     while (film_data.length > 0) {
         // ask to the TMDB API
         const tmdb_update = (
-            await Promise.all(
-                film_data.map(async (film) => {
+            await mapConcurrent(
+                film_data,
+                async (film) => {
                     try {
-                        const tmdbData = await getTMDB(film, true);
+                        const key = JSON.stringify([
+                            film.title,
+                            film.release_year,
+                            film.director,
+                            film.duration,
+                            film.default_lang,
+                        ]);
+                        let lookup = lookupCache.get(key);
+                        if (!lookup) {
+                            lookup = getTMDB(film);
+                            lookupCache.set(key, lookup);
+                        }
+                        const tmdbData = await lookup;
+                        if (!tmdbData)
+                            unmatched.push({
+                                id: film.id,
+                                title: film.title,
+                                release_year: film.release_year,
+                            });
                         if (tmdbData && !tmdb_ids.has(tmdbData.id)) {
                             tmdb_objs.push(tmdbData);
                             tmdb_ids.add(tmdbData.id);
@@ -287,21 +222,26 @@ async function updateFilmMetadata(db: Kysely<DB>) {
                             tmdb_id: tmdbData?.id || null,
                         };
                     } catch (e) {
-                        console.error(
-                            `Something went wrong getting TMDB info for ${film.title} (${film.release_year})`
-                        );
-                        console.error(e);
+                        errors.push({
+                            id: film.id,
+                            title: film.title,
+                            error: e instanceof Error ? e.message : String(e),
+                        });
                         return {
                             id: film.id,
                             title: film.title,
                             tmdb_id: null,
                         };
                     }
-                })
+                },
+                4
             )
         ).filter((film) => film.tmdb_id !== null); // Remove films where tmdb wasn't updated
 
         updated_films.push(...tmdb_update);
+        console.log(
+            `TMDB checked ${updated_films.length + unmatched.length + errors.length} films (${updated_films.length} matched)`
+        );
 
         film_data = await db
             .selectFrom('new_films')
@@ -315,6 +255,7 @@ async function updateFilmMetadata(db: Kysely<DB>) {
                 'default_lang',
             ])
             .where('tmdb_id', 'is', null)
+            .orderBy('new_films.id')
             .offset(cursor)
             .limit(CHUNK_DEFAULT_SIZE)
             .execute();
@@ -322,10 +263,26 @@ async function updateFilmMetadata(db: Kysely<DB>) {
         tmdb_null_films += film_data.length;
     }
 
-    console.log(`Found ${tmdb_null_films} movies with missing tmdb ids`);
-    console.log(
-        `Identified ${tmdb_objs.length} new tmdb entries, ${tmdb_objs.length == 0 ? 0 : tmdb_objs.length / tmdb_null_films} of total missing ids`
+    await mkdir('.scraper-debug', { recursive: true });
+    const reportPath = `.scraper-debug/tmdb-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    await writeFile(
+        reportPath,
+        JSON.stringify(
+            {
+                processed: tmdb_null_films,
+                matched: updated_films.length,
+                unmatched,
+                errors,
+            },
+            null,
+            2
+        )
     );
+    console.log(
+        `TMDB: ${updated_films.length} matched, ${unmatched.length} unmatched, ${errors.length} failed. Report: ${reportPath}`
+    );
+    for (const entry of errors.slice(0, 5))
+        console.error(`TMDB ${entry.title}: ${entry.error}`);
 
     // Update entries in TMDB table
     if (tmdb_objs.length > 0) {
@@ -340,14 +297,9 @@ async function updateFilmMetadata(db: Kysely<DB>) {
                 `Inserted ${insertResult[0].numInsertedOrUpdatedRows} new tmdb movies`
             );
         } catch (error) {
-            console.error('TMDB metadata error:', error);
-            return;
+            throw new Error('Failed to save TMDB metadata', { cause: error });
         }
     }
-
-    console.log(
-        `Identified ${updated_films.length} to update, ${updated_films.length == 0 ? 0 : updated_films.length / tmdb_null_films} of total movies missing ids`
-    );
 
     // Update the new_films with their TMDB IDs
     if (updated_films.length > 0) {
@@ -376,16 +328,13 @@ async function updateFilmMetadata(db: Kysely<DB>) {
                 `Updated ${insertResult[0].numUpdatedRows} ids in the films table`
             );
         } catch (error) {
-            console.error('TMDB id update error:', error);
+            throw new Error('Failed to save TMDB IDs', { cause: error });
         }
     }
+    if (errors.length)
+        throw new Error(
+            `TMDB lookup failed for ${errors.length} films; see ${reportPath}`
+        );
 }
 
 export { updateFilmMetadata };
-
-// (async () => {
-//     // Example usage
-//     const film: Movie = { id: '1', title: `ADRA`, release_date: '', duration: 148 };
-//     const tmdbData = await getTMDB(film);
-//     console.log(tmdbData);
-// })();

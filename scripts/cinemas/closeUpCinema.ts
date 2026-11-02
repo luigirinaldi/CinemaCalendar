@@ -1,7 +1,9 @@
+﻿import { fetchPage, mapConcurrent } from '../http';
 import {
     CinemaShowing,
     CinemaShowingsSchema,
     FilmShowings,
+    Film,
     Cinema,
 } from '../types';
 import { parse } from 'node-html-parser';
@@ -21,156 +23,137 @@ const CINEMA: Cinema = {
     defaultLanguage: 'en-GB',
 };
 
-export async function scraper(): Promise<CinemaShowing[]> {
-    const response = await fetch(BASE_URL + '/search_film_programmes/');
-
-    const html = await response.text();
+/** Detail pages have reliable titles even when the calendar feed has null/partial ones. */
+function parseFilmPage(html: string) {
     const root = parse(html);
+    const content = root.querySelector('#film_program_support') ?? root;
+    const films: Partial<Film>[] = [];
+    for (const paragraph of content.querySelectorAll('p')) {
+        const heading = paragraph.querySelector('strong');
+        const title = heading?.textContent.trim();
+        if (!title) continue;
+        const text = paragraph.textContent.trim();
+        if (!text.startsWith(title)) continue;
+        const metadata = text
+            .slice(title.length)
+            .trim()
+            .match(/^(.+),\s*(\d{4}),\s*(\d+)\s*min\b/i);
+        if (!metadata) continue;
+        films.push({
+            title,
+            director: metadata[1].trim(),
+            year: Number(metadata[2]),
+            duration: Number(metadata[3]),
+        });
+    }
+    const pageTitle = root
+        .querySelector('title')
+        ?.textContent.replace(/^CLOSE-UP\s*\|\s*/i, '')
+        .trim();
+    const imgSrc = content
+        .querySelector('img[src*="/download_file/view_inline"]')
+        ?.getAttribute('src');
+    return {
+        films,
+        pageTitle,
+        coverUrl: imgSrc ? new URL(imgSrc, BASE_URL).href : undefined,
+    };
+}
 
-    // --- 2. Find the <script> that contains "var shows"
+export async function scraper(): Promise<CinemaShowing[]> {
+    const response = await fetchPage(
+        BASE_URL + '/search_film_programmes/'
+    ).catch((error: unknown) => {
+        if (error instanceof Error && error.message.startsWith('HTTP 403 '))
+            throw new Error(
+                `${LOG_PREFIX} Calendar access denied (HTTP 403). The website is refusing this request; existing stored screenings are retained.`,
+                { cause: error }
+            );
+        throw error;
+    });
+    const root = parse(await response.text());
     const scriptTag = root
         .querySelectorAll('script')
         .find((s) => s.innerText.includes('var shows'));
-
-    if (!scriptTag) {
+    if (!scriptTag)
         throw new Error("Could not find <script> containing 'var shows'");
-    }
-
-    const scriptText = scriptTag.innerText;
-
-    // --- 3. Extract the JS variable contents using regex
-    const showsMatch = scriptText.match(/var\s+shows\s*=\s*'(.*?)';/s);
+    const showsMatch = scriptTag.innerText.match(/var\s+shows\s*=\s*'(.*?)';/s);
     if (!showsMatch) throw new Error('Could not extract shows JSON');
-
     const showsRaw = showsMatch[1].replace(/\\"/g, '"').replace(/\\\//g, '/');
-
-    const parsedJson: {
-        id: string;
-        fp_id: string;
-        title: string;
-        blink: string;
+    const shows: {
+        title: string | null;
+        blink: string | null;
         show_time: string;
-        status: string;
-        booking_availability: string;
         film_url: string;
     }[] = JSON.parse(showsRaw);
 
-    const filmShowings: FilmShowings[] = [];
-
-    for (const show of parsedJson) {
-        const url = BASE_URL + show.film_url;
-        const existingFilm = filmShowings.find(
-            (f) => f.film.title === show.title && f.film.url === url
-        );
-
-        const startTime = DateTime.fromFormat(
-            show.show_time,
-            'yyyy-MM-dd HH:mm:ss'
-        )
-            .toISO()
-            ?.toString();
-        if (startTime === undefined) {
-            console.error(
-                `${LOG_PREFIX} Failed to parse starttime from ${show.show_time}`
-            );
-            continue;
-        }
-        const showing = {
-            startTime,
-            bookingUrl: show.blink,
-        };
-
-        if (existingFilm) {
-            existingFilm.showings.push(showing);
-        } else {
-            filmShowings.push({
-                film: {
-                    title: show.title,
-                    url: url,
-                },
-                showings: [showing],
-            });
-        }
-    }
-
-    const filmMoreInfo = await Promise.all(
-        filmShowings.map(async (filmShowing) => {
-            const film = filmShowing.film;
+    // Fetch each programme once; multiple sessions may share its detail page.
+    const urls = [
+        ...new Set(shows.map((s) => new URL(s.film_url, BASE_URL).href)),
+    ];
+    const details = new Map(
+        await mapConcurrent(urls, async (url) => {
             try {
-                const response = await fetch(film.url);
-                const html = await response.text();
-                const root = parse(html);
-
-                const info = root
-                    .getElementsByTagName('P')
-                    .filter((val) => {
-                        if (val.children.length > 0) {
-                            // filter by looking for bold (strong) tags which contain the name of the movie
-                            return (
-                                val.children[0].tagName === 'STRONG' &&
-                                val.children[0].innerText.trim() ===
-                                    filmShowing.film.title
-                            );
-                        } else return false;
-                    })
-                    .map((e) =>
-                        e.innerText.replace(filmShowing.film.title, '').trim()
-                    );
-
-                const imgSrc = root
-                    .querySelectorAll('img')
-                    .map((e) => e.getAttribute('src'))
-                    .filter((src) =>
-                        src?.includes('/download_file/view_inline')
-                    )
-                    .at(0);
-
-                if (info.length == 1 && info[0] !== '') {
-                    const splitted = info[0].split(',');
-                    const director = splitted[0];
-                    const date = Number(splitted[1]);
-                    const duration = Number(splitted[2].split(' ')[1]);
-
-                    return {
-                        showings: filmShowing.showings,
-                        film: {
-                            ...filmShowing.film,
-                            director,
-                            year: isNaN(date) ? undefined : date,
-                            duration: isNaN(duration) ? undefined : duration,
-                            coverUrl: imgSrc,
-                        },
-                    };
-                } else {
-                    console.error(
-                        `${LOG_PREFIX} Something went wrong trying to get more info about: ${film.title}\t\n${film.url}`
-                    );
-                    return filmShowing;
-                }
-            } catch (e) {
+                const page = await fetchPage(url);
+                return [url, parseFilmPage(await page.text())] as const;
+            } catch (error) {
                 console.error(
-                    `${LOG_PREFIX} Something went wrong trying to get more info about: ${film.title}\t\n${film.url}`
+                    `${LOG_PREFIX} Could not fetch film details: ${url}`,
+                    error
                 );
-                console.error(e);
-                return filmShowing;
+                return [url, undefined] as const;
             }
         })
     );
-
-    return [
-        {
-            cinema: CINEMA,
-            showings: filmMoreInfo,
-        },
-    ];
+    const filmShowings: FilmShowings[] = [];
+    for (const show of shows) {
+        const url = new URL(show.film_url, BASE_URL).href;
+        const detail = details.get(url);
+        const listedTitle = show.title
+            ? parse(show.title).textContent.trim()
+            : '';
+        // A single-film page supplies the canonical title. Programme pages can
+        // contain several films, so retain their distinct session titles.
+        const metadata =
+            detail?.films.length === 1
+                ? detail.films[0]
+                : detail?.films.find((film) => film.title === listedTitle);
+        const title = metadata?.title || listedTitle || detail?.pageTitle;
+        if (!title) {
+            console.warn(`${LOG_PREFIX} Skipping untitled screening: ${url}`);
+            continue;
+        }
+        const startTime = DateTime.fromFormat(
+            show.show_time,
+            'yyyy-MM-dd HH:mm:ss',
+            {
+                zone: 'Europe/London',
+                locale: 'en-GB',
+            }
+        ).toISO();
+        if (!startTime) {
+            console.warn(
+                `${LOG_PREFIX} Failed to parse start time: ${show.show_time}`
+            );
+            continue;
+        }
+        const showing = { startTime, bookingUrl: show.blink || undefined };
+        const existing = filmShowings.find(
+            (f) => f.film.url === url && f.film.title === title
+        );
+        if (existing) existing.showings.push(showing);
+        else
+            filmShowings.push({
+                film: { ...metadata, title, url, coverUrl: detail?.coverUrl },
+                showings: [showing],
+            });
+    }
+    return [{ cinema: CINEMA, showings: filmShowings }];
 }
 
-// main.ts
 async function main() {
-    console.log('Running as main script');
     const result = await scraper();
-    const trustedResult = CinemaShowingsSchema.parse(result);
-    console.log(trustedResult);
+    console.log(CinemaShowingsSchema.parse(result));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

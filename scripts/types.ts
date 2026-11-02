@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const FilmSchema = z.object({
-    title: z.string(),
+    title: z.string().trim().min(1),
     url: z.string(),
     director: z.string().optional(),
     duration: z.number().optional(),
@@ -12,7 +12,7 @@ export const FilmSchema = z.object({
 });
 
 export const ShowingSchema = z.object({
-    startTime: z.string(),
+    startTime: z.iso.datetime({ offset: true }),
     bookingUrl: z.string().optional(),
     theatre: z.string().optional(),
 });

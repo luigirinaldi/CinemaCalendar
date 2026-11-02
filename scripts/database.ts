@@ -2,7 +2,7 @@ import { CinemaShowing } from './types';
 
 import { Database } from '../database.types';
 
-import { Kysely, PostgresDialect, Transaction } from 'kysely';
+import { Kysely, PostgresDialect, Transaction, sql } from 'kysely';
 import { KyselifyDatabase } from 'kysely-supabase';
 import { Pool } from 'pg';
 
@@ -20,8 +20,8 @@ export async function connectDB() {
         throw new Error('Missing Supabase database password');
     }
 
-    // const supabase_db_url = `postgresql://postgres:${process.env.DB_PASSWORD}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`
-    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${process.env.DB_PASSWORD}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
+    // const supabase_db_url = `postgresql://postgres:${encodeURIComponent(process.env.DB_PASSWORD)}@db.${process.env.SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`
+    const supabase_db_url = `postgresql://postgres.${process.env.SUPABASE_PROJECT_ID}:${encodeURIComponent(process.env.DB_PASSWORD)}@aws-1-eu-west-2.pooler.supabase.com:5432/postgres`;
 
     // Create new Database object pool
     return new Kysely<DB>({
@@ -39,6 +39,11 @@ export async function storeCinemaData(
 ) {
     const LOG_PREFIX = '[main][' + cinemaShowing.cinema.name + ']';
 
+    // Serialize overlapping runs for this cinema without requiring a schema change.
+    await sql`select pg_advisory_xact_lock(hashtext(${cinemaShowing.cinema.name}))`.execute(
+        trx
+    );
+
     // Insert cinema into
     const now = DateTime.now().toISO().toString();
     const { defaultLanguage, ...rest } = cinemaShowing.cinema;
@@ -46,7 +51,13 @@ export async function storeCinemaData(
         .insertInto('new_cinemas')
         .values({ ...rest, default_lang: defaultLanguage, last_updated: now })
         .onConflict((oc) =>
-            oc.column('name').doUpdateSet({ last_updated: now })
+            oc
+                .column('name')
+                .doUpdateSet({
+                    ...rest,
+                    default_lang: defaultLanguage,
+                    last_updated: now,
+                })
         )
         .returning('id')
         .executeTakeFirstOrThrow(
@@ -63,8 +74,15 @@ export async function storeCinemaData(
         .where('cinema_id', '=', cinemaId)
         .execute();
 
-    const filmsToInsert = cinemaShowing.showings
-        .map((s) => s.film)
+    const uniqueFilms = [
+        ...new Map(
+            cinemaShowing.showings.map((s) => [
+                JSON.stringify([s.film.title, s.film.url]),
+                s.film,
+            ])
+        ).values(),
+    ];
+    const filmsToInsert = uniqueFilms
         .filter(
             (film) =>
                 films.find(
@@ -106,9 +124,17 @@ export async function storeCinemaData(
         .where('cinema_id', '=', cinemaId)
         .execute();
 
+    const knownShowings = new Set(
+        showings.map((s) =>
+            JSON.stringify([s.film_id, new Date(s.start_time).getTime()])
+        )
+    );
+
     const showingsToInsert = cinemaShowing.showings.flatMap((filmShowing) => {
         const film = filmShowing.film;
-        const filmId = films.find((f) => f.title === film.title)?.id;
+        const filmId = films.find(
+            (f) => f.title === film.title && f.url === film.url
+        )?.id;
 
         if (filmId === undefined)
             throw new Error(
@@ -116,16 +142,15 @@ export async function storeCinemaData(
             );
 
         return filmShowing.showings
-            .filter(
-                (show) =>
-                    showings.find(
-                        (s) =>
-                            new Date(show.startTime).getTime() ===
-                                new Date(s.start_time).getTime() &&
-                            s.film_id === filmId &&
-                            s.cinema_id === cinemaId
-                    ) === undefined
-            )
+            .filter((show) => {
+                const key = JSON.stringify([
+                    filmId,
+                    new Date(show.startTime).getTime(),
+                ]);
+                if (knownShowings.has(key)) return false;
+                knownShowings.add(key);
+                return true;
+            })
             .map((showing) => {
                 return {
                     booking_url: showing.bookingUrl,

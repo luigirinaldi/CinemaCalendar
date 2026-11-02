@@ -12,7 +12,7 @@ jobs:
     # Single deploy job since we're just deploying
     format-check:
         name: check formatting
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         steps:
             - name: Checkout
               uses: actions/checkout@v4

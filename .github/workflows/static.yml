@@ -2,11 +2,11 @@
 
 on:
     push:
-        branches: ['main', 'dev']
+        branches: ['main']
     workflow_dispatch:
     # workflow_run executes from main, which is allowed by the Pages environment.
     workflow_run:
-        workflows: ['Deploy production and dev to Pages']
+        workflows: ['Dev preview updated']
         branches: ['dev']
         types: [completed]
 
@@ -20,15 +20,11 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
-    dev-updated:
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
-        runs-on: ubuntu-latest
-        steps:
-            - run: echo "Dev updated; the workflow on main will publish both sites."
-
     build:
         if: github.ref == 'refs/heads/main'
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
+        env:
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         strategy:
             matrix:
                 include:

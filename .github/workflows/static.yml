@@ -1,50 +1,87 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Deploy production and dev to Pages
 
 on:
-    # Runs on pushes targeting the default branch
     push:
-        branches: ['main']
-
-    # Allows you to run this workflow manually from the Actions tab
+        branches: ['main', 'dev']
     workflow_dispatch:
+    # workflow_run executes from main, which is allowed by the Pages environment.
+    workflow_run:
+        workflows: ['Deploy production and dev to Pages']
+        branches: ['dev']
+        types: [completed]
 
-# Sets the GITHUB_TOKEN permissions to allow deployment to GitHub Pages
 permissions:
     contents: read
     pages: write
     id-token: write
 
-# Allow one concurrent deployment
 concurrency:
     group: 'pages'
-    cancel-in-progress: true
+    cancel-in-progress: false
 
 jobs:
-    # Single deploy job since we're just deploying
-    deploy:
-        environment:
-            name: github-pages
-            url: ${{ steps.deployment.outputs.page_url }}
+    dev-updated:
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout
+            - run: echo "Dev updated; the workflow on main will publish both sites."
+
+    build:
+        if: github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                include:
+                    - branch: main
+                      base: /CinemaCalendar/
+                    - branch: dev
+                      base: /CinemaCalendar/dev/
+        steps:
+            - name: Checkout ${{ matrix.branch }}
               uses: actions/checkout@v4
-
-            - uses: ./.github/workflows/node-cache
-
+              with:
+                  ref: ${{ matrix.branch }}
+            - name: Set up Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
             - name: Build
-              run: npm run build
+              run: npm run build -- --base "${{ matrix.base }}"
               env:
                   VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
                   VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+            - name: Save build
+              uses: actions/upload-artifact@v4
+              with:
+                  name: site-${{ matrix.branch }}
+                  path: dist
+                  retention-days: 1
+
+    deploy:
+        needs: build
+        runs-on: ubuntu-latest
+        environment:
+            name: github-pages
+            url: ${{ steps.deployment.outputs.page_url }}
+        steps:
+            - name: Download production build
+              uses: actions/download-artifact@v4
+              with:
+                  name: site-main
+                  path: _site
+            - name: Download dev build
+              uses: actions/download-artifact@v4
+              with:
+                  name: site-dev
+                  path: _site/dev
             - name: Setup Pages
               uses: actions/configure-pages@v4
-            - name: Upload artifact
+            - name: Upload Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:
-                  # Upload dist folder
-                  path: './dist'
+                  path: _site
             - name: Deploy to GitHub Pages
               id: deployment
               uses: actions/deploy-pages@v4

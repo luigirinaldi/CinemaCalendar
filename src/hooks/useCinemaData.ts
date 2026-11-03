@@ -1,5 +1,5 @@
 import supabase from '../supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     fetchCinemas,
     fetchScreenings,
@@ -8,12 +8,28 @@ import {
 } from '../api';
 import { cityZone, dateBounds } from '../lib/dates';
 import type { Filters } from '../types';
+import { cinemasInArea, nearestCity, type SearchArea } from '../lib/location';
 
 const message = (error: unknown) =>
     error instanceof Error ? error.message : 'Unable to load cinema data.';
-export function useCinemaData(filters: Filters, initialCity = '') {
+export function useCinemaData(
+    filters: Filters,
+    initialCity = '',
+    initialArea: SearchArea | null = null
+) {
     const [cinemas, setCinemas] = useState<Cinema[]>([]);
     const [city, setCity] = useState(initialCity);
+    const [area, setArea] = useState(initialArea);
+    const searchCinemas = useMemo(
+        () =>
+            area
+                ? cinemasInArea(cinemas, area)
+                : cinemas.filter((c) => c.location === city),
+        [cinemas, city, area]
+    );
+    const zone = cityZone(
+        area ? (nearestCity(cinemas, area)?.city ?? city) : city
+    );
     const [screenings, setScreenings] = useState<Screening[]>([]);
     const [initialLoading, setInitialLoading] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -52,24 +68,46 @@ export function useCinemaData(filters: Filters, initialCity = '') {
         const controller = new AbortController();
         setScreenings([]);
         setError(null);
-        if (!city) {
+        if (!city || !searchCinemas.length) {
             setLoading(false);
             return () => controller.abort();
         }
         setLoading(true);
         async function load() {
             try {
-                const [start, end] = dateBounds(
-                    { dateRange, currentDate, customStartDate, customEndDate },
-                    cityZone(city)
+                const locations = [
+                    ...new Set(
+                        searchCinemas.flatMap((c) =>
+                            c.location ? [c.location] : []
+                        )
+                    ),
+                ];
+                const results = await Promise.all(
+                    locations.map((location) => {
+                        const [start, end] = dateBounds(
+                            {
+                                dateRange,
+                                currentDate,
+                                customStartDate,
+                                customEndDate,
+                            },
+                            cityZone(location)
+                        );
+                        return fetchScreenings(
+                            supabase,
+                            location,
+                            start,
+                            end,
+                            controller.signal,
+                            area
+                                ? searchCinemas
+                                      .filter((c) => c.location === location)
+                                      .map((c) => c.id)
+                                : undefined
+                        );
+                    })
                 );
-                const rows = await fetchScreenings(
-                    supabase,
-                    city,
-                    start,
-                    end,
-                    controller.signal
-                );
+                const rows = results.flat();
                 if (!controller.signal.aborted) setScreenings(rows);
             } catch (e) {
                 if (!controller.signal.aborted) setError(message(e));
@@ -86,11 +124,17 @@ export function useCinemaData(filters: Filters, initialCity = '') {
         customStartDate,
         customEndDate,
         revision,
+        searchCinemas,
+        area,
     ]);
     return {
         cinemas,
         city,
         setCity,
+        area,
+        setArea,
+        searchCinemas,
+        zone,
         screenings,
         loading: initialLoading || loading,
         error: cinemaError || error,

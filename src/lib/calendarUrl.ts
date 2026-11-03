@@ -1,3 +1,4 @@
+import { searchArea, type SearchArea } from './location';
 import {
     GROUP_BY_VALUES,
     SHOW_MODE_VALUES,
@@ -11,7 +12,22 @@ import {
 
 export function readCalendarUrl(search: string, today: string) {
     const params = new URLSearchParams(search);
-    const rawRange = params.get('dateRange');
+    const parts = params.get('near')?.split(',');
+    const near = parts?.every((value) => value.trim() !== '')
+        ? parts.map(Number)
+        : null;
+    const area =
+        near?.length === 3 && near.every(Number.isFinite)
+            ? searchArea(near[0], near[1], near[2])
+            : null;
+    const rawRange =
+        params.has('from') || params.has('to')
+            ? 'custom'
+            : params.has('on')
+              ? 'today'
+              : params.has('week')
+                ? 'thisWeek'
+                : (params.get('when') ?? params.get('dateRange'));
     const dateRange: DateRange =
         rawRange === 'range'
             ? 'custom'
@@ -27,11 +43,16 @@ export function readCalendarUrl(search: string, today: string) {
     return {
         filters: {
             dateRange,
-            currentDate: params.get('date') ?? today,
-            customStartDate: params.get('start') ?? today,
-            customEndDate: params.get('end') ?? today,
+            currentDate:
+                params.get('on') ??
+                params.get('week') ??
+                params.get('date') ??
+                today,
+            customStartDate: params.get('from') ?? params.get('start') ?? today,
+            customEndDate: params.get('to') ?? params.get('end') ?? today,
         } satisfies Filters,
-        city: params.get('city') ?? '',
+        city: area ? '' : (params.get('city') ?? ''),
+        area,
         groupBy: GROUP_BY_VALUES.includes(groupBy)
             ? groupBy
             : ('movie' as GroupBy),
@@ -43,27 +64,26 @@ export function readCalendarUrl(search: string, today: string) {
 }
 
 export function calendarSearch(
-    search: string,
     filters: Filters,
     city: string,
-    groupBy: GroupBy,
-    showMode: ShowMode,
-    tableSort: TableSort | null
+    area: SearchArea | null,
+    today: string
 ) {
-    const params = new URLSearchParams(search);
-    params.set('dateRange', filters.dateRange);
-    params.set('date', filters.currentDate);
-    if (city) params.set('city', city.toLowerCase());
-    params.set('groupBy', groupBy);
-    params.set('showMode', showMode);
+    const params = new URLSearchParams();
+    if (area) params.set('near', `${area.lat},${area.lng},${area.km}`);
+    else if (city) params.set('city', city.toLowerCase());
     if (filters.dateRange === 'custom') {
-        params.set('start', filters.customStartDate);
-        params.set('end', filters.customEndDate);
-    } else {
-        params.delete('start');
-        params.delete('end');
+        params.set('from', filters.customStartDate);
+        params.set('to', filters.customEndDate);
+    } else if (filters.dateRange === 'anytime') {
+        params.set('when', 'anytime');
+    } else if (filters.currentDate !== today) {
+        params.set(
+            filters.dateRange === 'today' ? 'on' : 'week',
+            filters.currentDate
+        );
+    } else if (filters.dateRange === 'today') {
+        params.set('when', 'today');
     }
-    if (tableSort) params.set('tableSort', tableSort);
-    else params.delete('tableSort');
-    return params.toString();
+    return params.toString().replaceAll('%2C', ',');
 }

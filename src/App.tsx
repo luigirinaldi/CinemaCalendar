@@ -3,48 +3,65 @@ import { Film } from 'lucide-react';
 import { CalendarFilters } from './components/CalendarFilters';
 import { ScreeningResults } from './components/ScreeningResults';
 import { useCinemaData } from './hooks/useCinemaData';
-import { cityZone, todayIn } from './lib/dates';
+import { todayIn } from './lib/dates';
 import type { Filters, GroupBy, ShowMode, TableSort } from './types';
 import { CatalogViews } from './components/CatalogViews';
 import LetterboxdFilter from './components/LetterboxdFilter';
 import YearFilter from './components/YearFilter';
 import { useScreeningFilters } from './hooks/useScreeningFilters';
-import { readCalendarUrl, calendarSearch } from './lib/calendarUrl';
+import { calendarSearch } from './lib/calendarUrl';
+import { initialCalendarState, PREFERENCES_KEY } from './lib/preferences';
+import LocationPicker from './components/LocationPicker';
 
 export default function App() {
-    const [initial] = useState(() =>
-        readCalendarUrl(window.location.search, todayIn('Europe/Rome'))
-    );
+    const [initial] = useState(() => {
+        let storage: Storage | null = null;
+        try {
+            storage = window.localStorage;
+        } catch {
+            /* Storage may be disabled. */
+        }
+        return initialCalendarState(
+            window.location.search,
+            todayIn('Europe/Rome'),
+            storage
+        );
+    });
     const [filters, setFilters] = useState<Filters>(initial.filters);
     const [groupBy, setGroupBy] = useState<GroupBy>(initial.groupBy);
     const [showMode, setShowMode] = useState<ShowMode>(initial.showMode);
     const [tableSort, setTableSort] = useState<TableSort | null>(
         initial.tableSort
     );
-    const { cinemas, city, setCity, screenings, loading, error, retry } =
-        useCinemaData(filters, initial.city);
+    const {
+        cinemas,
+        city,
+        setCity,
+        area,
+        setArea,
+        zone,
+        screenings,
+        loading,
+        error,
+        retry,
+    } = useCinemaData(filters, initial.city, initial.area);
     const { visibleScreenings, movieYears, setLetterboxd, setYears } =
         useScreeningFilters(screenings);
     useEffect(() => {
         const url = new URL(window.location.href);
-        url.search = calendarSearch(
-            url.search,
-            filters,
-            city,
-            groupBy,
-            showMode,
-            tableSort
-        );
+        url.search = calendarSearch(filters, city, area, todayIn(zone));
         window.history.replaceState(null, '', url);
-    }, [filters, city, groupBy, showMode, tableSort]);
-    const cities = [
-        ...new Set(
-            cinemas.flatMap((cinema) =>
-                cinema.location ? [cinema.location] : []
-            )
-        ),
-    ];
-    const zone = cityZone(city);
+    }, [filters, city, area, zone]);
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(
+                PREFERENCES_KEY,
+                JSON.stringify({ city, area, groupBy, showMode, tableSort })
+            );
+        } catch {
+            /* Browsing and sharing still work when storage is unavailable. */
+        }
+    }, [city, area, groupBy, showMode, tableSort]);
     return (
         <div className="min-h-screen bg-neutral-900 text-white">
             <header className="bg-neutral-950 border-b border-red-900/30">
@@ -54,18 +71,15 @@ export default function App() {
                             <Film className="w-8 h-8 text-red-600" />
                             <h1 className="text-3xl font-bold">CineView</h1>
                         </div>
-                        <select
-                            aria-label="City"
-                            value={city}
-                            onChange={(event) => setCity(event.target.value)}
-                            className="bg-neutral-800 text-white px-4 py-2 rounded-lg border border-neutral-700 w-48"
-                        >
-                            {cities.map((name) => (
-                                <option key={name} value={name}>
-                                    {name}
-                                </option>
-                            ))}
-                        </select>
+                        <LocationPicker
+                            cinemas={cinemas}
+                            city={city}
+                            area={area}
+                            onChange={(nextCity, nextArea) => {
+                                setCity(nextCity);
+                                setArea(nextArea);
+                            }}
+                        />
                     </div>
                     <CalendarFilters
                         filters={filters}
@@ -97,6 +111,8 @@ export default function App() {
                         screenings={visibleScreenings}
                         cinemas={cinemas}
                         city={city}
+                        area={area}
+                        onAreaChange={setArea}
                         zone={zone}
                         view={groupBy}
                         filters={filters}

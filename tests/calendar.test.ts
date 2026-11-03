@@ -212,3 +212,48 @@ test('empty city makes no API call; server errors propagate', async () => {
         /Access denied/
     );
 });
+
+test('radius queries restrict cinema IDs on the server and empty areas make no request', async () => {
+    const requests: URL[] = [];
+    const controller = new AbortController();
+    const client = createClient<Database>(
+        'https://example.supabase.co',
+        'test-key',
+        {
+            auth: { persistSession: false, autoRefreshToken: false },
+            global: {
+                fetch: async (input, init) => {
+                    requests.push(new URL(String(input)));
+                    assert.ok(init?.signal);
+                    return new Response('[]', {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Content-Range': '*/0',
+                        },
+                    });
+                },
+            },
+        }
+    );
+    await fetchScreenings(client, 'London', null, null, controller.signal, []);
+    assert.equal(requests.length, 0);
+    await fetchScreenings(
+        client,
+        'London',
+        '2026-11-03T00:00:00Z',
+        '2026-11-04T04:00:00Z',
+        controller.signal,
+        [1, 3]
+    );
+    assert.equal(requests[0].searchParams.get('cinema_id'), 'in.(1,3)');
+    assert.equal(requests[0].searchParams.get('cinema.location'), 'eq.London');
+    assert.equal(
+        requests[0].searchParams.get('order'),
+        'start_time.asc,id.asc'
+    );
+    assert.match(requests[0].searchParams.get('select')!, /!inner/);
+    assert.deepEqual(requests[0].searchParams.getAll('start_time'), [
+        'gte.2026-11-03T00:00:00Z',
+        'lt.2026-11-04T04:00:00Z',
+    ]);
+});

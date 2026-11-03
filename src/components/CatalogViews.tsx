@@ -1,13 +1,17 @@
-import { useMemo } from 'react';
+import type { SearchArea } from '../lib/location';
+import { cinemasInArea } from '../lib/location';
+import { lazy, Suspense, useMemo } from 'react';
 import { filmWithPoster, type Cinema, type Screening } from '../api';
 import type { Filters, ShowMode, TableSort } from '../types';
 import TableView from './TableView';
-import MapView from './MapView';
+const MapView = lazy(() => import('./MapView'));
 
 interface Props {
     screenings: Screening[];
     cinemas: Cinema[];
     city: string;
+    area: SearchArea | null;
+    onAreaChange: (area: SearchArea) => void;
     zone: string;
     view: 'table' | 'map';
     filters: Filters;
@@ -21,6 +25,8 @@ export function CatalogViews({
     screenings,
     cinemas,
     city,
+    area,
+    onAreaChange,
     zone,
     view,
     filters,
@@ -52,19 +58,32 @@ export function CatalogViews({
             filmsByCinema.set(row.cinema_id, films);
         }
         return (
-            <MapView
-                cinemas={cinemas}
-                selectedCity={city}
-                activeCinemaIds={new Set(filmsByCinema.keys())}
-                cinemaMovieCounts={
-                    new Map(
-                        [...filmsByCinema].map(([id, films]) => [
-                            id,
-                            films.size,
-                        ])
-                    )
+            <Suspense
+                fallback={
+                    <p
+                        role="status"
+                        className="flex h-96 items-center justify-center text-neutral-400"
+                    >
+                        Loading cinema map...
+                    </p>
                 }
-            />
+            >
+                <MapView
+                    cinemas={area ? cinemasInArea(cinemas, area) : cinemas}
+                    selectedCity={area ? '' : city}
+                    area={area}
+                    onAreaChange={onAreaChange}
+                    activeCinemaIds={new Set(filmsByCinema.keys())}
+                    cinemaMovieCounts={
+                        new Map(
+                            [...filmsByCinema].map(([id, films]) => [
+                                id,
+                                films.size,
+                            ])
+                        )
+                    }
+                />
+            </Suspense>
         );
     }
     return (

@@ -13,6 +13,26 @@ npm run dev
 
 The app is served under `/CinemaCalendar/` (also used for GitHub Pages).
 
+## Location and sharing
+
+Open the location button to search the available cities, choose a point on the map,
+or use the browser's location permission. Nearby search supports a radius of 1–100 km
+and includes tracked cinemas across city boundaries. The main map also supports
+clicking to move the search centre and changing the radius. Cities are derived from
+the cinema catalogue; adding a city does not require changing the picker.
+
+Location and display preferences are remembered in local storage on this browser.
+Shared links contain only the city (`?city=london`) or an approximate point and radius
+(`?near=51.507,-0.128,25`), plus any relevant date selection. Grouping, compact/full
+mode and table sorting stay out of new links. Explicit shared locations override
+saved locations; older links are still accepted. Storage being disabled does not
+prevent searching or sharing. Coordinates in links are rounded to three decimals.
+
+Nearby search requires valid cinema coordinates. Unmapped cinemas remain available
+through city search. Adding cities in other time zones also requires extending the
+existing `cityZone` mapping in `src/lib/dates.ts`; this change does not add database
+timezone metadata or change the current London/Rome date rules.
+
 Production is published from `main` at https://luigirinaldi.github.io/CinemaCalendar/.
 The `dev` branch is published at https://luigirinaldi.github.io/CinemaCalendar/dev/.
 Pushing either branch rebuilds both versions into one Pages deployment. Dev pushes

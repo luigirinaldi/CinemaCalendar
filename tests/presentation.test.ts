@@ -10,6 +10,8 @@ import { filmWithPoster, type Screening } from '../src/api';
 import { movieYearsForScreenings } from '../src/hooks/useScreeningFilters';
 import { CalendarFilters } from '../src/components/CalendarFilters';
 import FilmPosterCard from '../src/components/FilmPosterCard';
+import { readCalendarUrl } from '../src/lib/calendarUrl';
+import { todayIn } from '../src/lib/dates';
 
 function row(id: number, filmId = 1, tmdbId: number | null = 10): Screening {
     return {
@@ -252,10 +254,12 @@ test('film views preserve details, cinema collapse and city-local calendar days;
                 })
             )
         );
-        const link = container.querySelector('a[href*="dateRange=today"]')!;
+        const link = container.querySelector(
+            'a[href*="when=today"], a[href*="on="]'
+        )!;
         const url = new URL(link.getAttribute('href')!);
         assert.equal(
-            url.searchParams.get('date'),
+            readCalendarUrl(url.search, todayIn(zone)).filters.currentDate,
             zone === 'Europe/London' ? '2026-11-03' : '2026-11-04'
         );
         assert.match(
@@ -263,8 +267,8 @@ test('film views preserve details, cinema collapse and city-local calendar days;
             zone === 'Europe/London' ? /3 Nov/ : /4 Nov/
         );
         assert.equal(url.searchParams.get('city'), 'london');
-        assert.equal(url.searchParams.get('groupBy'), 'table');
-        assert.equal(url.searchParams.get('tableSort'), 'title-asc');
+        assert.equal(url.searchParams.has('groupBy'), false);
+        assert.equal(url.searchParams.has('tableSort'), false);
         assert.equal(url.searchParams.has('start'), false);
         assert.equal(url.searchParams.has('end'), false);
     }

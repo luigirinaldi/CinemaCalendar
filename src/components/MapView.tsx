@@ -1,3 +1,9 @@
+import {
+    cinemaCoords as parseCinemaCoords,
+    searchArea,
+    type SearchArea,
+} from '../lib/location';
+import { AreaSelection, CinemaBounds } from './MapLayers';
 import { useEffect, useRef, useState } from 'react';
 import {
     MapContainer,
@@ -11,11 +17,6 @@ import L from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
 import type { GeoJsonObject } from 'geojson';
 import type { CinemaTable } from '../api';
-
-interface Coords {
-    lat: number;
-    lng: number;
-}
 
 interface OsmCinema {
     id: number;
@@ -41,18 +42,6 @@ const osmCache = new Map<string, OsmCinema[]>();
 // this just needs to be generous enough to survive minor float differences while
 // keeping truly separate buildings (e.g. BFI Southbank vs BFI IMAX ~300m away) apart.
 const PROXIMITY_THRESHOLD_SQ = 0.0001 ** 2;
-
-function parseCinemaCoords(cinema: CinemaTable): Coords | null {
-    const c = cinema.coordinates as {
-        lat: number | string;
-        lng: number | string;
-    } | null;
-    if (!c) return null;
-    const lat = typeof c.lat === 'number' ? c.lat : parseFloat(c.lat as string);
-    const lng = typeof c.lng === 'number' ? c.lng : parseFloat(c.lng as string);
-    if (isNaN(lat) || isNaN(lng)) return null;
-    return { lat, lng };
-}
 
 function normalizeHost(url: string): string {
     try {
@@ -164,6 +153,8 @@ interface MapViewProps {
     cinemas: CinemaTable[];
     activeCinemaIds: Set<number>;
     selectedCity: string;
+    area: SearchArea | null;
+    onAreaChange: (area: SearchArea) => void;
     cinemaMovieCounts: Map<number, number>;
 }
 
@@ -171,6 +162,8 @@ export default function MapView({
     cinemas,
     activeCinemaIds,
     selectedCity,
+    area,
+    onAreaChange,
     cinemaMovieCounts,
 }: MapViewProps) {
     const [boundaryGeojson, setBoundaryGeojson] =
@@ -197,6 +190,8 @@ export default function MapView({
         const areaId = CITY_AREA_IDS[selectedCity];
         if (!areaId) {
             setOsmCinemas([]);
+            setOsmLoading(false);
+            setOsmError(null);
             return;
         }
         const cached = osmCache.get(selectedCity);
@@ -228,14 +223,16 @@ export default function MapView({
     }, [selectedCity]);
 
     const trackedWithCoords = cinemas
-        .filter((c) => c.location === selectedCity)
+        .filter((c) => !selectedCity || c.location === selectedCity)
         .flatMap((c) => {
             const coords = parseCinemaCoords(c);
             return coords ? [{ cinema: c, coords }] : [];
         });
 
     const trackedUnmapped = cinemas.filter(
-        (c) => c.location === selectedCity && parseCinemaCoords(c) === null
+        (c) =>
+            (!selectedCity || c.location === selectedCity) &&
+            parseCinemaCoords(c) === null
     );
 
     /** Match an OSM cinema to a tracked cinema.
@@ -310,7 +307,25 @@ export default function MapView({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {boundaryGeojson && (
+                <AreaSelection
+                    area={area}
+                    onPick={(point) => {
+                        const next = searchArea(
+                            point.lat,
+                            point.lng,
+                            area?.km ?? 25
+                        );
+                        if (next) onAreaChange(next);
+                    }}
+                />
+                {!area && !BOUNDARY_URLS[selectedCity] && (
+                    <CinemaBounds
+                        cinemas={cinemas.filter(
+                            (c) => c.location === selectedCity
+                        )}
+                    />
+                )}
+                {!area && boundaryGeojson && (
                     <>
                         <GeoJSON
                             key={selectedCity}
@@ -411,6 +426,34 @@ export default function MapView({
                     );
                 })}
             </MapContainer>
+
+            <div className="absolute top-4 left-14 z-[1000] max-w-56 rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 py-2 text-xs text-neutral-200">
+                <p>Click the map to search nearby.</p>
+                {area && (
+                    <label className="mt-2 block">
+                        Within {area.km} km
+                        <select
+                            aria-label="Map search radius in kilometres"
+                            value={area.km}
+                            className="mt-1 block w-full rounded bg-neutral-800 p-1"
+                            onChange={(event) =>
+                                onAreaChange({
+                                    ...area,
+                                    km: Number(event.target.value),
+                                })
+                            }
+                        >
+                            {[...new Set([1, 5, 10, 25, 50, 100, area.km])]
+                                .sort((a, b) => a - b)
+                                .map((km) => (
+                                    <option key={km} value={km}>
+                                        {km} km
+                                    </option>
+                                ))}
+                        </select>
+                    </label>
+                )}
+            </div>
 
             {(osmLoading || osmError) && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-neutral-300">

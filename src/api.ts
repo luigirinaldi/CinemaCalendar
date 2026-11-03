@@ -41,12 +41,14 @@ export async function fetchScreenings(
     city: string,
     start: string | null,
     end: string | null,
-    signal: AbortSignal
+    signal: AbortSignal,
+    cinemaIds?: number[]
 ): Promise<Screening[]> {
-    if (!city) return [];
+    if (!city || cinemaIds?.length === 0) return [];
     return fetchAllPages(async (from, to) => {
         // The !inner join filters the parent rows by city on the server.
         let query = screeningQuery(supabase).eq('cinema.location', city);
+        if (cinemaIds) query = query.in('cinema_id', cinemaIds);
         if (start) query = query.gte('start_time', start);
         if (end) query = query.lt('start_time', end);
         const { data, error, count } = await query

@@ -12,14 +12,16 @@ test('main range URLs use dev custom-date semantics and survive URL updates', ()
     assert.equal(state.filters.dateRange, 'custom');
     assert.equal(state.filters.customEndDate, '2026-07-02');
     const encoded = calendarSearch(
-        '',
         state.filters,
         state.city,
-        state.groupBy,
-        state.showMode,
-        state.tableSort
+        state.area,
+        '2026-11-03'
     );
-    assert.deepEqual(readCalendarUrl(`?${encoded}`, '2026-11-03'), state);
+    const restored = readCalendarUrl(`?${encoded}`, '2026-11-03');
+    assert.deepEqual(restored.filters, state.filters);
+    assert.equal(restored.city, state.city);
+    assert.equal(restored.groupBy, 'movie');
+    assert.equal(restored.tableSort, null);
 });
 
 test('dev week and custom URL state retain dev defaults', () => {

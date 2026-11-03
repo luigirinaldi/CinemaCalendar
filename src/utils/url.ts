@@ -1,3 +1,4 @@
+import { calendarSearch, readCalendarUrl } from '../lib/calendarUrl';
 import { DateTime } from 'luxon';
 import { GROUP_BY_VALUES, SHOW_MODE_VALUES, TABLE_SORT_VALUES } from '../types';
 import type {
@@ -50,13 +51,18 @@ export function getUrlSearchParams(): {
 
 export function buildDayUrl(date: Date, zone: string): string {
     const url = new URL(window.location.href);
-    url.searchParams.set('dateRange', 'today');
-    url.searchParams.set(
-        'date',
-        DateTime.fromJSDate(date, { zone }).toISODate()!
+    const today = DateTime.now().setZone(zone).toISODate()!;
+    const state = readCalendarUrl(url.search, today);
+    url.search = calendarSearch(
+        {
+            ...state.filters,
+            dateRange: 'today',
+            currentDate: DateTime.fromJSDate(date, { zone }).toISODate()!,
+        },
+        state.city,
+        state.area,
+        today
     );
-    url.searchParams.delete('start');
-    url.searchParams.delete('end');
     return url.toString();
 }
 

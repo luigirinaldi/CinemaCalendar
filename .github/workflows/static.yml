@@ -23,8 +23,12 @@ jobs:
     build:
         if: github.ref == 'refs/heads/main'
         runs-on: ubuntu-24.04
+        environment:
+            name: github-pages
         env:
             PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+            VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
+            VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
         strategy:
             matrix:
                 include:
@@ -33,6 +37,11 @@ jobs:
                     - branch: dev
                       base: /CinemaCalendar/dev/
         steps:
+            - name: Validate Supabase build settings
+              shell: bash
+              run: |
+                  : "${VITE_SUPABASE_URL:?Missing VITE_SUPABASE_URL in the github-pages environment}"
+                  : "${VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY:?Missing VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY in the github-pages environment}"
             - name: Checkout ${{ matrix.branch }}
               uses: actions/checkout@v4
               with:
@@ -45,9 +54,6 @@ jobs:
             - run: npm ci
             - name: Build
               run: npm run build -- --base "${{ matrix.base }}"
-              env:
-                  VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY }}
-                  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
             - name: Save build
               uses: actions/upload-artifact@v4
               with:

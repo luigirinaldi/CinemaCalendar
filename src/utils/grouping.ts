@@ -1,3 +1,4 @@
+import { dayKey } from '../lib/dates';
 import { filmKey } from '../lib/groupings';
 import type { FilmTable, ShowingsTable } from '../api';
 
@@ -23,11 +24,12 @@ export const groupByCinema = (
 };
 
 export const groupByDay = (
-    screeningsList: ShowingsTable[]
-): Record<number, ShowingsTable[]> => {
-    const grouped: Record<number, ShowingsTable[]> = {};
+    screeningsList: ShowingsTable[],
+    zone: string
+): Record<string, ShowingsTable[]> => {
+    const grouped: Record<string, ShowingsTable[]> = {};
     screeningsList.forEach((s) => {
-        const day = new Date(s.start_time).getDay();
+        const day = dayKey(s.start_time, zone);
         if (!grouped[day]) grouped[day] = [];
         grouped[day].push(s);
     });

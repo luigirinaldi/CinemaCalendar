@@ -11,6 +11,7 @@ import {
 import FilmPosterCard, { DayRow } from './FilmPosterCard';
 
 interface ByCinemaViewProps {
+    zone: string;
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
@@ -18,6 +19,7 @@ interface ByCinemaViewProps {
 
 export default function ByCinemaView({
     screenings,
+    zone,
     getMovie,
     getCinema,
 }: ByCinemaViewProps) {
@@ -50,6 +52,7 @@ export default function ByCinemaView({
                             className="bg-neutral-800 rounded-lg overflow-hidden"
                         >
                             <button
+                                aria-expanded={!isCollapsed}
                                 onClick={() => toggleCinema(id)}
                                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-neutral-700 transition text-left"
                             >
@@ -77,9 +80,10 @@ export default function ByCinemaView({
                                             );
                                             const byDay = Object.entries(
                                                 groupByDay(
-                                                    movieScreenings.sort(
+                                                    [...movieScreenings].sort(
                                                         sortScreeningByStartTime
-                                                    )
+                                                    ),
+                                                    zone
                                                 )
                                             ).sort(sortGroupedByStartTime);
                                             return (
@@ -95,6 +99,7 @@ export default function ByCinemaView({
                                                                 dayScreenings,
                                                             ]) => (
                                                                 <DayRow
+                                                                    zone={zone}
                                                                     key={
                                                                         dayScreenings[0]
                                                                             ?.id

@@ -17,7 +17,7 @@
         "test_letterboxd": "npx tsx scripts/test_letterboxd_profiles.ts",
         "gen_types": "npx tsx scripts/autoTypes.ts",
         "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format",
-        "test": "node --import tsx --test tests/*.test.ts",
+        "test": "tsx --tsconfig tsconfig.scripts.json --test tests/*.test.ts",
         "typecheck": "tsc -b && tsc -p tsconfig.scripts.json"
     },
     "devDependencies": {

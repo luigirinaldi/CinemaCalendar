@@ -12,15 +12,17 @@ function CinemaGroup({
     screenings,
     getCinema,
     showTimes,
+    zone,
 }: {
     cinemaId: string;
     screenings: ShowingsTable[];
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
+    zone: string;
 }) {
     const cinema = getCinema(Number(cinemaId));
     const byDay = Object.entries(
-        groupByDay(screenings.sort(sortScreeningByStartTime))
+        groupByDay([...screenings].sort(sortScreeningByStartTime), zone)
     ).sort(sortGroupedByStartTime);
 
     return (
@@ -32,6 +34,7 @@ function CinemaGroup({
                         key={day}
                         screenings={dayScreenings}
                         showTimes={showTimes}
+                        zone={zone}
                     />
                 ))}
             </div>
@@ -40,6 +43,7 @@ function CinemaGroup({
 }
 
 interface MovieCardProps {
+    zone: string;
     movieKey: string;
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
@@ -48,6 +52,7 @@ interface MovieCardProps {
 
 export default function MovieCard({
     movieKey,
+    zone,
     screenings,
     getMovie,
     getCinema,
@@ -71,6 +76,7 @@ export default function MovieCard({
                         screenings={cinemaScreenings}
                         getCinema={getCinema}
                         showTimes={true}
+                        zone={zone}
                     />
                 ))}
             </div>

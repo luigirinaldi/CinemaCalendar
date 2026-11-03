@@ -1,5 +1,21 @@
 import { useMemo, useState } from 'react';
 import type { Screening } from '../api';
+import { byMovie } from '../lib/groupings';
+
+export function movieYearsForScreenings(screenings: Screening[]) {
+    return byMovie(screenings).flatMap(([, rows]) => {
+        // Use the same identity as the movie, cinema and table views. A film
+        // contributes once, even when screened repeatedly or at several venues.
+        for (const row of rows) {
+            const date = row.film?.tmdb_films?.release_date;
+            const year = date
+                ? Number(date.slice(0, 4))
+                : row.film?.release_year;
+            if (year != null && Number.isFinite(year)) return [year];
+        }
+        return [];
+    });
+}
 
 export function filterScreenings(
     rows: Screening[],
@@ -28,14 +44,7 @@ export function useScreeningFilters(screenings: Screening[]) {
         [screenings, letterboxd, years]
     );
     const movieYears = useMemo(
-        () =>
-            screenings.flatMap((row) => {
-                const date = row.film?.tmdb_films?.release_date;
-                const year = date
-                    ? Number(date.slice(0, 4))
-                    : row.film?.release_year;
-                return year != null && Number.isFinite(year) ? [year] : [];
-            }),
+        () => movieYearsForScreenings(screenings),
         [screenings]
     );
     return { visibleScreenings, movieYears, setLetterboxd, setYears };

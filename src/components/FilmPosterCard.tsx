@@ -4,13 +4,19 @@ import type { FilmWithPoster, ShowingsTable } from '../api';
 
 const TMDB_FAVICON =
     'https://www.themoviedb.org/assets/2/favicon-32x32-543a21832c8931d3494a68881f6afcafc58e96c5d324345377f3197a37b367b5.png';
-import { formatDate, formatTime } from '../utils/formatters';
+import { formatDate, formatTime } from '../lib/dates';
 import { sortScreeningByStartTime } from '../utils/grouping';
 import { buildDayUrl } from '../utils/url';
 
-export function ScreeningTime({ screening }: { screening: ShowingsTable }) {
-    const time = formatTime(screening.start_time);
-    if (screening.booking_url) {
+export function ScreeningTime({
+    screening,
+    zone,
+}: {
+    screening: ShowingsTable;
+    zone: string;
+}) {
+    const time = formatTime(screening.start_time, zone);
+    if (screening.booking_url && /^https?:\/\//i.test(screening.booking_url)) {
         return (
             <a
                 href={screening.booking_url}
@@ -30,15 +36,17 @@ export function ScreeningTime({ screening }: { screening: ShowingsTable }) {
 export function DayRow({
     screenings,
     showTimes,
+    zone,
 }: {
     screenings: ShowingsTable[];
     showTimes: boolean;
+    zone: string;
 }) {
-    const dayLabel = formatDate(screenings[0].start_time);
+    const dayLabel = formatDate(screenings[0].start_time, zone);
     if (!showTimes) {
         return (
             <a
-                href={buildDayUrl(new Date(screenings[0].start_time))}
+                href={buildDayUrl(new Date(screenings[0].start_time), zone)}
                 className="block text-neutral-400 text-xs hover:text-white hover:underline"
             >
                 {dayLabel}
@@ -49,8 +57,8 @@ export function DayRow({
         <div className="flex justify-between items-start">
             <p className="text-neutral-400 flex-shrink-0 text-xs">{dayLabel}</p>
             <div className="flex gap-x-2 flex-wrap justify-end">
-                {screenings.sort(sortScreeningByStartTime).map((s) => (
-                    <ScreeningTime key={s.id} screening={s} />
+                {[...screenings].sort(sortScreeningByStartTime).map((s) => (
+                    <ScreeningTime key={s.id} screening={s} zone={zone} />
                 ))}
             </div>
         </div>

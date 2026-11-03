@@ -130,7 +130,8 @@ function ScreeningTimes({
                                             href={buildDayUrl(
                                                 new Date(
                                                     dayScreenings[0].start_time
-                                                )
+                                                ),
+                                                zone
                                             )}
                                             className="text-neutral-400 text-xs hover:text-white hover:underline"
                                         >

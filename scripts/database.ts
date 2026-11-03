@@ -38,65 +38,68 @@ export async function dryRunStoreCinemaData(
     cinemaShowing: CinemaShowing
 ) {
     const LOG_PREFIX = '[dry-run][' + cinemaShowing.cinema.name + ']';
-    const now = DateTime.now().toISO().toString();
-
-    const { defaultLanguage: _defaultLanguage, ...rest } = cinemaShowing.cinema;
     const cinema = await trx
         .selectFrom('new_cinemas')
         .select('id')
-        .where('name', '=', rest.name)
+        .where('name', '=', cinemaShowing.cinema.name)
         .executeTakeFirst();
+    if (!cinema)
+        console.log(`${LOG_PREFIX} Cinema not found in DB; would be inserted`);
 
-    if (!cinema) {
-        console.log(`${LOG_PREFIX} Cinema not found in DB — would be inserted`);
-        return;
+    // Read the same films and showings as the writer, including past rows.
+    const films = cinema
+        ? await trx
+              .selectFrom('new_films')
+              .selectAll()
+              .where('cinema_id', '=', cinema.id)
+              .execute()
+        : [];
+    const showings = cinema
+        ? await trx
+              .selectFrom('new_showings')
+              .selectAll()
+              .where('cinema_id', '=', cinema.id)
+              .execute()
+        : [];
+    const known = new Set(
+        showings.map((row) =>
+            JSON.stringify([row.film_id, new Date(row.start_time).getTime()])
+        )
+    );
+    const incoming = new Set<string>();
+    let added = 0;
+    for (const { film, showings: incomingShowings } of cinemaShowing.showings) {
+        const existing = films.find(
+            (row) => row.title === film.title && row.url === film.url
+        );
+        // The writer matches existing films by title + URL, and otherwise creates
+        // one film for that pair. Keep new-film identities separate from DB IDs.
+        const identity = existing?.id ?? [film.title, film.url];
+        for (const showing of incomingShowings) {
+            const key = JSON.stringify([
+                identity,
+                new Date(showing.startTime).getTime(),
+            ]);
+            incoming.add(key);
+            if (known.has(key)) continue;
+            known.add(key);
+            added++;
+            console.log(`${LOG_PREFIX} + [${showing.startTime}] ${film.title}`);
+        }
     }
-    const cinemaId = cinema.id;
-
-    // Current future showings in DB
-    const currentShowings = await trx
-        .selectFrom('new_showings')
-        .innerJoin('new_films', 'new_films.id', 'new_showings.film_id')
-        .select(['new_showings.start_time', 'new_films.title'])
-        .where('new_showings.cinema_id', '=', cinemaId)
-        .where('new_showings.start_time', '>=', now)
-        .execute();
-
-    // Incoming showings from scraper
-    const incomingShowings = cinemaShowing.showings.flatMap((filmShowing) =>
-        filmShowing.showings.map((showing) => ({
-            title: filmShowing.film.title,
-            start_time: showing.startTime,
-        }))
+    const retained = showings.filter(
+        (row) =>
+            !incoming.has(
+                JSON.stringify([
+                    row.film_id,
+                    new Date(row.start_time).getTime(),
+                ])
+            )
+    ).length;
+    if (!added) console.log(`${LOG_PREFIX} No new screenings to insert`);
+    console.log(
+        `${LOG_PREFIX} Retaining ${retained} stored screenings absent from this scrape; no screenings will be deleted`
     );
-
-    const toKey = (title: string, time: string) =>
-        `${title}|${new Date(time).getTime()}`;
-
-    const currentKeys = new Set(
-        currentShowings.map((s) => toKey(s.title, s.start_time))
-    );
-    const incomingKeys = new Set(
-        incomingShowings.map((s) => toKey(s.title, s.start_time))
-    );
-
-    const added = incomingShowings.filter(
-        (s) => !currentKeys.has(toKey(s.title, s.start_time))
-    );
-    const removed = currentShowings.filter(
-        (s) => !incomingKeys.has(toKey(s.title, s.start_time))
-    );
-
-    if (added.length === 0 && removed.length === 0) {
-        console.log(`${LOG_PREFIX} No changes`);
-        return;
-    }
-    for (const s of added) {
-        console.log(`${LOG_PREFIX} + [${s.start_time}] ${s.title}`);
-    }
-    for (const s of removed) {
-        console.log(`${LOG_PREFIX} - [${s.start_time}] ${s.title}`);
-    }
 }
 
 export async function storeCinemaData(

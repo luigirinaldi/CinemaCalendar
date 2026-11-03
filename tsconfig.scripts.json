@@ -3,12 +3,13 @@
         "target": "ES2022",
         "module": "ESNext",
         "moduleResolution": "bundler",
+        "jsx": "react-jsx",
         "lib": ["ES2022", "DOM"],
-        "types": ["node"],
+        "types": ["node", "vite/client"],
         "strict": true,
         "skipLibCheck": true,
         "noEmit": true,
         "allowImportingTsExtensions": true
     },
-    "include": ["scripts", "tests"]
+    "include": ["scripts", "tests", "src"]
 }

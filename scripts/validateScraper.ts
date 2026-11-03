@@ -10,7 +10,7 @@ async function main() {
     const files = (await readdir(new URL('./cinemas/', import.meta.url)))
         .filter(
             (file) =>
-                file.endsWith('Cinema.ts') &&
+                file.endsWith('.ts') &&
                 (!filters.length ||
                     filters.some((filter) =>
                         file.toLowerCase().includes(filter.toLowerCase())

@@ -127,6 +127,7 @@ export type Database = {
                     last_updated: string;
                     location: string;
                     name: string;
+                    website: string | null;
                 };
                 Insert: {
                     coordinates?: Json | null;
@@ -136,6 +137,7 @@ export type Database = {
                     last_updated: string;
                     location: string;
                     name: string;
+                    website?: string | null;
                 };
                 Update: {
                     coordinates?: Json | null;
@@ -145,6 +147,7 @@ export type Database = {
                     last_updated?: string;
                     location?: string;
                     name?: string;
+                    website?: string | null;
                 };
                 Relationships: [];
             };

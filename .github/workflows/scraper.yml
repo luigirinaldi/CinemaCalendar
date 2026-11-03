@@ -60,3 +60,17 @@ jobs:
                   SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
                   TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
               run: npm run get_tmdb_id
+
+    add-letterboxd-meta:
+        needs: add-tmdb-id
+        if: success() || failure()
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: ./.github/workflows/node-cache
+
+            - name: Run get Letterboxd metadata
+              env:
+                  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+                  SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+              run: npm run get_letterboxd_meta

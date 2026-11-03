@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Calendar, MapPin } from 'lucide-react';
-import type { Screening } from '../api';
+import type { Screening } from '../calendarApi';
 import type { GroupBy } from '../types';
 import { byCinema, byDay, byMovie } from '../lib/groupings';
 import { formatDate, formatTime } from '../lib/dates';

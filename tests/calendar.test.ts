@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DateTime } from 'luxon';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../database.types';
-import { fetchScreenings, type Screening } from '../src/api';
+import { fetchScreenings, type Screening } from '../src/calendarApi';
 import { dateBounds } from '../src/lib/dates';
 import { byDay, byMovie } from '../src/lib/groupings';
 import { fetchAllPages } from '../src/lib/pagination';

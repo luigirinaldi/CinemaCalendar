@@ -89,6 +89,48 @@ test('schema rejects invalid and timezone-free screening times', () => {
         true
     );
 });
+
+test('The Space uses the API offset timestamp instead of the unzoned display time', async (t) => {
+    const { scraper } = await import('../scripts/cinemas/theSpaceCinema');
+    t.mock.method(globalThis, 'fetch', async (input: string | URL) =>
+        String(input).includes('/api/microservice/')
+            ? new Response(
+                  JSON.stringify({
+                      result: [
+                          {
+                              filmTitle: 'Test film',
+                              filmId: '123',
+                              showingGroups: [
+                                  {
+                                      sessions: [
+                                          {
+                                              startTime: '2026-07-01T20:00:00',
+                                              showTimeWithTimeZone:
+                                                  '2026-07-01T21:00:00+02:00',
+                                              attributes: [],
+                                              bookingUrl: '/book/123',
+                                          },
+                                      ],
+                                  },
+                              ],
+                          },
+                      ],
+                  })
+              )
+            : new Response('', {
+                  headers: { 'set-cookie': 'microservicesToken=test;' },
+              })
+    );
+    const result = await scraper();
+    assert.equal(
+        result[0].showings[0].showings[0].startTime,
+        '2026-07-01T19:00:00.000Z'
+    );
+    assert.equal(
+        result[0].showings[0].showings[0].bookingUrl,
+        'https://www.thespacecinema.it/book/123'
+    );
+});
 test('HTTP retries transient failures but fails immediately on 404', async (t) => {
     let calls = 0;
     t.mock.method(globalThis, 'fetch', async () => {
@@ -126,44 +168,49 @@ test('detail page concurrency is bounded and results preserve ordering', async (
     assert.equal(peak, 2);
 });
 
-test('Riverside discovers the stream URL and preserves booking links', async (t) => {
-    const { scraper } = await import(
-        '../scripts/cinemas/riversideStudiosCinema'
-    );
-    const requested: string[] = [];
-    t.mock.method(globalThis, 'fetch', async (input: string | URL) => {
-        requested.push(String(input));
-        if (requested.length === 1)
+for (const classification of [
+    { event_type: ['101'] },
+    { slot_tag: 'Cinema' },
+]) {
+    test(`Riverside discovers its stream and booking links with ${Object.keys(classification)[0]}`, async (t) => {
+        const { scraper } = await import(
+            '../scripts/cinemas/riversideStudiosCinema'
+        );
+        const requested: string[] = [];
+        t.mock.method(globalThis, 'fetch', async (input: string | URL) => {
+            requested.push(String(input));
+            if (requested.length === 1)
+                return new Response(
+                    "var _filter_streaming = {data_url: 'https://riversidestudios.co.uk/ajax/filter_stream/new-id/'};"
+                );
             return new Response(
-                "var _filter_streaming = {data_url: 'https://riversidestudios.co.uk/ajax/filter_stream/new-id/'};"
-            );
-        return new Response(
-            JSON.stringify([
-                {
-                    title: 'Test film',
-                    url: 'https://riversidestudios.co.uk/whats-on/test/',
-                    duration: '82 minutes',
-                    event_type: ['101'],
-                    performances: {
-                        day: [
-                            {
-                                timestamp: '1793559600',
-                                html: '<a href="https://riversidestudios.co.uk/seats/123/">Book</a>',
-                            },
-                        ],
+                JSON.stringify([
+                    {
+                        title: 'Test film',
+                        url: 'https://riversidestudios.co.uk/whats-on/test/',
+                        duration: '82 minutes',
+                        ...classification,
+                        performances: {
+                            day: [
+                                {
+                                    timestamp: '1793559600',
+                                    html: '<a href="https://riversidestudios.co.uk/seats/123/">Book</a>',
+                                },
+                            ],
+                        },
                     },
-                },
-            ])
+                ])
+            );
+        });
+        const result = await scraper();
+        assert.match(requested[1], /filter_stream\/new-id\//);
+        assert.equal(result[0].showings[0].film.duration, 82);
+        assert.equal(
+            result[0].showings[0].showings[0].bookingUrl,
+            'https://riversidestudios.co.uk/seats/123/'
         );
     });
-    const result = await scraper();
-    assert.match(requested[1], /filter_stream\/new-id\//);
-    assert.equal(result[0].showings[0].film.duration, 82);
-    assert.equal(
-        result[0].showings[0].showings[0].bookingUrl,
-        'https://riversidestudios.co.uk/seats/123/'
-    );
-});
+}
 
 test('Fronte del Porto skips unpublished times without inventing showings', (t) => {
     t.mock.method(console, 'warn', () => {});

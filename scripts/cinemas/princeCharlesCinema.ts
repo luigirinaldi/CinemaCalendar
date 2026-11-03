@@ -18,6 +18,7 @@ import { fetchPage } from '../http';
 const CINEMA: Cinema = {
     name: 'Prince Charles Cinema',
     location: 'London',
+    website: 'https://princecharlescinema.com',
     defaultLanguage: 'en-GB',
 };
 

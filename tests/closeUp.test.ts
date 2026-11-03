@@ -2,9 +2,13 @@
 import assert from 'node:assert/strict';
 import { scraper } from '../scripts/cinemas/closeUpCinema';
 import { CinemaShowingsSchema } from '../scripts/types';
+import { chromium } from 'playwright-chromium';
 
 const base = 'https://www.closeupfilmcentre.com';
 test('Close-Up reports a blocked calendar instead of returning an empty programme', async (t) => {
+    t.mock.method(chromium, 'launch', async () => {
+        throw new Error('Calendar also blocked in browser');
+    });
     t.mock.method(
         globalThis,
         'fetch',
@@ -24,6 +28,29 @@ function listing(
         }))
     )}';</script>`;
 }
+
+test('Close-Up falls back to a browser for a blocked calendar and closes it', async (t) => {
+    let closed = false;
+    t.mock.method(globalThis, 'fetch', async (input: string | URL) =>
+        String(input).endsWith('/search_film_programmes/')
+            ? new Response('', { status: 403 })
+            : new Response('<title>CLOSE-UP | Test film</title>')
+    );
+    const browser = {
+        newPage: async () => ({
+            goto: async () => {},
+            content: async () =>
+                listing([{ title: 'Test film', film_url: '/test' }]),
+        }),
+        close: async () => {
+            closed = true;
+        },
+    };
+    t.mock.method(chromium, 'launch', async () => browser);
+    const result = CinemaShowingsSchema.parse(await scraper());
+    assert.equal(result[0].showings[0].film.title, 'Test film');
+    assert.equal(closed, true);
+});
 
 test('Close-Up recovers missing/partial titles and merges screenings using decoded detail metadata', async (t) => {
     const requested: string[] = [];

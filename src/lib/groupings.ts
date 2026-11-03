@@ -1,4 +1,4 @@
-import type { Screening } from '../api';
+import type { Screening } from '../calendarApi';
 import { dayKey } from './dates';
 
 export function groupScreenings(

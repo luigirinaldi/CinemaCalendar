@@ -9,6 +9,7 @@ const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://riversidestudios.co.uk',
     defaultLanguage: 'en-GB',
 };
 
@@ -19,6 +20,7 @@ interface RiversidePerf {
 }
 
 interface RiversideEvent {
+    slot_tag?: string | boolean;
     event_type?: string | string[];
     run_time?: string;
     duration?: string;
@@ -60,14 +62,15 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const flatShowings = result
         .filter(
             (event) =>
-                !!event.event_type &&
-                // event_type can be a string or array; normalize to string
-                (Array.isArray(event.event_type)
-                    ? event.event_type.includes('101')
-                    : String(event.event_type)
-                          .split(',')
-                          .map((value) => value.trim())
-                          .includes('101'))
+                event.slot_tag === 'Cinema' ||
+                (!!event.event_type &&
+                    // event_type can be a string or array; normalize to string
+                    (Array.isArray(event.event_type)
+                        ? event.event_type.includes('101')
+                        : String(event.event_type)
+                              .split(',')
+                              .map((value) => value.trim())
+                              .includes('101')))
         )
         .flatMap((event) => {
             let duration: number | undefined;

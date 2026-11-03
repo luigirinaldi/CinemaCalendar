@@ -9,9 +9,10 @@ import { startRunLog } from './runLog';
 async function main() {
     startRunLog('get-data');
     const files = (await readdir(new URL('./cinemas/', import.meta.url)))
-        .filter((file) => file.endsWith('Cinema.ts'))
+        .filter((file) => file.endsWith('.ts'))
         .sort();
     const db = await connectDB();
+    const dryRun = process.argv.includes('--dry-run');
     const failures: string[] = [];
     try {
         await mapConcurrent(
@@ -21,7 +22,7 @@ async function main() {
                     const module = await import(`./cinemas/${name}`);
                     if (typeof module.scraper !== 'function')
                         throw new Error('Missing scraper export');
-                    await scrapeAndStore(name, module.scraper, db);
+                    await scrapeAndStore(name, module.scraper, db, dryRun);
                 } catch (error) {
                     failures.push(name);
                     console.error(`Scraper ${name} failed:`, error);
@@ -30,7 +31,7 @@ async function main() {
             3
         );
         try {
-            await updateFilmMetadata(db);
+            if (!dryRun) await updateFilmMetadata(db);
         } catch (error) {
             failures.push('TMDB metadata');
             console.error('TMDB metadata failed:', error);

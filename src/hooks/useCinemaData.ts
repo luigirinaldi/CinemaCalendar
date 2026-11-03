@@ -5,7 +5,7 @@ import {
     fetchScreenings,
     type Cinema,
     type Screening,
-} from '../api';
+} from '../calendarApi';
 import { cityZone, dateBounds } from '../lib/dates';
 import type { Filters } from '../types';
 

@@ -1,4 +1,4 @@
-﻿import { fetchPage, mapConcurrent } from '../http';
+import { fetchPage, mapConcurrent } from '../http';
 import {
     CinemaShowing,
     CinemaShowingsSchema,
@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { parse } from 'node-html-parser';
 import { DateTime } from 'luxon';
+import { chromium } from 'playwright-chromium';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -16,6 +17,7 @@ const BASE_URL = 'https://www.closeupfilmcentre.com';
 const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
+    website: 'https://www.closeupfilmcentre.com',
     coordinates: {
         lat: `51° 31' 25.00396" N`,
         lng: `- 0° 4' 19.382" W`,
@@ -60,18 +62,36 @@ function parseFilmPage(html: string) {
     };
 }
 
-export async function scraper(): Promise<CinemaShowing[]> {
+async function calendarHtml(): Promise<string> {
     const response = await fetchPage(
         BASE_URL + '/search_film_programmes/'
-    ).catch((error: unknown) => {
-        if (error instanceof Error && error.message.startsWith('HTTP 403 '))
-            throw new Error(
-                `${LOG_PREFIX} Calendar access denied (HTTP 403). The website is refusing this request; existing stored screenings are retained.`,
-                { cause: error }
-            );
+    ).catch(async (error: unknown) => {
+        if (error instanceof Error && error.message.startsWith('HTTP 403 ')) {
+            try {
+                const browser = await chromium.launch();
+                try {
+                    const page = await browser.newPage();
+                    await page.goto(BASE_URL + '/search_film_programmes/', {
+                        waitUntil: 'domcontentloaded',
+                    });
+                    return new Response(await page.content());
+                } finally {
+                    await browser.close();
+                }
+            } catch (browserError) {
+                throw new Error(
+                    `${LOG_PREFIX} Calendar access denied (HTTP 403). The website is refusing this request; existing stored screenings are retained.`,
+                    { cause: browserError }
+                );
+            }
+        }
         throw error;
     });
-    const root = parse(await response.text());
+    return response.text();
+}
+
+export async function scraper(): Promise<CinemaShowing[]> {
+    const root = parse(await calendarHtml());
     const scriptTag = root
         .querySelectorAll('script')
         .find((s) => s.innerText.includes('var shows'));

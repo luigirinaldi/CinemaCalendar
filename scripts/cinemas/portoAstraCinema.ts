@@ -51,7 +51,7 @@ export interface Performance {
     Time: string;
     Screen: Screen;
     ScreenId: number;
-    StartTime: Date;
+    StartTime: string;
     EndTime: Date;
     Duration: number;
 }
@@ -81,7 +81,7 @@ export interface Userdata {
     Message: string;
     StackTrace: string;
     Elapsed: number;
-    StartTime: Date;
+    StartTime: string;
     EndTime: Date;
     TimeTrace: string[];
     Errors: unknown[];
@@ -91,6 +91,7 @@ export interface Userdata {
 const CINEMA: Cinema = {
     name: 'Porto Astra',
     location: 'Padova',
+    website: 'https://www.portoastra.it',
     coordinates: {
         lat: '45.38365',
         lng: '11.8656',

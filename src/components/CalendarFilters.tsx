@@ -6,7 +6,11 @@ import {
     MapPin,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import type { DateRange, Filters, GroupBy } from '../types';
+import type {
+    CalendarDateRange as DateRange,
+    Filters,
+    GroupBy,
+} from '../types';
 import { rangeLabel, todayIn } from '../lib/dates';
 
 interface Props {

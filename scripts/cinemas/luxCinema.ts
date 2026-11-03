@@ -20,6 +20,7 @@ interface LuxResponse {
 const CINEMA: Cinema = {
     name: 'Lux Cinema',
     location: 'Padova',
+    website: 'http://cinemaluxpadova.it',
     defaultLanguage: 'it-IT',
 };
 const API_URL = 'https://www.movieconnection.it/wp-json/tribe/events/v1/events';

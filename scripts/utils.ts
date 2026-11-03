@@ -1,7 +1,7 @@
 import { fetchPage } from './http';
 import ICAL from 'ical.js';
 import { ScraperFunction } from './types';
-import { DB, storeCinemaData } from './database';
+import { DB, storeCinemaData, dryRunStoreCinemaData } from './database';
 import { CinemaShowingsSchema } from './types';
 import { Kysely } from 'kysely';
 import type { CinemaShowing } from './types';
@@ -9,7 +9,8 @@ import type { CinemaShowing } from './types';
 export async function scrapeAndStore(
     name: string,
     fun: ScraperFunction,
-    db: Kysely<DB>
+    db: Kysely<DB>,
+    dryRun: boolean = false
 ) {
     const rawResult = await fun();
     const trustedResult = CinemaShowingsSchema.parse(rawResult);
@@ -17,11 +18,21 @@ export async function scrapeAndStore(
         throw new Error(`${name} returned no cinema data`);
     console.log(`[main] Successfully scraped and parsed data from ${name}`);
     for (const cinema of trustedResult) {
-        await db
-            .transaction()
-            .execute(async (trx) => await storeCinemaData(trx, cinema));
+        if (dryRun) {
+            await db
+                .transaction()
+                .execute(
+                    async (trx) => await dryRunStoreCinemaData(trx, cinema)
+                );
+        } else {
+            await db
+                .transaction()
+                .execute(async (trx) => await storeCinemaData(trx, cinema));
+        }
     }
-    console.log(`[main] DB update for ${name} completed`);
+    console.log(
+        `[main]${dryRun ? '[dry-run]' : ''} DB update for ${name} completed`
+    );
 }
 
 /**
@@ -191,4 +202,18 @@ export async function fetchAndParseICS<T = unknown>(
     });
 
     return events;
+}
+
+/**
+ * ## Add timezone to a timestamp without one
+ * A function that sets the timezone on a date without one, and returns the date in ISO format
+ * @param date the date to be converted to ISO format
+ * @param timezone timezone in the standard form "Europe/Rome", or "+01", etc.
+ * @returns the corresponding ISO string after setting the appropriate timezone
+ */
+export function setTimeZone(date: Date | string, timezone: string): string {
+    const tzDate = new Date(
+        new Date(date).toLocaleString('en-US', { timeZone: timezone })
+    );
+    return tzDate.toISOString();
 }

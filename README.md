@@ -17,7 +17,8 @@ Production is published from `main` at https://luigirinaldi.github.io/CinemaCale
 The `dev` branch is published at https://luigirinaldi.github.io/CinemaCalendar/dev/.
 Pushing either branch rebuilds both versions into one Pages deployment. Dev pushes
 trigger the deployment workflow on `main`, as required by the existing Pages
-environment branch policy. Keep `.github/workflows/static.yml` in sync on both branches.
+environment branch policy. Keep the Pages workflow (`.github/workflows/static.yml`)
+and dev trigger (`.github/workflows/dev-preview.yml`) in sync on both branches.
 
 ## Checks
 

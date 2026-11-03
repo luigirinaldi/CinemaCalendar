@@ -17,4 +17,11 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - uses: ./.github/workflows/node-cache
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - run: npm ci
+              env:
+                  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'

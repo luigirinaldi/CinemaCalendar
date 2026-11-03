@@ -1,0 +1,14 @@
+name: Dev preview updated
+
+on:
+    push:
+        branches: ['dev']
+
+permissions:
+    contents: read
+
+jobs:
+    notify:
+        runs-on: ubuntu-latest
+        steps:
+            - run: echo "Dev updated; the Pages workflow on main will publish both sites."

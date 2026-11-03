@@ -19,6 +19,8 @@ const CINEMA: Cinema = {
     name: 'Prince Charles Cinema',
     location: 'London',
     website: 'https://princecharlescinema.com',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '51.51149', lng: '-0.13012' },
     defaultLanguage: 'en-GB',
 };
 

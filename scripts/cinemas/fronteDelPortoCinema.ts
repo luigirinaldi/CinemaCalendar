@@ -14,6 +14,9 @@ interface PortoEvent {
 const CINEMA: Cinema = {
     name: 'Fronte del Porto',
     location: 'Padova',
+    website: 'https://www.frontedelportopadova.it',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '45.38365', lng: '11.8656' },
     defaultLanguage: 'it-IT',
 };
 const BASE_URL = 'https://www.frontedelportopadova.it';

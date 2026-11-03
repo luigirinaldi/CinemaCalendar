@@ -18,10 +18,8 @@ const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
     website: 'https://www.ica.art',
-    coordinates: {
-        lat: `51º30'14.39" N`,
-        lng: `0º07'30" W`,
-    },
+    // Corrected venue location on The Mall; see ../cinema-locations.md.
+    coordinates: { lat: '51.506346', lng: '-0.130931' },
     defaultLanguage: 'en-GB',
 };
 

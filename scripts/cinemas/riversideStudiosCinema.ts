@@ -10,6 +10,8 @@ const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
     website: 'https://riversidestudios.co.uk',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '51.48879', lng: '-0.22783' },
     defaultLanguage: 'en-GB',
 };
 

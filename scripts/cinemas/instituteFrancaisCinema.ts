@@ -17,6 +17,8 @@ const CINEMA: Cinema = {
     name: CINEMA_NAME,
     location: 'London',
     website: 'https://www.institut-francais.org.uk/cine-lumiere/',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '51.49453', lng: '-0.17715' },
     defaultLanguage: 'en-GB',
 };
 

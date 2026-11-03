@@ -1,10 +1,11 @@
+import { cinemaMarkerElement } from '../lib/mapMarker';
 import {
     cinemaCoords as parseCinemaCoords,
     searchArea,
     type SearchArea,
 } from '../lib/location';
 import { AreaSelection, CinemaBounds } from './MapLayers';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     MapContainer,
     TileLayer,
@@ -76,61 +77,6 @@ async function fetchOsmCinemas(
             lng: el.lon ?? el.center!.lon,
             website: el.tags?.website ?? el.tags?.['contact:website'],
         }));
-}
-
-function countBadgeHtml(count: number): string {
-    if (count <= 0) return '';
-    return `<span style="position:absolute;top:-5px;right:-5px;background:#ef4444;color:#fff;border-radius:999px;font-size:8px;font-weight:700;min-width:12px;height:12px;display:flex;align-items:center;justify-content:center;padding:0 2px;box-shadow:0 1px 2px rgba(0,0,0,0.5)">${count}</span>`;
-}
-
-function faviconIcon(
-    website: string,
-    available: boolean,
-    count: number
-): L.DivIcon {
-    let domain: string;
-    try {
-        domain = new URL(website).hostname;
-    } catch {
-        domain = website;
-    }
-    const src = `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
-    const size = 32;
-    const filter = available ? 'none' : 'grayscale(100%) opacity(0.6)';
-    const badge = available ? countBadgeHtml(count) : '';
-    return L.divIcon({
-        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px"><img src="${src}" width="${size}" height="${size}" style="border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.5);filter:${filter}" onerror="this.style.display='none'" />${badge}</div>`,
-        className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -(size / 2 + 6)],
-    });
-}
-
-function initialsIcon(
-    name: string,
-    available: boolean,
-    count: number
-): L.DivIcon {
-    const words = name
-        .replace(/[^\w\s]/g, '')
-        .split(/\s+/)
-        .filter(Boolean);
-    const letters = words
-        .slice(0, 2)
-        .map((w) => w[0].toUpperCase())
-        .join('');
-    const size = 32;
-    const bg = available ? '#ef4444' : 'rgba(107,114,128,0.45)';
-    const shadow = available ? '0 1px 4px rgba(0,0,0,0.5)' : 'none';
-    const badge = available ? countBadgeHtml(count) : '';
-    return L.divIcon({
-        html: `<div style="position:relative;display:inline-block;width:${size}px;height:${size}px;background:${bg};color:#fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;box-shadow:${shadow}">${letters}${badge}</div>`,
-        className: '',
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
-        popupAnchor: [0, -(size / 2 + 6)],
-    });
 }
 
 function BoundsFitter({ geojson }: { geojson: GeoJsonObject | null }) {
@@ -222,17 +168,17 @@ export default function MapView({
         };
     }, [selectedCity]);
 
-    const trackedWithCoords = cinemas
-        .filter((c) => !selectedCity || c.location === selectedCity)
-        .flatMap((c) => {
-            const coords = parseCinemaCoords(c);
-            return coords ? [{ cinema: c, coords }] : [];
-        });
-
-    const trackedUnmapped = cinemas.filter(
-        (c) =>
-            (!selectedCity || c.location === selectedCity) &&
-            parseCinemaCoords(c) === null
+    const cityCinemas = useMemo(
+        () =>
+            cinemas.filter((c) => !selectedCity || c.location === selectedCity),
+        [cinemas, selectedCity]
+    );
+    const trackedWithCoords = cityCinemas.flatMap((cinema) => {
+        const coords = parseCinemaCoords(cinema);
+        return coords ? [{ cinema, coords }] : [];
+    });
+    const trackedUnmapped = cityCinemas.filter(
+        (cinema) => parseCinemaCoords(cinema) === null
     );
 
     /** Match an OSM cinema to a tracked cinema.
@@ -277,12 +223,24 @@ export default function MapView({
         count: number,
         popupContent: React.ReactNode
     ) {
-        const icon = website
-            ? faviconIcon(website, available, count)
-            : initialsIcon(name, available, count);
+        const icon = L.divIcon({
+            html: cinemaMarkerElement(
+                document,
+                name,
+                website,
+                available,
+                count
+            ),
+            className: '',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
+            popupAnchor: [0, -22],
+        });
         return (
             <Marker
                 key={key}
+                title={name}
+                bubblingMouseEvents={false}
                 position={position}
                 icon={icon}
                 zIndexOffset={available ? 1000 : 100}
@@ -318,12 +276,8 @@ export default function MapView({
                         if (next) onAreaChange(next);
                     }}
                 />
-                {!area && !BOUNDARY_URLS[selectedCity] && (
-                    <CinemaBounds
-                        cinemas={cinemas.filter(
-                            (c) => c.location === selectedCity
-                        )}
-                    />
+                {!area && !boundaryGeojson && (
+                    <CinemaBounds cinemas={cityCinemas} />
                 )}
                 {!area && boundaryGeojson && (
                     <>
@@ -466,21 +420,16 @@ export default function MapView({
             {/* Legend */}
             <div className="absolute bottom-6 left-4 z-[1000] bg-neutral-900/90 border border-neutral-700 rounded-lg p-3 text-xs text-white space-y-1.5">
                 <div className="flex items-center gap-2">
-                    <img
-                        src="https://www.google.com/s2/favicons?domain=example.com&sz=32"
-                        width="14"
-                        height="14"
-                        className="rounded-sm"
+                    <span
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 rounded-sm bg-red-500"
                     />
                     <span>Screenings available</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <img
-                        src="https://www.google.com/s2/favicons?domain=example.com&sz=32"
-                        width="10"
-                        height="10"
-                        className="rounded-sm"
-                        style={{ filter: 'grayscale(100%) opacity(0.45)' }}
+                    <span
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 rounded-sm bg-neutral-600"
                     />
                     <span>No screenings / not tracked</span>
                 </div>

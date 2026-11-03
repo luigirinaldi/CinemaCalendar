@@ -13,6 +13,8 @@ const CINEMA: Cinema = {
     name: 'RegentStreetCinema',
     location: 'London',
     website: 'https://www.regentstreetcinema.com',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '51.51683', lng: '-0.14277' },
     defaultLanguage: 'en-GB',
 };
 

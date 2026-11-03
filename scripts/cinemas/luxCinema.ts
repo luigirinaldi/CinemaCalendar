@@ -21,6 +21,8 @@ const CINEMA: Cinema = {
     name: 'Lux Cinema',
     location: 'Padova',
     website: 'http://cinemaluxpadova.it',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '45.3909316', lng: '11.8705986' },
     defaultLanguage: 'it-IT',
 };
 const API_URL = 'https://www.movieconnection.it/wp-json/tribe/events/v1/events';

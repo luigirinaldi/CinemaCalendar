@@ -11,6 +11,9 @@ import type {
 const CINEMA: Cinema = {
     name: 'The Space Cinema Limena',
     location: 'Padova',
+    website: 'https://www.thespacecinema.it/cinema/limena/al-cinema',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '45.46348', lng: '11.84804' },
     defaultLanguage: 'it-IT',
 };
 

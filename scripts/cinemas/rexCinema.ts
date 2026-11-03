@@ -50,6 +50,8 @@ const CINEMA: Cinema = {
     name: 'Rex Cinema',
     location: 'Padova',
     website: 'https://www.cinemarex.it',
+    // Venue location and sources: ../cinema-locations.md
+    coordinates: { lat: '45.391194', lng: '11.8919322' },
     defaultLanguage: 'it-IT',
 };
 

@@ -2,8 +2,6 @@ import type { ReactNode } from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { FilmWithPoster, ShowingsTable } from '../api';
 
-const TMDB_FAVICON =
-    'https://www.themoviedb.org/assets/2/favicon-32x32-543a21832c8931d3494a68881f6afcafc58e96c5d324345377f3197a37b367b5.png';
 import { formatDate, formatTime } from '../lib/dates';
 import { sortScreeningByStartTime } from '../utils/grouping';
 import { buildDayUrl } from '../utils/url';
@@ -76,66 +74,93 @@ export default function FilmPosterCard({
     children,
     className = 'bg-neutral-800',
 }: FilmPosterCardProps) {
+    const title = movie?.tmdb_info?.title ?? movie?.title ?? 'Unknown film';
+    const year =
+        movie?.tmdb_info?.release_date?.slice(0, 4) || movie?.release_year;
+    const tmdbId = movie?.tmdb_info?.id ?? movie?.tmdb_id;
+    const letterboxdSlug = movie?.tmdb_info?.letterboxd_slug;
+    const linkClass =
+        'inline-flex items-center gap-1.5 rounded-md border border-neutral-600 px-2 py-1 text-xs font-medium text-neutral-200 transition hover:border-neutral-400 hover:bg-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400';
     return (
-        <div
-            className={`${className} rounded-lg overflow-hidden flex flex-col w-40 sm:w-48`}
+        <article
+            className={`${className} rounded-xl border border-neutral-700 shadow-sm overflow-hidden flex flex-col w-48 sm:w-56 max-w-full`}
         >
-            {movie?.poster_url ? (
+            {movie?.poster_url && (
                 <img
                     src={movie.poster_url}
-                    alt={movie.title ?? 'Poster'}
+                    alt={`${title} poster`}
                     loading="lazy"
-                    className="w-full aspect-[2/3] object-cover"
+                    className="w-full aspect-[2/3] object-cover bg-neutral-900"
                 />
-            ) : null}
-            <div className="p-3 flex flex-col">
-                <div className="mb-2">
-                    <div className="flex items-start justify-between gap-1">
-                        <h3 className="text-base font-semibold leading-tight">
-                            {movie?.tmdb_info?.title ?? movie?.title}
-                        </h3>
-                        {movie?.tmdb_info && (
-                            <div className="flex items-center gap-1 shrink-0 mt-0.5">
+            )}
+            <div className="p-3 sm:p-4 flex flex-col gap-3">
+                <div className="space-y-2">
+                    <h3 className="text-base font-semibold leading-snug text-white break-words">
+                        {title}
+                    </h3>
+                    {movie?.director && (
+                        <p className="text-sm leading-relaxed break-words">
+                            <span className="text-neutral-400">
+                                Directed by{' '}
+                            </span>
+                            <span className="text-neutral-200">
+                                {movie.director}
+                            </span>
+                        </p>
+                    )}
+                    {(year ||
+                        (movie?.duration != null && movie.duration > 0)) && (
+                        <p className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-400">
+                            {year && <span>{year}</span>}
+                            {year &&
+                                movie?.duration != null &&
+                                movie.duration > 0 && (
+                                    <span aria-hidden="true">/</span>
+                                )}
+                            {movie?.duration != null && movie.duration > 0 && (
+                                <span>{movie.duration} min</span>
+                            )}
+                        </p>
+                    )}
+                    {(tmdbId != null || letterboxdSlug) && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            {tmdbId != null && (
                                 <a
-                                    href={`https://www.themoviedb.org/movie/${movie.tmdb_info.id}`}
+                                    className={linkClass}
+                                    href={`https://www.themoviedb.org/movie/${tmdbId}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title="View on TMDB"
                                 >
-                                    <img
-                                        src={TMDB_FAVICON}
-                                        alt="TMDB"
-                                        className="w-4 h-4 opacity-60 hover:opacity-100"
+                                    TMDB{' '}
+                                    <ExternalLink
+                                        className="w-3 h-3"
+                                        aria-hidden="true"
                                     />
                                 </a>
-                                {movie.tmdb_info.letterboxd_slug && (
-                                    <a
-                                        href={`https://letterboxd.com/film/${movie.tmdb_info.letterboxd_slug}/`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        title="View on Letterboxd"
-                                    >
-                                        <img
-                                            src="https://letterboxd.com/favicon.ico"
-                                            alt="Letterboxd"
-                                            className="w-4 h-4 opacity-60 hover:opacity-100"
-                                        />
-                                    </a>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                    {movie?.director ? (
-                        <p className="text-neutral-400 text-xs mt-1">
-                            {movie.director}
-                        </p>
-                    ) : null}
-                    <p className="text-neutral-500 text-xs mt-1">
-                        {movie?.duration} min
-                    </p>
+                            )}
+                            {letterboxdSlug && (
+                                <a
+                                    className={linkClass}
+                                    href={`https://letterboxd.com/film/${letterboxdSlug}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="View on Letterboxd"
+                                >
+                                    Letterboxd{' '}
+                                    <ExternalLink
+                                        className="w-3 h-3"
+                                        aria-hidden="true"
+                                    />
+                                </a>
+                            )}
+                        </div>
+                    )}
                 </div>
-                {children}
+                <div className="border-t border-neutral-600/60 pt-3">
+                    {children}
+                </div>
             </div>
-        </div>
+        </article>
     );
 }

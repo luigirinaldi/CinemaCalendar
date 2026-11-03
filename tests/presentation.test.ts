@@ -2,11 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { Window } from 'happy-dom';
 import { ScreeningResults } from '../src/components/ScreeningResults';
 import TableView from '../src/components/TableView';
 import { filmWithPoster, type Screening } from '../src/api';
 import { movieYearsForScreenings } from '../src/hooks/useScreeningFilters';
+import { CalendarFilters } from '../src/components/CalendarFilters';
+import FilmPosterCard from '../src/components/FilmPosterCard';
 
 function row(id: number, filmId = 1, tmdbId: number | null = 10): Screening {
     return {
@@ -90,6 +93,49 @@ test('year counts share view identity across repeated screenings, venues, remake
     assert.deepEqual(rows, before);
 });
 
+test('settings put grouping and film filters before the date controls', () => {
+    const html = renderToStaticMarkup(
+        createElement(CalendarFilters, {
+            filters: {
+                dateRange: 'custom',
+                currentDate: '2026-11-03',
+                customStartDate: '2026-11-03',
+                customEndDate: '2026-11-04',
+            },
+            onChange: () => {},
+            groupBy: 'movie',
+            onGroupChange: () => {},
+            zone: 'Europe/London',
+            children: createElement('div', null, 'Letterboxd / Year filter'),
+        })
+    );
+    assert.ok(
+        html.indexOf('Group By') < html.indexOf('Letterboxd / Year filter')
+    );
+    assert.ok(
+        html.indexOf('Letterboxd / Year filter') < html.indexOf('Date Range')
+    );
+    assert.ok(html.indexOf('Date Range') < html.indexOf('Start Date'));
+});
+
+test('film cards show readable metadata and a TMDB link even without embedded metadata', () => {
+    const film = row(1).film!;
+    film.tmdb_films = null;
+    film.duration = null;
+    const html = renderToStaticMarkup(
+        createElement(FilmPosterCard, {
+            movie: filmWithPoster(film),
+            children: 'Screenings',
+        })
+    );
+    assert.match(html, /Directed by/);
+    assert.match(html, /Test Director/);
+    assert.match(html, /2001/);
+    assert.match(html, /href="https:\/\/www.themoviedb.org\/movie\/10"/);
+    assert.doesNotMatch(html, /undefined|null min/);
+    assert.doesNotMatch(html, /href="https:\/\/letterboxd.com/);
+});
+
 test('film views preserve details, cinema collapse and city-local calendar days; compact links match labels', async (t) => {
     const window = new Window({
         url: 'https://example.test/?city=london&groupBy=table&dateRange=custom&start=2026-11-01&end=2026-11-10&tableSort=title-asc',
@@ -143,6 +189,19 @@ test('film views preserve details, cinema collapse and city-local calendar days;
             'Canonical title'
         );
         assert.match(container.textContent, /Test Director/);
+        assert.match(container.textContent, /Directed by/);
+        assert.equal(
+            container
+                .querySelector('a[title="View on TMDB"]')
+                ?.textContent?.trim(),
+            'TMDB'
+        );
+        assert.equal(
+            container
+                .querySelector('a[title="View on Letterboxd"]')
+                ?.textContent?.trim(),
+            'Letterboxd'
+        );
         assert.ok(
             container.querySelector(
                 'img[src="https://image.tmdb.org/t/p/w342/poster.jpg"]'

@@ -71,7 +71,7 @@ export default function ByCinemaView({
                                 </span>
                             </button>
                             {!isCollapsed && (
-                                <div className="flex flex-wrap gap-4 justify-around px-4 pb-4">
+                                <div className="flex flex-wrap gap-4 justify-start px-4 pb-4">
                                     {movieGroups.map(
                                         ([key, movieScreenings]) => {
                                             const movie = getMovie(

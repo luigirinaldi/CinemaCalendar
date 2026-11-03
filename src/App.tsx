@@ -73,14 +73,13 @@ export default function App() {
                         groupBy={groupBy}
                         onGroupChange={setGroupBy}
                         zone={zone}
-                    />
-                    <div className="mt-4 space-y-3">
+                    >
                         <LetterboxdFilter onChange={setLetterboxd} />
                         <YearFilter
                             movieYears={movieYears}
                             onChange={setYears}
                         />
-                    </div>
+                    </CalendarFilters>
                 </div>
             </header>
             <main className="max-w-7xl mx-auto px-4 py-8" aria-busy={loading}>

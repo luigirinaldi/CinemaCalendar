@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
     Calendar,
     ChevronLeft,
@@ -11,6 +12,7 @@ import type { DateRange, Filters, GroupBy } from '../types';
 import { rangeLabel, todayIn } from '../lib/dates';
 
 interface Props {
+    children?: ReactNode;
     filters: Filters;
     onChange: (filters: Filters) => void;
     groupBy: GroupBy;
@@ -26,6 +28,7 @@ const ranges: [DateRange, string][] = [
     ['custom', 'Custom Range'],
 ];
 export function CalendarFilters({
+    children,
     filters,
     onChange,
     groupBy,
@@ -44,6 +47,46 @@ export function CalendarFilters({
         });
     return (
         <div className="space-y-4">
+            <fieldset>
+                <legend className="text-sm text-neutral-400 mb-2">
+                    Group By
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        className={buttonClass(groupBy === 'table')}
+                        aria-pressed={groupBy === 'table'}
+                        onClick={() => onGroupChange('table')}
+                    >
+                        <List className="inline w-4 h-4 mr-2" />
+                        Table
+                    </button>
+                    <button
+                        className={buttonClass(groupBy === 'movie')}
+                        aria-pressed={groupBy === 'movie'}
+                        onClick={() => onGroupChange('movie')}
+                    >
+                        <Film className="inline w-4 h-4 mr-2" />
+                        By Movie
+                    </button>
+                    <button
+                        className={buttonClass(groupBy === 'cinema')}
+                        aria-pressed={groupBy === 'cinema'}
+                        onClick={() => onGroupChange('cinema')}
+                    >
+                        <MapPin className="inline w-4 h-4 mr-2" />
+                        By Cinema
+                    </button>
+                    <button
+                        className={buttonClass(groupBy === 'map')}
+                        aria-pressed={groupBy === 'map'}
+                        onClick={() => onGroupChange('map')}
+                    >
+                        <MapPin className="inline w-4 h-4 mr-2" />
+                        Map
+                    </button>
+                </div>
+            </fieldset>
+            {children}
             <fieldset>
                 <legend className="text-sm text-neutral-400 mb-2">
                     Date Range
@@ -124,45 +167,6 @@ export function CalendarFilters({
                     )}
                 </div>
             )}
-            <fieldset>
-                <legend className="text-sm text-neutral-400 mb-2">
-                    Group By
-                </legend>
-                <div className="flex gap-2">
-                    <button
-                        className={buttonClass(groupBy === 'table')}
-                        aria-pressed={groupBy === 'table'}
-                        onClick={() => onGroupChange('table')}
-                    >
-                        <List className="inline w-4 h-4 mr-2" />
-                        Table
-                    </button>
-                    <button
-                        className={buttonClass(groupBy === 'movie')}
-                        aria-pressed={groupBy === 'movie'}
-                        onClick={() => onGroupChange('movie')}
-                    >
-                        <Film className="inline w-4 h-4 mr-2" />
-                        By Movie
-                    </button>
-                    <button
-                        className={buttonClass(groupBy === 'cinema')}
-                        aria-pressed={groupBy === 'cinema'}
-                        onClick={() => onGroupChange('cinema')}
-                    >
-                        <MapPin className="inline w-4 h-4 mr-2" />
-                        By Cinema
-                    </button>
-                    <button
-                        className={buttonClass(groupBy === 'map')}
-                        aria-pressed={groupBy === 'map'}
-                        onClick={() => onGroupChange('map')}
-                    >
-                        <MapPin className="inline w-4 h-4 mr-2" />
-                        Map
-                    </button>
-                </div>
-            </fieldset>
         </div>
     );
 }

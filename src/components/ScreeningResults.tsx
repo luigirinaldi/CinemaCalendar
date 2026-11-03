@@ -49,7 +49,7 @@ export function ScreeningResults({
             zone={zone}
         />
     ) : (
-        <div className="flex flex-wrap gap-6 justify-around">
+        <div className="flex flex-wrap gap-6 justify-start">
             {byMovie(screenings).map(([key, rows]) => (
                 <MovieCard
                     key={key}

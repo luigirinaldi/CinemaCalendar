@@ -4,13 +4,10 @@ import {
     ChevronRight,
     Film,
     MapPin,
+    List,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
-import type {
-    CalendarDateRange as DateRange,
-    Filters,
-    GroupBy,
-} from '../types';
+import type { DateRange, Filters, GroupBy } from '../types';
 import { rangeLabel, todayIn } from '../lib/dates';
 
 interface Props {
@@ -133,6 +130,14 @@ export function CalendarFilters({
                 </legend>
                 <div className="flex gap-2">
                     <button
+                        className={buttonClass(groupBy === 'table')}
+                        aria-pressed={groupBy === 'table'}
+                        onClick={() => onGroupChange('table')}
+                    >
+                        <List className="inline w-4 h-4 mr-2" />
+                        Table
+                    </button>
+                    <button
                         className={buttonClass(groupBy === 'movie')}
                         aria-pressed={groupBy === 'movie'}
                         onClick={() => onGroupChange('movie')}
@@ -147,6 +152,14 @@ export function CalendarFilters({
                     >
                         <MapPin className="inline w-4 h-4 mr-2" />
                         By Cinema
+                    </button>
+                    <button
+                        className={buttonClass(groupBy === 'map')}
+                        aria-pressed={groupBy === 'map'}
+                        onClick={() => onGroupChange('map')}
+                    >
+                        <MapPin className="inline w-4 h-4 mr-2" />
+                        Map
                     </button>
                 </div>
             </fieldset>

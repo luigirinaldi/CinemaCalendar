@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
-import { fetchLetterboxdList, type LetterboxdFilm } from '../api';
+import { fetchLetterboxdList, type LetterboxdFilm } from '../letterboxdApi';
 
 const tabClass = (active: boolean) =>
     `px-4 py-2 rounded-lg transition ${

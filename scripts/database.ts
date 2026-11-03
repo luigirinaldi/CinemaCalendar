@@ -181,13 +181,6 @@ export async function storeCinemaData(
         console.log(`${LOG_PREFIX} No new movies to insert`);
     }
 
-    // Delete all future showings for this cinema
-    await trx
-        .deleteFrom('new_showings')
-        .where('cinema_id', '=', cinemaId)
-        .where('start_time', '>=', now)
-        .execute();
-
     const showings = await trx
         .selectFrom('new_showings')
         .selectAll()

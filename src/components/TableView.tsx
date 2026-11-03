@@ -5,7 +5,12 @@ import {
     sortGroupedByStartTime,
     sortScreeningByStartTime,
 } from '../utils/grouping';
-import { formatTime, formatDate } from '../utils/formatters';
+import {
+    formatTime as timeInZone,
+    formatDate as dateInZone,
+} from '../lib/dates';
+const formatDate = (value: string, zone: string) =>
+    `${dateInZone(value, zone)} ${new Date(value).toLocaleDateString('en-GB', { year: 'numeric', timeZone: zone })}`;
 import { buildDayUrl } from '../utils/url';
 import type { ShowMode, TableSort } from '../types';
 import type { ShowingsTable, CinemaTable, FilmWithPoster } from '../api';
@@ -14,6 +19,7 @@ const TMDB_FAVICON =
     'https://www.themoviedb.org/assets/2/favicon-32x32-543a21832c8931d3494a68881f6afcafc58e96c5d324345377f3197a37b367b5.png';
 
 interface Props {
+    zone: string;
     screenings: ShowingsTable[];
     getMovie: (id: number) => FilmWithPoster | undefined;
     getCinema: (id: number) => CinemaTable | undefined;
@@ -26,11 +32,12 @@ interface Props {
 }
 
 function groupByCalendarDay(
-    screenings: ShowingsTable[]
+    screenings: ShowingsTable[],
+    zone: string
 ): [string, ShowingsTable[]][] {
     const map = new Map<string, ShowingsTable[]>();
     screenings.forEach((s) => {
-        const key = formatDate(s.start_time);
+        const key = formatDate(s.start_time, zone);
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(s);
     });
@@ -38,6 +45,7 @@ function groupByCalendarDay(
 }
 
 interface ScreeningTimesProps {
+    zone: string;
     cinemaScreenings: ShowingsTable[];
     getCinema: (id: number) => CinemaTable | undefined;
     showTimes: boolean;
@@ -46,10 +54,12 @@ interface ScreeningTimesProps {
 
 function ScreeningTimes({
     cinemaScreenings,
+    zone,
     getCinema,
     showTimes,
     singleDay,
 }: ScreeningTimesProps) {
+    const formatTime = (value: string) => timeInZone(value, zone);
     const cinemaGroups = groupByCinema(cinemaScreenings);
     const cinemaIds = Object.keys(cinemaGroups).map(Number);
 
@@ -57,7 +67,8 @@ function ScreeningTimes({
         <div className="divide-y divide-neutral-600">
             {cinemaIds.map((id) => {
                 const dayGroups = groupByCalendarDay(
-                    cinemaGroups[id].sort(sortScreeningByStartTime)
+                    [...cinemaGroups[id]].sort(sortScreeningByStartTime),
+                    zone
                 );
                 return (
                     <div
@@ -151,6 +162,7 @@ function SortIcon({
 }
 
 export default function TableView({
+    zone,
     screenings,
     getMovie,
     getCinema,
@@ -377,6 +389,7 @@ export default function TableView({
 
                                 <td className="px-4 py-3">
                                     <ScreeningTimes
+                                        zone={zone}
                                         cinemaScreenings={filmScreenings}
                                         getCinema={getCinema}
                                         showTimes={showTimes}

@@ -1,4 +1,4 @@
-import type { Screening } from '../calendarApi';
+import type { Screening } from '../api';
 import { dayKey } from './dates';
 
 export function groupScreenings(
@@ -16,8 +16,21 @@ export function groupScreenings(
     }
     return [...groups.entries()];
 }
-export function movieKey(s: Screening) {
-    const film = s.film;
+export function filmKey(
+    film:
+        | Pick<
+              NonNullable<Screening['film']>,
+              | 'id'
+              | 'title'
+              | 'director'
+              | 'release_year'
+              | 'duration'
+              | 'tmdb_id'
+          >
+        | null
+        | undefined,
+    filmId: number
+) {
     if (film?.tmdb_id != null) return `tmdb:${film.tmdb_id}`;
     // Conservative fallback: unknown metadata must not merge unrelated films.
     if (film?.title && film.director && film.release_year)
@@ -27,8 +40,9 @@ export function movieKey(s: Screening) {
             film.release_year,
             film.duration,
         ]);
-    return `film:${s.film_id}`;
+    return `film:${filmId}`;
 }
+export const movieKey = (row: Screening) => filmKey(row.film, row.film_id);
 export const byMovie = (rows: Screening[]) => groupScreenings(rows, movieKey);
 export const byCinema = (rows: Screening[]) =>
     groupScreenings(rows, (s) => String(s.cinema_id));

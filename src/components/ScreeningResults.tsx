@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { Calendar, MapPin } from 'lucide-react';
-import type { Screening } from '../calendarApi';
+import type { Screening } from '../api';
 import type { GroupBy } from '../types';
 import { byCinema, byDay, byMovie } from '../lib/groupings';
 import { formatDate, formatTime } from '../lib/dates';
+import { filmWithPoster } from '../api';
 
 function BookingTime({
     screening,
@@ -37,6 +38,14 @@ function MovieCard({
     const movie = screenings[0].film;
     return (
         <article className="bg-neutral-800 rounded-lg p-6">
+            {movie && (
+                <img
+                    src={filmWithPoster(movie).poster_url ?? undefined}
+                    alt=""
+                    loading="lazy"
+                    className="w-32 rounded mb-4"
+                />
+            )}
             <h3 className="text-xl font-bold mb-2">
                 {movie?.title ?? 'Unknown film'}
             </h3>

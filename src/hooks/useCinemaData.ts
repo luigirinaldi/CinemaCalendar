@@ -5,15 +5,15 @@ import {
     fetchScreenings,
     type Cinema,
     type Screening,
-} from '../calendarApi';
+} from '../api';
 import { cityZone, dateBounds } from '../lib/dates';
 import type { Filters } from '../types';
 
 const message = (error: unknown) =>
     error instanceof Error ? error.message : 'Unable to load cinema data.';
-export function useCinemaData(filters: Filters) {
+export function useCinemaData(filters: Filters, initialCity = '') {
     const [cinemas, setCinemas] = useState<Cinema[]>([]);
-    const [city, setCity] = useState('');
+    const [city, setCity] = useState(initialCity);
     const [screenings, setScreenings] = useState<Screening[]>([]);
     const [initialLoading, setInitialLoading] = useState(true);
     const [loading, setLoading] = useState(false);
@@ -30,7 +30,11 @@ export function useCinemaData(filters: Filters) {
                 setCinemas(rows);
                 setCity(
                     (previous) =>
-                        previous ||
+                        rows.find(
+                            (row) =>
+                                row.location?.toLowerCase() ===
+                                previous.toLowerCase()
+                        )?.location ||
                         rows.find((row) => row.location)?.location ||
                         ''
                 );
@@ -48,7 +52,10 @@ export function useCinemaData(filters: Filters) {
         const controller = new AbortController();
         setScreenings([]);
         setError(null);
-        if (!city) return () => controller.abort();
+        if (!city) {
+            setLoading(false);
+            return () => controller.abort();
+        }
         setLoading(true);
         async function load() {
             try {

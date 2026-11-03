@@ -7,7 +7,7 @@ import {
     MapPin,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { DateRange, GroupBy } from '../types';
+import type { CatalogDateRange as DateRange, GroupBy } from '../types';
 import { parseLocalDate } from '../utils/url';
 import LetterboxdFilter from './LetterboxdFilter';
 import YearFilter from './YearFilter';

@@ -41,25 +41,29 @@ These checks never connect to or write to the database. A failed import, HTTP re
 ## Code map
 
 - `src/App.tsx`: page composition and filter state.
-- `src/components/AppHeader.tsx`: city, date, view, year and Letterboxd controls.
-- `src/components/`: movie, cinema, table and map views.
-- `src/api.ts`: catalogue queries, caching, posters and Letterboxd integration.
-- `src/hooks/useDateRange.ts`: date navigation and URL state.
-- `src/calendarApi.ts`, `src/hooks/useCinemaData.ts` and `src/lib/`: development calendar query and date helpers, retained with their regression tests.
+- `src/components/CalendarFilters.tsx`: date and view controls.
+- `src/components/ScreeningResults.tsx`: movie and cinema cards.
+- `src/components/CatalogViews.tsx`: adapts the embedded screening data for the table and map views from `main`.
+- `src/api.ts`: paginated, typed Supabase queries with embedded film/cinema/TMDB data.
+- `src/hooks/useCinemaData.ts`: loading, cancellation, error and retry handling.
+- `src/hooks/useScreeningFilters.ts`: local Letterboxd and year filtering.
+- `src/catalogPresentation.ts`: poster URLs and view types.
+- `src/letterboxdApi.ts`: Letterboxd watchlist requests.
+- `src/lib/`: timezone-aware date bounds, conservative grouping, pagination and URL state.
 - `scripts/cinemas/`: cinema-specific parsers.
 - `scripts/http.ts`: timeouts, transient retries and bounded concurrency.
 - `scripts/dates.ts`: source timezone interpretation.
 - `scripts/database.ts`: transactional storage.
 
-## Calendar query helpers
+## Supabase data shape and request cost
 
-The development calendar helpers in `src/calendarApi.ts` request screenings with embedded `film` and `cinema` objects through the existing foreign keys. `QueryData` infers types from the selection. No SQL migration, RPC or new database function is required. The current application uses the catalogue API from `main` to support its poster, table, map and Letterboxd views.
+The application requests screenings with embedded `film`, `cinema` and TMDB metadata through the existing foreign keys. `QueryData` infers types from the selection. No SQL migration, RPC or new database function is required. The data hook, date helpers and grouping rules from `dev` drive all four views; poster, table, map, year and Letterboxd features from `main` use that same dataset.
 
 There is one cinema-list request on initial load and one screening request per filter change for results fitting in one page. Extra pages are fetched only when needed. Switching between movie and cinema grouping makes no API call. The full film catalogue is no longer downloaded separately. Exact counts prevent unnecessary trailing requests and pagination also handles a server row cap smaller than the requested page size.
 
 This reduces client-side lookups and initial requests; it is not a measured latency guarantee. Embedded film/cinema metadata is repeated per screening, so payload size can increase for very large ranges. The city dropdown uses the small cinema list; display grouping remains a local, memoized operation. React StrictMode can start and cancel an additional request during development.
 
-The calendar date helpers use the selected city's timezone. Today starts now; another selected day starts at midnight. The final selected day includes late screenings until 04:00 the following morning (exclusive). Custom date inputs use `YYYY-MM-DD`. Anytime preserves the unbounded-date behavior, including historical rows. Add a city timezone to `cityZone` when expanding beyond Padova/London. The application date controls use `useDateRange` from `main`.
+Dates use the selected city's timezone. Today starts now; another selected day starts at midnight. The final selected day includes late screenings until 04:00 the following morning (exclusive). Custom date inputs use `YYYY-MM-DD`. Anytime preserves the unbounded-date behavior, including historical rows. Add a city timezone to `cityZone` when expanding beyond Padova/London. Legacy `main` URLs using `dateRange=range` open the custom-range controls.
 
 ## Updating stored data
 
@@ -69,6 +73,6 @@ npm run get_data
 
 **This command writes to Supabase and updates TMDB metadata.** It needs server credentials from `.env`. For one scraper, set `SCRAPER` to its filename and run `npx tsx scripts/scrapeUpload.ts`.
 
-Each cinema is stored in a transaction. An advisory transaction lock serializes overlapping runs for the same cinema. Incoming films are deduplicated by title and URL; showings are deduplicated by film ID and timestamp. Future screenings are replaced by the latest programme, matching `main`'s cancellation and rescheduling behavior; historical screenings are retained. Screen/room identity is not persisted by the current schema, so simultaneous screenings of the same film remain indistinguishable in storage. `npm run get_data -- --dry-run` compares programmes without writing data or updating metadata.
+Each cinema is stored in a transaction. An advisory transaction lock serializes overlapping runs for the same cinema. Incoming films are deduplicated by title and URL; showings are deduplicated by film ID and timestamp. Storage preserves `dev`'s insert-only behavior: existing showings are not deleted based on a potentially incomplete programme. Historical duplicates, rescheduled/cancelled showings and wrong stored times require separate review. Screen/room identity is not persisted by the current schema, so simultaneous screenings of the same film remain indistinguishable in storage. `npm run get_data -- --dry-run` compares programmes without writing data or updating metadata.
 
 See `CLEANUP_NOTES.md` for changes and verification limits.

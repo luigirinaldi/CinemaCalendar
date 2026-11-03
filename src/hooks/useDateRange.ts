@@ -1,5 +1,5 @@
 import { useReducer, useMemo, useEffect, useCallback } from 'react';
-import type { DateRange } from '../types';
+import type { CatalogDateRange as DateRange } from '../types';
 import {
     getUrlSearchParams,
     setUrlSearchParams,

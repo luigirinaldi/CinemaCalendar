@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DateTime } from 'luxon';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../database.types';
-import { fetchScreenings, type Screening } from '../src/calendarApi';
+import { fetchScreenings, type Screening } from '../src/api';
 import { dateBounds } from '../src/lib/dates';
 import { byDay, byMovie } from '../src/lib/groupings';
 import { fetchAllPages } from '../src/lib/pagination';
@@ -32,8 +32,25 @@ const row = (
         director: null,
         release_year: null,
         tmdb_id,
+        cinema_id: 1,
+        country: null,
+        cover_url: null,
+        created_at: '',
+        language: null,
+        local_id: null,
+        url: null,
+        tmdb_films: null,
     },
-    cinema: { id: 1, name: 'Cinema', location: 'London' },
+    cinema: {
+        id: 1,
+        name: 'Cinema',
+        location: 'London',
+        coordinates: null,
+        created_at: '',
+        default_lang: 'en-GB',
+        last_updated: '',
+        website: null,
+    },
 });
 test('custom end date includes the full day and late shows across DST', () => {
     const [start, end] = dateBounds(filters, 'Europe/London');

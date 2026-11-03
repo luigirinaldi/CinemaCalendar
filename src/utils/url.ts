@@ -1,5 +1,10 @@
 import { GROUP_BY_VALUES, SHOW_MODE_VALUES, TABLE_SORT_VALUES } from '../types';
-import type { DateRange, GroupBy, ShowMode, TableSort } from '../types';
+import type {
+    CatalogDateRange as DateRange,
+    GroupBy,
+    ShowMode,
+    TableSort,
+} from '../types';
 
 /** Parse a YYYY-MM-DD string as local midnight (avoids UTC-offset day shift). */
 export function parseLocalDate(str: string): Date {

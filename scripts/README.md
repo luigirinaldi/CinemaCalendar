@@ -13,6 +13,38 @@ Run `npm run typecheck` and `npm test` before live checks. `npm run test_scraper
 
 `npm run get_data` and `npm run get_tmdb_id` save complete console logs to timestamped files in `.scraper-debug/` (ignored by Git). TMDB enrichment also saves a timestamped JSON report listing unmatched films separately from failed requests. An unmatched event or double bill may have no single TMDB entry. HTTP/API and database failures produce a nonzero exit status; successful matches are still saved when other lookups fail. To retry metadata without scraping cinemas, run `npm run get_tmdb_id`.
 
-TMDB responses are validated and limited to supported database columns. Lookups use four workers, request pacing, bounded retries for transient failures (including 429), correctly encoded query parameters and screening-title cleanup. Duplicate lookups share results within a run. Close-UP can currently refuse its calendar endpoint with HTTP 403; this is reported as a failed scraper and existing stored screenings are retained.
+TMDB responses are validated and limited to supported database columns. Lookups use four workers, request pacing, bounded retries for transient failures (including 429), correctly encoded query parameters and screening-title cleanup. Duplicate lookups share results within a run.
+
+Close-UP and BFI can serve access-check pages, including HTTP 403 responses. Browser navigation uses `domcontentloaded` followed by an explicit wait for calendar data or film links; it does not wait for analytics requests to become idle. Close-UP also detects HTTP 200 interstitials and retains its successful calendar browser context for detail pages refused over HTTP. BFI uses four detail workers, retries load failures and throws if required programme data is missing. Unresolved access checks are reported as failures, retaining existing stored screenings. A successful run depends on the venue allowing the scraper's browser session; longer network timeouts do not resolve an access refusal. `npm run test_scraper -- closeUp bfi` checks both without database writes.
 
 Fronte del Porto uses paginated WordPress ACF programme fields; publication dates are not showtimes. Lux uses paginated Tribe Events results. Riverside discovers its current stream endpoint from the listing page rather than keeping the old endpoint hardcoded. Institute/ICA/Close-UP detail requests are bounded to four at a time.
+
+## Standard scraper structure
+
+New scrapers can use `createProgrammeScraper` from `programmeScraper.ts`. Keep venue metadata and the exported `scraper` in `cinemas/`; keep reusable chain/platform loaders and pure parsers in `providers/`. Files in `cinemas/` are automatically discovered by local runners and the CI matrix, so helpers and templates belong outside that directory.
+
+```ts
+export const scraper = createProgrammeScraper({
+    cinema: CINEMA,
+    load: () => loadProgramme(CINEMA.website),
+    parse: (source) => parseProgramme(source),
+});
+```
+
+First inspect the official site's public feeds and network requests, including WordPress REST/plugin routes when applicable. Prefer a venue's structured listings feed over HTML selectors. Use `fetchPage` for timeouts, checked statuses and transient retries; use `mapConcurrent` for bounded detail requests. Validate source structure with Zod before parsing. Follow actual pagination or published schedule bounds, and fail if a required response/field disappears. Only a valid, explicitly empty programme should return no films. Pure parsers should accept captured or minimal representative data so tests run offline. An HTML adapter can use the same contract when no suitable feed exists.
+
+The factory validates the final `CinemaShowings`, merges entries by title and stable film URL (the database identity), removes duplicate performances and sorts showtimes without changing parser inputs. Preserve explicit offsets; convert unzoned times using the venue's IANA timezone. Keep session-specific URLs on showings, and do not guess unknown metadata or showtimes.
+
+## Cambridge, UK
+
+Checked on 4 November 2026. All three venues expose public structured feeds used by their own websites; none requires a WordPress adapter, API key or browser at runtime.
+
+| Scraper                              | Official source and approach                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `artsPicturehouseCambridgeCinema.ts` | [Arts Picturehouse](https://www.picturehouses.com/cinema/Arts-Picturehouse-Cambridge): read-only POST to `/api/get-movies-ajax`, `cinema_id=002`, `start_date=show_all_dates`. Responses can contain grouped films/sessions from other venues: filter each session by `CinemaId`, not the film's top-level venue.                                                                                                                                          |
+| `lightCambridgeCinema.ts`            | [The Light](https://cambridge.thelight.co.uk/cinema): discover the miniguide script URL from the page and parse its `__gfminiguidedata` JSON assignment without executing JavaScript. Combine full date keys and session times in Europe/London. Native sessions use the film page's booking panel, so their booking link points to that page.                                                                                                             |
+| `everymanCambridgeCinema.ts`         | [Everyman](https://www.everymancinema.com/venues-list/g02am-everyman-cambridge/): `/api/gatsby-source-boxofficeapi/` feeds, theater `G02AM`. Discover all on-sale dates from `scheduledMovies`, fetch that schedule range, and join `movies` metadata in batches of 50 with two workers. Runtime is in seconds. The API has no canonical CMS film permalink, so film links use the stable venue listings page; showing links use the supplied ticket URLs. |
+
+These are public website feeds rather than versioned API contracts. Schema failures propagate instead of reporting an empty programme. Keep representative parser tests and rerun read-only live checks when their formats change. Do not scrape a third-party showtimes aggregator as the source of record.
+
+Run `npm run test_scraper -- Cambridge` to check all three without updating Supabase. The initial successful live check returned 75 films/259 screenings at Picturehouse, 43/313 at The Light and 58/276 at Everyman (271 upcoming); counts change as programmes are updated.

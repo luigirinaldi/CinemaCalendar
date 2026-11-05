@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import type { GeoJsonObject } from 'geojson';
 import type { Cinema } from '../api';
 import {
     cinemaCoords,
@@ -58,19 +59,30 @@ export function AreaSelection({
     );
 }
 
-export function CinemaBounds({ cinemas }: { cinemas: Cinema[] }) {
+export function CinemaBounds({
+    cinemas,
+    boundary = null,
+}: {
+    cinemas: Cinema[];
+    boundary?: GeoJsonObject | null;
+}) {
     const map = useMap();
     useEffect(() => {
         const points = cinemas.flatMap((cinema) => {
             const point = cinemaCoords(cinema);
             return point ? [L.latLng(point.lat, point.lng)] : [];
         });
-        if (points.length)
-            map.fitBounds(L.latLngBounds(points), {
+        const bounds = L.latLngBounds(points);
+        if (boundary) {
+            const cityBounds = L.geoJSON(boundary).getBounds();
+            if (cityBounds.isValid()) bounds.extend(cityBounds);
+        }
+        if (bounds.isValid())
+            map.fitBounds(bounds, {
                 padding: [30, 30],
-                maxZoom: 13,
+                maxZoom: 16,
                 animate: false,
             });
-    }, [map, cinemas]);
+    }, [map, cinemas, boundary]);
     return null;
 }

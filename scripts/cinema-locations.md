@@ -24,3 +24,11 @@ Astra retain separate catalogue identities despite sharing a building.
 Scrapers pass these fields to the cinema upsert in `scripts/database.ts` during a
 successful scrape/store run. Editing these files does not update existing Supabase
 rows immediately. No database update was performed while adding this metadata.
+
+Cambridge venues added on 4 November 2026:
+
+| Cinema                      | Venue address                                          | Latitude, longitude | Verification sources                                                                                                                                  |
+| --------------------------- | ------------------------------------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arts Picturehouse Cambridge | 38–39 St Andrew's Street, Cambridge CB2 3AR            | 52.20288, 0.1235    | [Official venue](https://www.picturehouses.com/cinema/Arts-Picturehouse-Cambridge/information), [OSM cinema point](https://mapcarta.com/N20922159)    |
+| The Light Cambridge         | Cambridge Leisure Park, Clifton Way, Cambridge CB1 7DY | 52.1905, 0.13714    | [Leisure park venue listing](https://www.cambridgeleisure.co.uk/en/play-listing/the-light-cinema), [OSM cinema point](https://mapcarta.com/N24672063) |
+| Everyman Cambridge          | Unit 42, Grand Arcade, Cambridge CB2 3BJ               | 52.204, 0.1218      | [Official venue](https://www.everymancinema.com/venues-list/g02am-everyman-cambridge/), coordinates from that page's `MovieTheater` JSON-LD           |

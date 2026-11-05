@@ -8,7 +8,8 @@ import {
 } from '../types';
 import { parse } from 'node-html-parser';
 import { DateTime } from 'luxon';
-import { chromium } from 'playwright-chromium';
+import { chromium, type BrowserContext } from 'playwright-chromium';
+import { loadProgrammePage } from '../browserProgramme';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -62,39 +63,82 @@ function parseFilmPage(html: string) {
     };
 }
 
-async function calendarHtml(): Promise<string> {
-    const response = await fetchPage(
-        BASE_URL + '/search_film_programmes/'
-    ).catch(async (error: unknown) => {
-        if (error instanceof Error && error.message.startsWith('HTTP 403 ')) {
-            try {
-                const browser = await chromium.launch();
-                try {
-                    const page = await browser.newPage();
-                    await page.goto(BASE_URL + '/search_film_programmes/', {
-                        waitUntil: 'domcontentloaded',
-                    });
-                    return new Response(await page.content());
-                } finally {
-                    await browser.close();
-                }
-            } catch (browserError) {
-                throw new Error(
-                    `${LOG_PREFIX} Calendar access denied (HTTP 403). The website is refusing this request; existing stored screenings are retained.`,
-                    { cause: browserError }
-                );
-            }
+interface CalendarSource {
+    html: string;
+    context?: BrowserContext;
+    close: () => Promise<void>;
+}
+
+async function calendarHtml(): Promise<CalendarSource> {
+    const url = BASE_URL + '/search_film_programmes/';
+    let blockedStatus: number | undefined;
+    try {
+        const html = await (await fetchPage(url)).text();
+        if (
+            parse(html)
+                .querySelectorAll('script')
+                .some((script) => /\bvar\s+shows\s*=/.test(script.textContent))
+        )
+            return { html, close: async () => {} };
+        // Some interstitials respond with HTTP 200; others inject the calendar later.
+        if (/challenge-platform|cf-chl-|<title>\s*Just a moment/i.test(html))
+            blockedStatus = 200;
+    } catch (error) {
+        if (!(error instanceof Error) || !error.message.startsWith('HTTP 403 '))
+            throw error;
+        blockedStatus = 403;
+    }
+    try {
+        const browser = await chromium.launch();
+        try {
+            const context = await browser.newContext();
+            const page = await context.newPage();
+            await loadProgrammePage(
+                page,
+                url,
+                () =>
+                    Array.from(document.scripts).some((script) =>
+                        /\bvar\s+shows\s*=/.test(script.textContent ?? '')
+                    ),
+                `${LOG_PREFIX} Calendar`
+            );
+            return {
+                html: await page.content(),
+                context,
+                close: () => browser.close(),
+            };
+        } catch (error) {
+            await browser.close();
+            throw error;
         }
-        throw error;
-    });
-    return response.text();
+    } catch (cause) {
+        if (cause instanceof Error && cause.message.includes('access denied'))
+            throw cause;
+        if (blockedStatus)
+            throw new Error(
+                `${LOG_PREFIX} Calendar access denied (HTTP ${blockedStatus}). The website's access check did not complete; existing stored screenings are retained.`,
+                { cause }
+            );
+        throw cause;
+    }
 }
 
 export async function scraper(): Promise<CinemaShowing[]> {
-    const root = parse(await calendarHtml());
+    const source = await calendarHtml();
+    try {
+        return await scrapeCalendar(source);
+    } finally {
+        await source.close();
+    }
+}
+
+async function scrapeCalendar(
+    source: CalendarSource
+): Promise<CinemaShowing[]> {
+    const root = parse(source.html);
     const scriptTag = root
         .querySelectorAll('script')
-        .find((s) => s.innerText.includes('var shows'));
+        .find((s) => /\bvar\s+shows\s*=/.test(s.innerText));
     if (!scriptTag)
         throw new Error("Could not find <script> containing 'var shows'");
     const showsMatch = scriptTag.innerText.match(/var\s+shows\s*=\s*'(.*?)';/s);
@@ -114,8 +158,34 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const details = new Map(
         await mapConcurrent(urls, async (url) => {
             try {
-                const page = await fetchPage(url);
-                return [url, parseFilmPage(await page.text())] as const;
+                let html: string;
+                try {
+                    html = await (await fetchPage(url)).text();
+                } catch (error) {
+                    if (
+                        !source.context ||
+                        !(error instanceof Error) ||
+                        !error.message.startsWith('HTTP 403 ')
+                    )
+                        throw error;
+                    // Keep the browser session that successfully loaded the calendar.
+                    const page = await source.context.newPage();
+                    try {
+                        await loadProgrammePage(
+                            page,
+                            url,
+                            () =>
+                                document.querySelector(
+                                    '#film_program_support'
+                                ) !== null,
+                            `${LOG_PREFIX} Film details`
+                        );
+                        html = await page.content();
+                    } finally {
+                        await page.close();
+                    }
+                }
+                return [url, parseFilmPage(html)] as const;
             } catch (error) {
                 console.error(
                     `${LOG_PREFIX} Could not fetch film details: ${url}`,

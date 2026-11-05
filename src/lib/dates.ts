@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import type { Filters } from '../types';
 
 export const cityZone = (city: string) =>
-    city === 'London' ? 'Europe/London' : 'Europe/Rome';
+    ['London', 'Cambridge'].includes(city) ? 'Europe/London' : 'Europe/Rome';
 export const todayIn = (zone: string) =>
     DateTime.now().setZone(zone).toISODate()!;
 export function dateBounds(

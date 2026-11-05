@@ -2,7 +2,7 @@ const RETRY_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
 const delay = (milliseconds: number) =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-/** Cinema GETs and read-only GraphQL POSTs only; never use for booking writes. */
+/** Cinema GETs and read-only listings/GraphQL POSTs only; never use for booking writes. */
 export async function fetchPage(
     url: string | URL,
     init: RequestInit = {},

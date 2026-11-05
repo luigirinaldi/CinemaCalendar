@@ -37,10 +37,13 @@ test('Close-Up falls back to a browser for a blocked calendar and closes it', as
             : new Response('<title>CLOSE-UP | Test film</title>')
     );
     const browser = {
-        newPage: async () => ({
-            goto: async () => {},
-            content: async () =>
-                listing([{ title: 'Test film', film_url: '/test' }]),
+        newContext: async () => ({
+            newPage: async () => ({
+                goto: async () => {},
+                waitForFunction: async () => {},
+                content: async () =>
+                    listing([{ title: 'Test film', film_url: '/test' }]),
+            }),
         }),
         close: async () => {
             closed = true;
@@ -50,6 +53,107 @@ test('Close-Up falls back to a browser for a blocked calendar and closes it', as
     const result = CinemaShowingsSchema.parse(await scraper());
     assert.equal(result[0].showings[0].film.title, 'Test film');
     assert.equal(closed, true);
+});
+
+test('Close-Up waits for calendar data after a successful HTTP interstitial', async (t) => {
+    let ready = false;
+    let closed = false;
+    t.mock.method(globalThis, 'fetch', async (input: string | URL) =>
+        String(input).endsWith('/search_film_programmes/')
+            ? new Response('<title>Just a moment...</title>')
+            : new Response('<title>CLOSE-UP | Recovered film</title>')
+    );
+    t.mock.method(chromium, 'launch', async () => ({
+        newContext: async () => ({
+            newPage: async () => ({
+                goto: async (_url: string, options: { waitUntil: string }) => {
+                    assert.equal(options.waitUntil, 'domcontentloaded');
+                    return { status: () => 200 };
+                },
+                waitForFunction: async () => {
+                    ready = true;
+                },
+                content: async () =>
+                    ready
+                        ? listing([
+                              {
+                                  title: 'Recovered film',
+                                  film_url: '/recovered',
+                              },
+                          ])
+                        : '<title>Just a moment...</title>',
+            }),
+        }),
+        close: async () => {
+            closed = true;
+        },
+    }));
+    const [result] = await scraper();
+    assert.equal(result.showings[0].film.title, 'Recovered film');
+    assert.equal(ready, true);
+    assert.equal(closed, true);
+});
+
+test('Close-Up reports a browser access check instead of a missing shows script', async (t) => {
+    let closed = false;
+    t.mock.method(
+        globalThis,
+        'fetch',
+        async () => new Response('', { status: 403 })
+    );
+    t.mock.method(chromium, 'launch', async () => ({
+        newContext: async () => ({
+            newPage: async () => ({
+                goto: async () => ({ status: () => 403 }),
+                waitForFunction: async () => {
+                    throw new Error('timeout');
+                },
+                content: async () => '<title>Just a moment...</title>',
+            }),
+        }),
+        close: async () => {
+            closed = true;
+        },
+    }));
+    await assert.rejects(scraper(), /Calendar access denied \(HTTP 403\)/);
+    assert.equal(closed, true);
+});
+
+test('Close-Up reuses the calendar browser session for blocked film details', async (t) => {
+    let pages = 0;
+    let detailClosed = false;
+    let browserClosed = false;
+    t.mock.method(
+        globalThis,
+        'fetch',
+        async () => new Response('', { status: 403 })
+    );
+    t.mock.method(chromium, 'launch', async () => ({
+        newContext: async () => ({
+            newPage: async () => {
+                const calendar = pages++ === 0;
+                return {
+                    goto: async () => ({ status: () => 200 }),
+                    waitForFunction: async () => {},
+                    content: async () =>
+                        calendar
+                            ? listing([{ title: null, film_url: '/film' }])
+                            : '<title>CLOSE-UP | Film</title><div id="film_program_support"><p><strong>Recovered Film</strong>Director, 2026, 90 min</p></div>',
+                    close: async () => {
+                        detailClosed = true;
+                    },
+                };
+            },
+        }),
+        close: async () => {
+            browserClosed = true;
+        },
+    }));
+    const [result] = await scraper();
+    assert.equal(result.showings[0].film.title, 'Recovered Film');
+    assert.equal(pages, 2);
+    assert.equal(detailClosed, true);
+    assert.equal(browserClosed, true);
 });
 
 test('Close-Up recovers missing/partial titles and merges screenings using decoded detail metadata', async (t) => {

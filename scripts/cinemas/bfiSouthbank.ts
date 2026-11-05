@@ -10,6 +10,10 @@ import {
 import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { BrowserContext } from 'playwright-chromium';
+import { loadProgrammePage } from '../browserProgramme';
+import { mapConcurrent } from '../http';
+import { parse } from 'node-html-parser';
+import { z } from 'zod';
 
 chromium.use(StealthPlugin());
 
@@ -17,7 +21,7 @@ const CINEMA_NAME = 'BFI Southbank';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://whatson.bfi.org.uk/Online';
 const FILMS_INDEX_URL = BASE_URL + '/article/filmsindex';
-const CONCURRENCY_LIMIT = 10;
+const CONCURRENCY_LIMIT = 4;
 const MAX_RETRIES = 2;
 const TEST_LIMIT = process.env.BFI_TEST_LIMIT
     ? parseInt(process.env.BFI_TEST_LIMIT)
@@ -52,29 +56,52 @@ interface ArticleContext {
     searchResults: unknown[][];
 }
 
-type Semaphore = { count: number; queue: Array<() => void> };
+const ArticleContextSchema = z.object({
+    searchNames: z.array(z.string()),
+    searchResults: z.array(z.array(z.unknown())),
+});
 
-function createSemaphore(limit: number): Semaphore {
-    return { count: limit, queue: [] };
-}
-
-function acquire(sem: Semaphore): Promise<void> {
-    return new Promise((resolve) => {
-        if (sem.count > 0) {
-            sem.count--;
-            resolve();
-        } else {
-            sem.queue.push(resolve);
-        }
+export function parseBfiShowings(
+    source: unknown,
+    filmUrl: string
+): FilmShowings['showings'] {
+    const { searchNames, searchResults } = ArticleContextSchema.parse(source);
+    const dateIndex = searchNames.indexOf('start_date');
+    if (searchResults.length && dateIndex < 0)
+        throw new Error(
+            `${LOG_PREFIX} Programme has no start_date column: ${filmUrl}`
+        );
+    return searchResults.map((row) => {
+        const raw = row[dateIndex];
+        const startTime =
+            typeof raw === 'string' ? parseStartDate(raw) : undefined;
+        if (!startTime)
+            throw new Error(
+                `${LOG_PREFIX} Invalid screening date ${JSON.stringify(raw)}: ${filmUrl}`
+            );
+        return { startTime, bookingUrl: filmUrl };
     });
 }
 
-function release(sem: Semaphore): void {
-    if (sem.queue.length > 0) {
-        sem.queue.shift()!();
-    } else {
-        sem.count++;
+export function parseBfiFilmLinks(
+    html: string
+): { url: string; title: string }[] {
+    const films = new Map<string, { url: string; title: string }>();
+    for (const link of parse(html).querySelectorAll('div.Rich-text a[href]')) {
+        const url = new URL(link.getAttribute('href')!, BASE_URL + '/');
+        if (
+            url.origin !== new URL(BASE_URL).origin ||
+            !/^\/Online\/article\/[^/]+\/?$/.test(url.pathname)
+        )
+            continue;
+        const title = link.textContent.trim().replace(/\s+/g, ' ');
+        if (!title) continue;
+        url.hash = '';
+        films.set(url.href, { url: url.href, title });
     }
+    if (!films.size)
+        throw new Error(`${LOG_PREFIX} Film index has no usable film links`);
+    return [...films.values()];
 }
 
 async function extractFilmInfo(
@@ -118,6 +145,8 @@ async function extractFilmInfo(
 }
 
 function parseStartDate(dateStr: string): string | undefined {
+    // A calendar date alone must never turn into an invented midnight screening.
+    if (!/\d{1,2}:\d{2}/.test(dateStr)) return undefined;
     // Try ISO first
     let dt = DateTime.fromISO(dateStr, { zone: LONDON_TZ });
     if (dt.isValid) return dt.toISO() ?? undefined;
@@ -144,11 +173,9 @@ function parseStartDate(dateStr: string): string | undefined {
 async function processFilm(
     context: BrowserContext,
     filmUrl: string,
-    filmTitle: string,
-    sem: Semaphore
+    filmTitle: string
 ): Promise<FilmShowings> {
     for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-        await acquire(sem);
         if (attempt > 1) {
             console.log(
                 `${LOG_PREFIX} Retry ${attempt - 1}/${MAX_RETRIES}: "${filmTitle}"`
@@ -160,7 +187,20 @@ async function processFilm(
         }
         const page = await context.newPage();
         try {
-            await page.goto(filmUrl, { waitUntil: 'load', timeout: 10000 });
+            await loadProgrammePage(
+                page,
+                filmUrl,
+                () => {
+                    const context = (
+                        window as unknown as { articleContext?: ArticleContext }
+                    ).articleContext;
+                    return (
+                        Array.isArray(context?.searchNames) &&
+                        Array.isArray(context?.searchResults)
+                    );
+                },
+                `${LOG_PREFIX} Film "${filmTitle}"`
+            );
 
             // Extract articleContext JS variable (Spektrix ticketing data)
             let articleContext: ArticleContext | null = null;
@@ -186,8 +226,8 @@ async function processFilm(
                     );
                     continue;
                 }
-                console.warn(
-                    `${LOG_PREFIX} No articleContext for "${filmTitle}" after ${attempt} attempts — page may have no listings`
+                throw new Error(
+                    `${LOG_PREFIX} Missing articleContext for "${filmTitle}" after ${attempt} attempts`
                 );
             }
 
@@ -220,35 +260,7 @@ async function processFilm(
                 );
             }
 
-            const showings: FilmShowings['showings'] = [];
-
-            if (articleContext?.searchNames && articleContext?.searchResults) {
-                const { searchNames, searchResults } = articleContext;
-                console.log(
-                    `${LOG_PREFIX} "${filmTitle}": ${searchResults.length} showings, fields: [${searchNames.join(', ')}]`
-                );
-                for (const row of searchResults) {
-                    const listing = Object.fromEntries(
-                        searchNames.map((name, i) => [name, row[i]])
-                    );
-                    const startDateStr = listing['start_date'];
-                    if (!startDateStr) {
-                        console.warn(
-                            `${LOG_PREFIX} Missing start_date for "${filmTitle}": ${JSON.stringify(listing)}`
-                        );
-                        continue;
-                    }
-
-                    const startTime = parseStartDate(String(startDateStr));
-                    if (!startTime) {
-                        console.warn(
-                            `${LOG_PREFIX} Could not parse date "${startDateStr}" for "${filmTitle}"`
-                        );
-                        continue;
-                    }
-                    showings.push({ startTime, bookingUrl: filmUrl });
-                }
-            }
+            const showings = parseBfiShowings(articleContext, filmUrl);
 
             console.log(
                 `${LOG_PREFIX} "${filmTitle}": ${showings.length} showings parsed`
@@ -257,14 +269,24 @@ async function processFilm(
                 film: { title: filmTitle, url: filmUrl, coverUrl, ...filmInfo },
                 showings,
             };
+        } catch (error) {
+            if (
+                attempt > MAX_RETRIES ||
+                (error instanceof Error &&
+                    error.message.includes('access denied'))
+            )
+                throw error;
+            console.warn(
+                `${LOG_PREFIX} Failed to load "${filmTitle}"; retrying`,
+                error
+            );
         } finally {
             await page.close();
-            release(sem);
         }
     }
 
     // Unreachable but required for TypeScript
-    return { film: { title: filmTitle, url: filmUrl }, showings: [] };
+    throw new Error(`${LOG_PREFIX} Failed to load "${filmTitle}"`);
 }
 
 export async function scraper(): Promise<CinemaShowing[]> {
@@ -278,31 +300,16 @@ export async function scraper(): Promise<CinemaShowing[]> {
 
         // Scrape index page for film links
         const indexPage = await context.newPage();
-        await indexPage.goto(FILMS_INDEX_URL, {
-            waitUntil: 'networkidle',
-            timeout: 60000,
-        });
+        await loadProgrammePage(
+            indexPage,
+            FILMS_INDEX_URL,
+            () =>
+                document.querySelector('div.Rich-text a[href*="article/"]') !==
+                null,
+            `${LOG_PREFIX} Film index`
+        );
 
-        const filmLinks: { url: string; title: string }[] = [];
-        const seenUrls = new Set<string>();
-
-        const links = indexPage.locator('div.Rich-text a[href]');
-        const count = await links.count();
-
-        for (let i = 0; i < count; i++) {
-            const a = links.nth(i);
-            const href = (await a.getAttribute('href')) ?? '';
-            if (!href.startsWith('article/')) continue;
-
-            const url = `${BASE_URL}/${href}`;
-            if (seenUrls.has(url)) continue;
-            seenUrls.add(url);
-
-            const title = (await a.innerText()).trim().replace(/\s+/g, ' ');
-            if (!title) continue;
-
-            filmLinks.push({ url, title });
-        }
+        const filmLinks = parseBfiFilmLinks(await indexPage.content());
 
         await indexPage.close();
         console.log(`${LOG_PREFIX} Found ${filmLinks.length} films`);
@@ -317,13 +324,24 @@ export async function scraper(): Promise<CinemaShowing[]> {
             );
         }
 
-        // Process all film pages concurrently (limited by semaphore)
-        const sem = createSemaphore(CONCURRENCY_LIMIT);
-
-        const filmShowings = await Promise.all(
-            filmsToProcess.map(({ url, title }) =>
-                processFilm(context, url, title, sem)
-            )
+        // Drain in-flight pages before closing their shared browser on failure.
+        const failures: unknown[] = [];
+        const results = await mapConcurrent(
+            filmsToProcess,
+            async ({ url, title }) => {
+                if (failures.length) return undefined;
+                try {
+                    return await processFilm(context, url, title);
+                } catch (error) {
+                    failures.push(error);
+                    return undefined;
+                }
+            },
+            CONCURRENCY_LIMIT
+        );
+        if (failures.length) throw failures[0];
+        const filmShowings = results.filter(
+            (film): film is FilmShowings => film !== undefined
         );
 
         const withShowings = filmShowings.filter(

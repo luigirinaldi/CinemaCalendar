@@ -5,17 +5,10 @@ import {
     type SearchArea,
 } from '../lib/location';
 import { AreaSelection, CinemaBounds } from './MapLayers';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-    MapContainer,
-    TileLayer,
-    Marker,
-    Popup,
-    GeoJSON,
-    useMap,
-} from 'react-leaflet';
+import { cinemaMapQuery } from '../lib/mapData';
+import { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from 'react-leaflet';
 import L from 'leaflet';
-import type { LatLngBoundsExpression } from 'leaflet';
 import type { GeoJsonObject } from 'geojson';
 import type { CinemaTable } from '../api';
 
@@ -26,11 +19,6 @@ interface OsmCinema {
     lng: number;
     website?: string;
 }
-
-const CITY_AREA_IDS: Record<string, number> = {
-    London: 3600065606,
-    Padova: 3600044836,
-};
 
 const BOUNDARY_URLS: Record<string, string> = {
     London: `${import.meta.env.BASE_URL}data/boundaries/london.geojson`,
@@ -53,10 +41,9 @@ function normalizeHost(url: string): string {
 }
 
 async function fetchOsmCinemas(
-    areaId: number,
+    query: string,
     signal: AbortSignal
 ): Promise<OsmCinema[]> {
-    const query = `[out:json][timeout:25];area(${areaId})->.city;(node["amenity"="cinema"](area.city);way["amenity"="cinema"](area.city););out center;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
     const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`Overpass error ${res.status}`);
@@ -77,22 +64,6 @@ async function fetchOsmCinemas(
             lng: el.lon ?? el.center!.lon,
             website: el.tags?.website ?? el.tags?.['contact:website'],
         }));
-}
-
-function BoundsFitter({ geojson }: { geojson: GeoJsonObject | null }) {
-    const map = useMap();
-    const prevGeojson = useRef<GeoJsonObject | null>(null);
-    useEffect(() => {
-        if (!geojson || geojson === prevGeojson.current) return;
-        prevGeojson.current = geojson;
-        const layer = L.geoJSON(geojson);
-        const bounds = layer.getBounds();
-        if (bounds.isValid())
-            map.fitBounds(bounds as LatLngBoundsExpression, {
-                padding: [20, 20],
-            });
-    }, [geojson, map]);
-    return null;
 }
 
 interface MapViewProps {
@@ -117,6 +88,15 @@ export default function MapView({
     const [osmCinemas, setOsmCinemas] = useState<OsmCinema[]>([]);
     const [osmLoading, setOsmLoading] = useState(false);
     const [osmError, setOsmError] = useState<string | null>(null);
+    const cityCinemas = useMemo(
+        () =>
+            cinemas.filter((c) => !selectedCity || c.location === selectedCity),
+        [cinemas, selectedCity]
+    );
+    const osmQuery = useMemo(
+        () => cinemaMapQuery(selectedCity, cityCinemas),
+        [selectedCity, cityCinemas]
+    );
 
     useEffect(() => {
         const url = BOUNDARY_URLS[selectedCity];
@@ -124,8 +104,14 @@ export default function MapView({
         if (!url) return;
         const controller = new AbortController();
         fetch(url, { signal: controller.signal })
-            .then((r) => r.json())
-            .then((data) => setBoundaryGeojson(data))
+            .then((r) => {
+                if (!r.ok || !r.headers.get('content-type')?.includes('json'))
+                    throw new Error('City boundary is unavailable');
+                return r.json();
+            })
+            .then((data) => {
+                if (!controller.signal.aborted) setBoundaryGeojson(data);
+            })
             .catch((err) => {
                 if (err.name !== 'AbortError') setBoundaryGeojson(null);
             });
@@ -133,46 +119,48 @@ export default function MapView({
     }, [selectedCity]);
 
     useEffect(() => {
-        const areaId = CITY_AREA_IDS[selectedCity];
-        if (!areaId) {
+        if (!osmQuery) {
             setOsmCinemas([]);
             setOsmLoading(false);
             setOsmError(null);
             return;
         }
-        const cached = osmCache.get(selectedCity);
+        const cached = osmCache.get(osmQuery);
         if (cached) {
             setOsmCinemas(cached);
+            setOsmLoading(false);
+            setOsmError(null);
             return;
         }
         const controller = new AbortController();
+        let active = true;
         const timeoutId = setTimeout(() => controller.abort(), 30_000);
         setOsmCinemas([]);
         setOsmLoading(true);
         setOsmError(null);
-        fetchOsmCinemas(areaId, controller.signal)
+        fetchOsmCinemas(osmQuery, controller.signal)
             .then((results) => {
-                osmCache.set(selectedCity, results);
+                if (!active) return;
+                osmCache.set(osmQuery, results);
                 setOsmCinemas(results);
                 setOsmLoading(false);
             })
             .catch((err) => {
-                if (err.name === 'AbortError') return;
-                setOsmError('Could not load cinemas from OpenStreetMap.');
+                if (!active) return;
+                setOsmError(
+                    err.name === 'AbortError'
+                        ? 'OpenStreetMap timed out. Tracked cinemas are still shown.'
+                        : 'Could not load cinemas from OpenStreetMap.'
+                );
                 setOsmLoading(false);
             })
             .finally(() => clearTimeout(timeoutId));
         return () => {
+            active = false;
             controller.abort();
             clearTimeout(timeoutId);
         };
-    }, [selectedCity]);
-
-    const cityCinemas = useMemo(
-        () =>
-            cinemas.filter((c) => !selectedCity || c.location === selectedCity),
-        [cinemas, selectedCity]
-    );
+    }, [osmQuery]);
     const trackedWithCoords = cityCinemas.flatMap((cinema) => {
         const coords = parseCinemaCoords(cinema);
         return coords ? [{ cinema, coords }] : [];
@@ -276,8 +264,11 @@ export default function MapView({
                         if (next) onAreaChange(next);
                     }}
                 />
-                {!area && !boundaryGeojson && (
-                    <CinemaBounds cinemas={cityCinemas} />
+                {!area && (
+                    <CinemaBounds
+                        cinemas={cityCinemas}
+                        boundary={boundaryGeojson}
+                    />
                 )}
                 {!area && boundaryGeojson && (
                     <>
@@ -291,7 +282,6 @@ export default function MapView({
                                 fillColor: '#ef4444',
                             }}
                         />
-                        <BoundsFitter geojson={boundaryGeojson} />
                     </>
                 )}
 

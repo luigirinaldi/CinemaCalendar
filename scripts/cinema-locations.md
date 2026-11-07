@@ -1,5 +1,7 @@
 # Cinema location metadata
 
+Bruxelles venues, addresses, coordinates and verification sources added on 7 November 2026 are documented in [bruxelles-sources.md](bruxelles-sources.md).
+
 Coordinates added or corrected on 3 November 2026, in decimal WGS84 latitude and
 longitude. These are venue locations for maps and distance searches, not individual
 auditorium entrances. Address sources were checked against the cinema identity to

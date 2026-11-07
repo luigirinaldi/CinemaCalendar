@@ -1,5 +1,7 @@
 # Scrapers
 
+Bruxelles's ten venues, public API findings, HTML fallbacks, map coordinates and current source limitations are documented in [bruxelles-sources.md](bruxelles-sources.md). Run `npm run test_scraper -- Bruxelles` for read-only live checks.
+
 - `validateScraper.ts`: read-only live checks, optional filename filters, schema validation and summary counts. Does not store results.
 - `scrapeAll.ts`: loads each `*Cinema.ts` scraper, limits parallel execution, validates results, stores each cinema transactionally and updates TMDB metadata. Closes the DB pool even when a scraper fails; reports failures with a nonzero exit status.
 - `scrapeUpload.ts`: stores one scraper selected by `SCRAPER`.

@@ -1,0 +1,46 @@
+{
+    "shows": [
+        {
+            "id": 34924,
+            "cinemaid": "bruxellescinemagaleries",
+            "mediaid": {
+                "id": 2716
+            },
+            "screenid": {
+                "id": 2
+            },
+            "showtime": "2026-11-07T16:00:00.000+0100",
+            "school": false,
+            "deleted": false
+        },
+        {
+            "id": 34934,
+            "cinemaid": "bruxellescinemagaleries",
+            "mediaid": {
+                "id": 2764
+            },
+            "screenid": {
+                "id": 2
+            },
+            "showtime": "2026-11-17T19:00:00.000+0100",
+            "school": false,
+            "deleted": false
+        }
+    ],
+    "movies": [
+        {
+            "id": 2764,
+            "title": "Soundtrack to a coup d’état",
+            "director": "Johan Grimonprez",
+            "duration": 9000,
+            "posterpath": "https://bruxellescinemagaleries.cineoffice.fr/img/a6/a6b6e109-24cc-47d8-9679-efefad4ece23.png"
+        },
+        {
+            "id": 2716,
+            "title": "Pink Screens : Iván & Hadoum",
+            "director": "Ian de la Rosa",
+            "duration": 6180,
+            "posterpath": "https://bruxellescinemagaleries.cineoffice.fr/img/b6/b63fab29-7295-436d-a320-b3978496dc54.png"
+        }
+    ]
+}

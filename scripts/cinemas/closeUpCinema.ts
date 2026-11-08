@@ -9,7 +9,7 @@ import {
 import { parse } from 'node-html-parser';
 import { DateTime } from 'luxon';
 import { chromium, type BrowserContext } from 'playwright-chromium';
-import { loadProgrammePage } from '../browserProgramme';
+import { loadProgrammePage, isProgrammeAccessCheck } from '../browserProgramme';
 
 const CINEMA_NAME = 'Close-UP';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
@@ -81,8 +81,7 @@ async function calendarHtml(): Promise<CalendarSource> {
         )
             return { html, close: async () => {} };
         // Some interstitials respond with HTTP 200; others inject the calendar later.
-        if (/challenge-platform|cf-chl-|<title>\s*Just a moment/i.test(html))
-            blockedStatus = 200;
+        if (isProgrammeAccessCheck(html)) blockedStatus = 200;
     } catch (error) {
         if (!(error instanceof Error) || !error.message.startsWith('HTTP 403 '))
             throw error;

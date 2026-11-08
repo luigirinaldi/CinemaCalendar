@@ -1,6 +1,8 @@
 // Inspired by and adapted from the cinescrapers project by Joeboy:
 // https://github.com/Joeboy/cinescrapers/blob/main/src/cinescrapers/scrapers/bfi/scrape.py
 import { DateTime } from 'luxon';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
     CinemaShowing,
     CinemaShowingsSchema,
@@ -9,8 +11,8 @@ import {
 } from '../types';
 import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import type { BrowserContext } from 'playwright-chromium';
-import { loadProgrammePage } from '../browserProgramme';
+import type { BrowserContext, Page } from 'playwright-chromium';
+import { loadProgrammePage, ProgrammePageError } from '../browserProgramme';
 import { mapConcurrent } from '../http';
 import { parse } from 'node-html-parser';
 import { z } from 'zod';
@@ -21,7 +23,7 @@ const CINEMA_NAME = 'BFI Southbank';
 const LOG_PREFIX = '[' + CINEMA_NAME + ']';
 const BASE_URL = 'https://whatson.bfi.org.uk/Online';
 const FILMS_INDEX_URL = BASE_URL + '/article/filmsindex';
-const CONCURRENCY_LIMIT = 4;
+const CONCURRENCY_LIMIT = 1;
 const MAX_RETRIES = 2;
 const TEST_LIMIT = process.env.BFI_TEST_LIMIT
     ? parseInt(process.env.BFI_TEST_LIMIT)
@@ -56,10 +58,162 @@ interface ArticleContext {
     searchResults: unknown[][];
 }
 
+// Global lexical bindings (let/const) need not be properties of window.
+declare const articleContext: unknown;
+
 const ArticleContextSchema = z.object({
     searchNames: z.array(z.string()),
     searchResults: z.array(z.array(z.unknown())),
 });
+
+const EmptyArticleContextSchema = z
+    .object({
+        searchLabels: z.object({ no_results_message: z.string().min(1) }),
+        loginLabels: z.record(z.string(), z.unknown()),
+        contextId: z.string(),
+        articleId: z.string().min(1),
+        articleSearchId: z.literal(''),
+        salesType: z.literal('P'),
+        sToken: z.string(),
+    })
+    .strict();
+
+/** BFI omits all search fields when a completed film page has no on-sale sessions. */
+export function isBfiEmptyProgramme(source: unknown, html: string): boolean {
+    const context = EmptyArticleContextSchema.safeParse(source);
+    if (!context.success) return false;
+    const root = parse(html);
+    if (!root.querySelector('h1.Page__heading')) return false;
+    // Event pages omit the .Booking wrapper. Match the article's search widget,
+    // not the unrelated empty CalendarWidget in the sidebar.
+    const widget = root
+        .querySelectorAll('div[name="avWidget"]')
+        .find(
+            (element) =>
+                element.id.startsWith(`avWidget_${context.data.articleId}_`) &&
+                /registerWidget\s*\(\s*["']SearchWebWidget2["']/.test(
+                    element.querySelector('script')?.textContent || ''
+                )
+        );
+    const body = widget?.querySelector('div');
+    return !!body && !body.querySelector('*') && !body.textContent.trim();
+}
+
+/** Extract JSON literals only; never evaluate script text supplied by the website. */
+function jsonLiteral(source: string, start: number): unknown {
+    const opening = source[start];
+    if (opening !== '{' && opening !== '[') return undefined;
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let index = start; index < source.length; index++) {
+        const character = source[index];
+        if (quoted) {
+            if (escaped) escaped = false;
+            else if (character === '\\') escaped = true;
+            else if (character === '"') quoted = false;
+            continue;
+        }
+        if (character === '"') quoted = true;
+        else if (character === '{' || character === '[') depth++;
+        else if ((character === '}' || character === ']') && --depth === 0) {
+            try {
+                return JSON.parse(source.slice(start, index + 1)) as unknown;
+            } catch {
+                return undefined;
+            }
+        }
+    }
+    return undefined;
+}
+
+export function parseBfiInlineContext(html: string): ArticleContext | null {
+    const fields: Record<string, unknown> = {};
+    for (const script of parse(html).querySelectorAll('script:not([src])')) {
+        const source = script.textContent;
+        if (
+            /\barticleContext(?:\.searchResults|\[["']searchResults["']\])\s*(?:\.push\s*\(|\[[^\]]*\]\s*=)/.test(
+                source
+            )
+        )
+            return null;
+        for (const match of source.matchAll(
+            /\b(?:window\.)?articleContext\s*=\s*(?=\{)/g
+        )) {
+            const value = jsonLiteral(source, match.index! + match[0].length);
+            if (
+                value &&
+                typeof value === 'object' &&
+                ('searchNames' in value || 'searchResults' in value)
+            ) {
+                Object.assign(fields, ArticleContextSchema.parse(value));
+            }
+        }
+        for (const field of ['searchNames', 'searchResults']) {
+            const pattern = new RegExp(
+                `\\b(?:window\\.)?articleContext(?:\\.${field}|\\["${field}"\\]|\\['${field}'\\])\\s*=\\s*(?=\\[)`,
+                'g'
+            );
+            for (const match of source.matchAll(pattern))
+                fields[field] = jsonLiteral(
+                    source,
+                    match.index! + match[0].length
+                );
+        }
+    }
+    return Object.keys(fields).length === 2
+        ? ArticleContextSchema.parse(fields)
+        : null;
+}
+
+async function saveBfiDiagnostic(
+    page: Page,
+    filmUrl: string,
+    filmTitle: string,
+    error: unknown
+): Promise<void> {
+    try {
+        const directory = path.resolve('.scraper-debug/bfi');
+        await mkdir(directory, { recursive: true });
+        const name = `${new Date().toISOString().replace(/[:.]/g, '-')}-${filmTitle
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .slice(0, 70)}`;
+        const htmlPath = path.join(directory, name + '.html');
+        const html = await page.content();
+        await writeFile(htmlPath, html);
+        await writeFile(
+            path.join(directory, name + '.json'),
+            JSON.stringify(
+                {
+                    url: filmUrl,
+                    filmTitle,
+                    pageTitle: parse(html).querySelector('title')?.textContent,
+                    reason:
+                        error instanceof ProgrammePageError
+                            ? error.reason
+                            : 'parse',
+                    httpStatus:
+                        error instanceof ProgrammePageError
+                            ? error.status
+                            : undefined,
+                    error:
+                        error instanceof Error ? error.message : String(error),
+                },
+                null,
+                2
+            )
+        );
+        console.warn(
+            `${LOG_PREFIX} Saved failed page for diagnosis: ${htmlPath}`
+        );
+    } catch (diagnosticError) {
+        console.warn(
+            `${LOG_PREFIX} Could not save failed page`,
+            diagnosticError
+        );
+    }
+}
 
 export function parseBfiShowings(
     source: unknown,
@@ -104,27 +258,20 @@ export function parseBfiFilmLinks(
     return [...films.values()];
 }
 
-async function extractFilmInfo(
-    page: Awaited<ReturnType<BrowserContext['newPage']>>
-): Promise<FilmInfo> {
-    const info: FilmInfo = {};
-    const wrappers = page.locator('li.Film-info__information__wrapper');
-    const count = await wrappers.count();
-
-    for (let i = 0; i < count; i++) {
-        const li = wrappers.nth(i);
-        const heading = (
-            await li
-                .locator('p.Film-info__information__heading')
-                .textContent()
-                .catch(() => null)
-        )?.trim();
-        const value = (
-            await li
-                .locator('p.Film-info__information__value')
-                .textContent()
-                .catch(() => null)
-        )?.trim();
+export function parseBfiFilmInfo(
+    html: string
+): FilmInfo & { coverUrl?: string } {
+    const info: FilmInfo & { coverUrl?: string } = {};
+    const root = parse(html);
+    for (const li of root.querySelectorAll(
+        'li.Film-info__information__wrapper'
+    )) {
+        const heading = li
+            .querySelector('p.Film-info__information__heading')
+            ?.textContent.trim();
+        const value = li
+            .querySelector('p.Film-info__information__value')
+            ?.textContent.trim();
         if (!value) continue;
 
         if (heading === 'Director' || heading === 'Directors') {
@@ -140,7 +287,16 @@ async function extractFilmInfo(
             }
         }
     }
-
+    const source = root.querySelector('img.Media__image')?.getAttribute('src');
+    if (source) {
+        try {
+            const url = new URL(source, BASE_URL);
+            if (url.protocol === 'https:' || url.protocol === 'http:')
+                info.coverUrl = url.href;
+        } catch {
+            /* Optional artwork may be absent or malformed. */
+        }
+    }
     return info;
 }
 
@@ -192,90 +348,103 @@ async function processFilm(
                 filmUrl,
                 () => {
                     const context = (
-                        window as unknown as { articleContext?: ArticleContext }
-                    ).articleContext;
+                        typeof articleContext !== 'undefined'
+                            ? articleContext
+                            : (
+                                  window as unknown as {
+                                      articleContext?: unknown;
+                                  }
+                              ).articleContext
+                    ) as
+                        | (Partial<ArticleContext> & { articleId?: unknown })
+                        | undefined;
                     return (
-                        Array.isArray(context?.searchNames) &&
-                        Array.isArray(context?.searchResults)
+                        (Array.isArray(context?.searchNames) &&
+                            Array.isArray(context?.searchResults)) ||
+                        (typeof context?.articleId === 'string' &&
+                            !('searchNames' in context) &&
+                            !('searchResults' in context) &&
+                            document.querySelector('h1.Page__heading') !==
+                                null &&
+                            Array.from(
+                                document.querySelectorAll(
+                                    'div[name="avWidget"]'
+                                )
+                            ).some(
+                                (widget) =>
+                                    widget.id.startsWith(
+                                        `avWidget_${context.articleId}_`
+                                    ) &&
+                                    /registerWidget\s*\(\s*["']SearchWebWidget2["']/.test(
+                                        widget.querySelector('script')
+                                            ?.textContent || ''
+                                    ) &&
+                                    widget.querySelector('div:empty') !== null
+                            )) ||
+                        (document.querySelector('h1') !== null &&
+                            Array.from(document.scripts).some(
+                                (script) =>
+                                    /\barticleContext\b/.test(
+                                        script.textContent || ''
+                                    ) &&
+                                    /searchNames/.test(
+                                        script.textContent || ''
+                                    ) &&
+                                    /searchResults/.test(
+                                        script.textContent || ''
+                                    )
+                            ))
                     );
                 },
                 `${LOG_PREFIX} Film "${filmTitle}"`
             );
 
-            // Extract articleContext JS variable (Spektrix ticketing data)
-            let articleContext: ArticleContext | null = null;
-            try {
-                articleContext = await page.evaluate(
-                    () =>
-                        (
-                            window as unknown as {
-                                articleContext?: ArticleContext;
-                            }
-                        ).articleContext ?? null
-                );
-            } catch (e) {
-                console.warn(
-                    `${LOG_PREFIX} Could not evaluate articleContext for "${filmTitle}": ${e}`
-                );
-            }
-
-            if (!articleContext) {
-                if (attempt <= MAX_RETRIES) {
-                    console.warn(
-                        `${LOG_PREFIX} No articleContext for "${filmTitle}" (attempt ${attempt}) — likely blocked, retrying`
-                    );
-                    continue;
-                }
+            const html = await page.content();
+            const evaluated = await page
+                .evaluate(() =>
+                    typeof articleContext !== 'undefined'
+                        ? articleContext
+                        : ((window as unknown as { articleContext?: unknown })
+                              .articleContext ?? null)
+                )
+                .catch(() => null);
+            const programme = ArticleContextSchema.safeParse(evaluated);
+            const data = programme.success
+                ? programme.data
+                : isBfiEmptyProgramme(evaluated, html)
+                  ? { searchNames: [], searchResults: [] }
+                  : parseBfiInlineContext(html);
+            if (!data)
                 throw new Error(
-                    `${LOG_PREFIX} Missing articleContext for "${filmTitle}" after ${attempt} attempts`
+                    `${LOG_PREFIX} Missing or unsupported programme data for "${filmTitle}"`
                 );
-            }
 
-            // Extract cover image
-            let coverUrl: string | undefined;
-            try {
-                const imgSrc = await page
-                    .locator('img.Media__image')
-                    .first()
-                    .getAttribute('src', { timeout: 3000 });
-                if (imgSrc) {
-                    coverUrl = imgSrc.startsWith('http')
-                        ? imgSrc
-                        : `https://whatson.bfi.org.uk${imgSrc}`;
-                }
-            } catch {
-                console.warn(`${LOG_PREFIX} No cover image for "${filmTitle}"`);
-            }
-
-            // Extract director, country, year, duration, language from Film-info__information
-            const filmInfo = await extractFilmInfo(page).catch((e) => {
-                console.warn(
-                    `${LOG_PREFIX} Error extracting film info for "${filmTitle}": ${e}`
-                );
-                return {} as FilmInfo;
-            });
+            // Optional metadata must not introduce per-field browser waits.
+            const filmInfo = parseBfiFilmInfo(html);
             if (filmInfo.year === undefined) {
                 console.warn(
                     `${LOG_PREFIX} Could not find release year for "${filmTitle}"`
                 );
             }
 
-            const showings = parseBfiShowings(articleContext, filmUrl);
+            const showings = parseBfiShowings(data, filmUrl);
 
             console.log(
                 `${LOG_PREFIX} "${filmTitle}": ${showings.length} showings parsed`
             );
             return {
-                film: { title: filmTitle, url: filmUrl, coverUrl, ...filmInfo },
+                film: { title: filmTitle, url: filmUrl, ...filmInfo },
                 showings,
             };
         } catch (error) {
             if (
                 attempt > MAX_RETRIES ||
-                (error instanceof Error &&
-                    error.message.includes('access denied'))
-            )
+                (error instanceof ProgrammePageError &&
+                    error.reason === 'access')
+            ) {
+                await saveBfiDiagnostic(page, filmUrl, filmTitle, error);
                 throw error;
+            }
             console.warn(
                 `${LOG_PREFIX} Failed to load "${filmTitle}"; retrying`,
                 error
@@ -293,21 +462,29 @@ export async function scraper(): Promise<CinemaShowing[]> {
     const browser = await chromium.launch();
 
     try {
-        const context = await browser.newContext({
-            userAgent:
-                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        });
+        const context = await browser.newContext();
 
         // Scrape index page for film links
         const indexPage = await context.newPage();
-        await loadProgrammePage(
-            indexPage,
-            FILMS_INDEX_URL,
-            () =>
-                document.querySelector('div.Rich-text a[href*="article/"]') !==
-                null,
-            `${LOG_PREFIX} Film index`
-        );
+        try {
+            await loadProgrammePage(
+                indexPage,
+                FILMS_INDEX_URL,
+                () =>
+                    document.querySelector(
+                        'div.Rich-text a[href*="article/"]'
+                    ) !== null,
+                `${LOG_PREFIX} Film index`
+            );
+        } catch (error) {
+            await saveBfiDiagnostic(
+                indexPage,
+                FILMS_INDEX_URL,
+                'film-index',
+                error
+            );
+            throw error;
+        }
 
         const filmLinks = parseBfiFilmLinks(await indexPage.content());
 

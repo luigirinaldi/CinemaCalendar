@@ -3,9 +3,12 @@ name: Check Build
 
 on:
     pull_request:
-        branches: ['main']
+        branches: ['main', 'dev']
         paths:
             - 'src/**'
+            - 'shared/**'
+            - 'supabase/functions/scraper-builder/**'
+            - 'supabase/migrations/**'
             - 'scripts/**'
             - 'tests/**'
             - 'database.types.ts'
@@ -37,3 +40,16 @@ jobs:
 
             - name: Build
               run: npm run build
+
+            - name: Bundle hosted scraper builder
+              run: npm run build:builder-edge
+
+            - uses: denoland/setup-deno@v2
+              with:
+                  deno-version: v2.x
+
+            - name: Check Edge Function module
+              run: deno check --no-config supabase/functions/scraper-builder/index.js
+
+            - name: Smoke test Edge Function in Deno
+              run: deno run --no-config --allow-env --allow-read scripts/builder/edgeSmoke.mjs

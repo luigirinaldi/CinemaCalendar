@@ -26,6 +26,7 @@ dist-ssr
 # Temporary files
 temp
 .scraper-debug/
+supabase/functions/scraper-builder/index.js
 
 # Data to be generated on the spot
 public/data/

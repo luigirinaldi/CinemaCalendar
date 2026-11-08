@@ -365,6 +365,11 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+[functions.scraper-builder]
+# Custom opaque sessions are checked by the function; a site key is not a user login.
+verify_jwt = false
+entrypoint = "./functions/scraper-builder/index.js"
+
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 

@@ -1,0 +1,125 @@
+/* A quiet workbench, scoped so cinema listings keep their own theme. */
+.scraper-builder.scraper-builder {
+    color: #292d31;
+    background: #f4f3ef;
+    --builder-ink: #292d31;
+}
+.scraper-builder header {
+    background: #faf9f6;
+}
+.scraper-builder main {
+    max-width: 1440px;
+}
+.scraper-builder h1 {
+    letter-spacing: -0.025em;
+}
+.scraper-builder h2 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+    font-size: 2.2rem;
+}
+.scraper-builder h3 {
+    letter-spacing: -0.015em;
+}
+.scraper-builder .bg-neutral-900 {
+    background: #faf9f6;
+}
+.scraper-builder .bg-neutral-950\/50 {
+    background: #eeeee8;
+}
+.scraper-builder .hover\:bg-neutral-800:hover {
+    background: #e5e4dd;
+}
+.scraper-builder .text-emerald-400 {
+    color: #386344;
+}
+.scraper-builder .bg-neutral-950 {
+    background: #fff;
+}
+.scraper-builder .border-neutral-800,
+.scraper-builder .border-neutral-700 {
+    border-color: #d7d7d0;
+}
+.scraper-builder .text-neutral-100,
+.scraper-builder .text-neutral-200,
+.scraper-builder .text-neutral-300 {
+    color: #343a3e;
+}
+.scraper-builder .text-neutral-400 {
+    color: #596168;
+}
+.scraper-builder .text-neutral-500 {
+    color: #687078;
+}
+.scraper-builder .text-red-300,
+.scraper-builder .text-red-400,
+.scraper-builder .text-red-500 {
+    color: #944f37;
+}
+.scraper-builder .bg-red-950 {
+    background: #f5eae1;
+}
+.scraper-builder .border-red-600,
+.scraper-builder .border-red-500 {
+    border-color: #a25a40;
+}
+.scraper-builder .bg-red-700 {
+    background: #704431;
+}
+.scraper-builder .bg-red-700:hover {
+    background: #573426;
+}
+.scraper-builder .rounded-xl,
+.scraper-builder .rounded-lg {
+    border-radius: 4px;
+}
+.scraper-builder section {
+    box-shadow: none;
+}
+.scraper-builder input,
+.scraper-builder select {
+    color: var(--builder-ink);
+}
+.scraper-builder input:focus,
+.scraper-builder select:focus {
+    outline: 2px solid #ae7358;
+    outline-offset: 2px;
+    border-color: #ae7358;
+}
+.scraper-builder input[type='checkbox'] {
+    accent-color: #704431;
+}
+.scraper-builder a:hover {
+    color: #704431;
+}
+.scraper-builder pre {
+    tab-size: 4;
+}
+.scraper-builder .builder-beta {
+    display: inline-block;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid #b9a06b;
+    border-radius: 2px;
+    color: #755d2b;
+    font:
+        500 0.7rem/1.4 system-ui,
+        sans-serif;
+    vertical-align: middle;
+    letter-spacing: 0.03em;
+}
+.scraper-builder .builder-beta-note {
+    border-left: 2px solid #b9a06b;
+    padding: 0.35rem 0 0.35rem 0.8rem;
+    color: #665c45;
+}
+.scraper-builder [role='alert'] {
+    color: #9c3025;
+    background: #fff5f1;
+    border-color: #dfc3b8;
+}
+@media (max-width: 1023px) {
+    .scraper-builder .sticky {
+        position: static;
+    }
+}

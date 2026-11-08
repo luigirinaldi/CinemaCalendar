@@ -42,6 +42,12 @@ and dev trigger (`.github/workflows/dev-preview.yml`) in sync on both branches.
 
 ## Checks
 
+The unlinked scraper-onboarding page is at `#/add-cinema`. Local setup, supported
+sources, GitHub OAuth configuration and the validation/PR workflow are documented
+in [scripts/builder/README.md](scripts/builder/README.md).
+Supabase hosting, required secrets and migration instructions are in
+[scripts/builder/HOSTING.md](scripts/builder/HOSTING.md).
+
 ```sh
 npm run typecheck
 npm test

@@ -7,6 +7,7 @@
         "clear_db": "npx tsx scripts/clearDatabase.ts",
         "get_data": "npx tsx scripts/scrapeAll.ts",
         "dev": "vite",
+        "scraper_builder": "tsx watch --clear-screen=false --exclude .scraper-debug/** --tsconfig tsconfig.scripts.json scripts/builder/server.ts",
         "build": "tsc -b && vite build",
         "lint": "eslint .",
         "preview": "vite preview",
@@ -18,7 +19,9 @@
         "gen_types": "npx tsx scripts/autoTypes.ts",
         "gen_db_types": "dotenv -- sh -c 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > ./database.types.ts' && npm run format",
         "test": "tsx --tsconfig tsconfig.scripts.json --test tests/*.test.ts",
-        "typecheck": "tsc -b && tsc -p tsconfig.scripts.json"
+        "typecheck": "tsc -b && tsc -p tsconfig.scripts.json",
+        "build:builder-edge": "node scripts/builder/buildEdge.mjs",
+        "deploy:builder-edge": "npm run build:builder-edge && supabase functions deploy scraper-builder --use-api"
     },
     "devDependencies": {
         "@eslint/js": "^9.36.0",
@@ -44,7 +47,8 @@
         "tsx": "^4.19.4",
         "typescript": "~5.9.3",
         "typescript-eslint": "^8.45.0",
-        "vite": "^6.3.1"
+        "vite": "^6.3.1",
+        "esbuild": "^0.25.3"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.57.2",

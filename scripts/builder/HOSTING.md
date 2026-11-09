@@ -156,6 +156,12 @@ key is not treated as a user login. Hosted requests require an allowed frontend
 Origin and sensitive operations require repository write access, checked again
 on each request. Network requests retain the existing public-address validation,
 DNS pinning, redirect checks, timeouts and response bounds.
+The hosted bundle uses native Deno TCP/TLS connections for cinema requests;
+the local companion uses Node's HTTP client. Hosted TCP connections use the
+validated IP directly, then TLS checks the original hostname. This avoids the
+unsupported `ClientRequest.options.lookup` option in Supabase's Node compatibility
+layer. Merely running a newer standalone Deno version does not verify that layer;
+network changes also need a smoke check against the hosted runtime.
 
 ## 5. Frontend deployment and verification
 
@@ -194,6 +200,16 @@ After deployment:
 
 - JavaScript rendering requires the local companion; there is no remote browser
   subscription or model service in this deployment.
+- A cinema's HTTP 403 is an upstream refusal, not a successful programme response.
+  Discovery still checks independent public WordPress collections and can offer
+  those if readable. Otherwise it reports the exact URL and identifies a
+  Cloudflare access-check page when present; challenge HTML is never offered as
+  programme data. An alternative official cinema website can remain accessible
+  even when its ticket vendor is protected. Readable HTML does not imply that all
+  dates can be mapped safely. The helper can follow API film links and map HTML
+  screening dates, including guarded year inference when a printed weekday is
+  present. It never uses the post publication date as the screening time. See the
+  [Piccolo walkthrough](PICCOLO-WALKTHROUGH.md).
 - Mapping previews cover one response. Hosted validation also checks all configured
   JSON pagination pages; full repository checks run in CI.
 - Hosted duplicate checks cover the public catalogue and repository filenames.

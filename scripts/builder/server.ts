@@ -11,11 +11,12 @@ import {
     type ValidationResult,
     type ScraperConfig,
 } from '../../shared/scraperConfig';
-import { inspectWebsite } from './discovery';
+import { inspectWebsite, sanitizedHtml } from './discovery';
 import { publicFetch, publicProgrammeFetch } from './network';
 import { createCinemaGeocoder } from './geocoding';
 import {
     parseConfiguredProgramme,
+    captureConfiguredDetails,
     runConfiguredScraper,
 } from '../configuredScraper';
 import { generateFiles } from './generate';
@@ -251,6 +252,19 @@ export const server = createServer(async (request, response) => {
                 json(response, result);
                 return;
             }
+            if (url.pathname === '/builder-api/page-preview') {
+                const url = (input as { url?: unknown }).url;
+                if (typeof url !== 'string')
+                    throw new Error('Enter a film page URL');
+                const filmResponse = await publicFetch(url);
+                if (!filmResponse.ok)
+                    throw new Error(`Film page HTTP ${filmResponse.status}`);
+                json(response, {
+                    url: filmResponse.url || url,
+                    html: sanitizedHtml(await filmResponse.text()),
+                });
+                return;
+            }
             if (url.pathname === '/builder-api/preview') {
                 const draft = input as ScraperConfig;
                 const config = ScraperConfigSchema.parse({
@@ -259,7 +273,7 @@ export const server = createServer(async (request, response) => {
                     cinema: {
                         name: 'Preview cinema',
                         location: 'Preview',
-                        website: draft.url,
+                        website: draft.cinema?.website || draft.url,
                         defaultLanguage:
                             draft.cinema?.defaultLanguage || 'en-GB',
                         coordinates: { lat: '0', lng: '0' },
@@ -283,6 +297,11 @@ export const server = createServer(async (request, response) => {
                         throw new Error(`Programme HTTP ${response.status}`);
                     body = await response.text();
                 }
+                body = await captureConfiguredDetails(
+                    config,
+                    body,
+                    publicProgrammeFetch
+                );
                 const films = parseConfiguredProgramme(config, body)[0]
                     .showings;
                 json(response, {
@@ -291,14 +310,12 @@ export const server = createServer(async (request, response) => {
                         (total, film) => total + film.showings.length,
                         0
                     ),
-                    preview: films
-                        .slice(0, 10)
-                        .map((film) => ({
-                            title: film.film.title,
-                            times: film.showings.map(
-                                (showing) => showing.startTime
-                            ),
-                        })),
+                    preview: films.slice(0, 10).map((film) => ({
+                        title: film.film.title,
+                        times: film.showings.map(
+                            (showing) => showing.startTime
+                        ),
+                    })),
                 });
                 return;
             }
@@ -316,6 +333,30 @@ export const server = createServer(async (request, response) => {
                     await command(root, 'git', ['status', '--porcelain'])
                 ).trim();
                 try {
+                    const inspection =
+                        config.mode === 'html' || config.embeddedJson
+                            ? await inspect(config.url, config.render)
+                            : null;
+                    const rawBody = inspection
+                        ? inspection.raw
+                        : await (await publicProgrammeFetch(config.url)).text();
+                    const responseBody = await captureConfiguredDetails(
+                        config,
+                        rawBody,
+                        publicProgrammeFetch
+                    );
+                    result.files = generateFiles(config, responseBody);
+                    result.preview = parseConfiguredProgramme(
+                        config,
+                        responseBody
+                    )[0]
+                        .showings.slice(0, 10)
+                        .map((film) => ({
+                            title: film.film.title,
+                            times: film.showings.map(
+                                (showing) => showing.startTime
+                            ),
+                        }));
                     await checkDuplicate(
                         config,
                         root,
@@ -327,13 +368,6 @@ export const server = createServer(async (request, response) => {
                         ok: true,
                         detail: 'Not found in the catalogue or existing scrapers.',
                     });
-                    const inspection =
-                        config.mode === 'html' || config.embeddedJson
-                            ? await inspect(config.url, config.render)
-                            : null;
-                    const responseBody = inspection
-                        ? inspection.raw
-                        : await (await publicProgrammeFetch(config.url)).text();
                     const live = await runConfiguredScraper(config, {
                         fetch:
                             config.mode === 'json'

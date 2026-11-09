@@ -26,9 +26,14 @@ export function parseScreeningTime(
     day: string,
     config: Pick<
         ScraperConfig,
-        'dateFormat' | 'dateLocale' | 'timezone' | 'cinema'
-    >
+        'dateFormat' | 'dateLocale' | 'timezone' | 'cinema' | 'yearPolicy'
+    >,
+    reference: DateTime = DateTime.now()
 ): string {
+    if (day && day === value)
+        throw new Error(
+            'The same text is mapped as both date and time. Map the complete datetime only as Screening time, and leave Screening date blank.'
+        );
     const input = (day ? `${day} ${value}` : value)
         .replace(/\s+/gu, ' ')
         .trim();
@@ -51,6 +56,56 @@ export function parseScreeningTime(
         !epoch && config.dateFormat
             ? DateTime.fromFormatExplain(input, config.dateFormat, options)
             : null;
+    if (
+        config.yearPolicy === 'nearby-weekday' &&
+        explained &&
+        explained.result?.year == null
+    ) {
+        const result = explained.result;
+        if (
+            !result ||
+            result.weekday == null ||
+            result.month == null ||
+            result.day == null ||
+            result.hour == null ||
+            result.minute == null
+        )
+            throw new Error(
+                'Year inference requires a format containing weekday, day, month, hour and minute.'
+            );
+        reference = reference.setZone(config.timezone);
+        const matches = [reference.year - 1, reference.year, reference.year + 1]
+            .map((year) =>
+                DateTime.fromObject(
+                    {
+                        year,
+                        month: result.month,
+                        day: result.day,
+                        hour: result.hour,
+                        minute: result.minute,
+                    },
+                    options
+                )
+            )
+            .filter(
+                (date) =>
+                    date.isValid &&
+                    date.weekday === result.weekday &&
+                    date.hour === result.hour &&
+                    date.minute === result.minute &&
+                    Math.abs(
+                        date
+                            .startOf('day')
+                            .diff(reference.startOf('day'), 'days').days
+                    ) <= 183 &&
+                    date.getPossibleOffsets().length === 1
+            );
+        if (matches.length !== 1)
+            throw new Error(
+                `No unique nearby year matches the printed weekday: “${input}”. The page may be stale or the format incorrect.`
+            );
+        return matches[0].toUTC().toISO()!;
+    }
     const hasDateAndTime =
         epoch ||
         (explained

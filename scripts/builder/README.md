@@ -88,7 +88,7 @@ role keys are not used by the builder.
    container when a row has no empty space to click. Selectors remain editable.
    `$self` reads the selected row itself. The preview is a sanitized snapshot with
    scripts, external resources and navigation disabled, so it may not visually
-   match the original site. Dates must contain a year. Leave the format empty for
+   match the original site. Dates require an explicit year by default. Leave the format empty for
    ISO timestamps or supply a Luxon format, `unix-ms` or `unix-seconds`. HTML found
    through fast inspection generates an HTTP scraper. HTML selected after browser
    inspection enables **Render JavaScript when scraping**; this setting is saved
@@ -102,8 +102,10 @@ role keys are not used by the builder.
    For example, keep the text after `Ore ` and replace `.` with `:` for `Ore 20.30`.
    The **Dates & times** sandbox offers editable examples and immediate parsing:
    `5 Novembre 2026` plus `20:30` uses `d MMMM yyyy HH:mm`, date language `it-IT`.
-   Date language is separate from film language. Year and time must be explicit;
-   the parser never fills them in from today's date.
+   Date language is separate from film language. Time must be explicit. The
+   optional **Italian without year** example enables weekday-based year inference
+   within 183 days; it rejects missing weekdays, stale API metadata and ambiguous
+   results. The default policy still requires an explicit year.
    **Preview mapped screenings** checks a single response without catalogue access,
    TypeScript checks or test runs, so it works before cinema metadata is filled in.
    It reuses the inspected HTML for up to 15 minutes when URL/rendering mode match;
@@ -135,9 +137,14 @@ role keys are not used by the builder.
    would mix independent submissions, so it is not used. The builder never merges
    automatically or pushes to the base branch.
 
-The generic parser supports JSON film/screening arrays and single-page static or rendered HTML
-programmes. Sites requiring authenticated APIs, POST/GraphQL bodies, several nested
-collections, detail-page fan-out, calendar navigation or unusual date rules still
+The generic parser supports JSON film/screening arrays, static or rendered HTML
+programmes, and public JSON film collections with linked HTML screening pages.
+**Follow film detail pages for screening times** combines API metadata with HTML
+selectors. Line splitting handles several sessions in one paragraph; the date
+workbench also offers guarded weekday-based year inference. See the
+[Piccolo walkthrough](PICCOLO-WALKTHROUGH.md) for a complete example.
+Sites requiring authenticated APIs, POST/GraphQL bodies, several nested
+collections, calendar navigation or date rules outside the workbench still
 need a custom scraper. A successful fixture proves reproducibility, not that a human
 selected the correct semantic field: the output review remains necessary.
 The helper is marked beta. There is no model service, API key, or paid agent in

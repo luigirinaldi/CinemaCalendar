@@ -3,9 +3,10 @@ import {
     type ScraperConfig,
     type ValidationResult,
 } from '../../shared/scraperConfig';
-import { inspectHttp } from './discovery';
+import { inspectHttp, sanitizedHtml } from './discovery';
 import {
     parseConfiguredProgramme,
+    captureConfiguredDetails,
     runConfiguredScraper,
 } from '../configuredScraper';
 import { generateFiles } from './generate';
@@ -283,6 +284,19 @@ export function createEdgeHandler(options: EdgeOptions) {
                 );
                 return json(result);
             }
+            if (route === '/page-preview') {
+                const url = (input as { url?: unknown }).url;
+                if (typeof url !== 'string')
+                    throw new Error('Enter a film page URL');
+                publicUrl(url);
+                const response = await programmeFetch(url);
+                if (!response.ok)
+                    throw new Error(`Film page HTTP ${response.status}`);
+                return json({
+                    url: response.url || url,
+                    html: sanitizedHtml(await response.text()),
+                });
+            }
             if (route === '/location-search') {
                 const query = (input as { query?: unknown }).query;
                 if (
@@ -316,7 +330,7 @@ export function createEdgeHandler(options: EdgeOptions) {
                               cinema: {
                                   name: 'Preview',
                                   location: 'Preview',
-                                  website: draft.url,
+                                  website: draft.cinema?.website || draft.url,
                                   defaultLanguage:
                                       draft.cinema?.defaultLanguage || 'en-GB',
                                   coordinates: { lat: '0', lng: '0' },
@@ -332,7 +346,11 @@ export function createEdgeHandler(options: EdgeOptions) {
                 const response = await programmeFetch(config.url);
                 if (!response.ok)
                     throw new Error(`Programme HTTP ${response.status}`);
-                const body = await response.text();
+                const body = await captureConfiguredDetails(
+                    config,
+                    await response.text(),
+                    programmeFetch
+                );
                 if (route === '/preview') {
                     const films = parseConfiguredProgramme(config, body)[0]
                         .showings;

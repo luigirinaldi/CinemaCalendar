@@ -2,6 +2,12 @@
 
 Bruxelles's ten venues, public API findings, HTML fallbacks, map coordinates and current source limitations are documented in [bruxelles-sources.md](bruxelles-sources.md). Run `npm run test_scraper -- Bruxelles` for read-only live checks.
 
+Piccolo Teatro Padova uses a hybrid WordPress/HTML scraper: the public API supplies
+the Cinema-category film roster and posters; each film's HTML supplies its screening
+times. Yearless Italian dates require a nearby year matching the printed weekday.
+Sources, bounds and booking behaviour are in [piccolo-teatro-sources.md](piccolo-teatro-sources.md).
+Run `npm run test_scraper -- piccolo` for a read-only live check.
+
 - `validateScraper.ts`: read-only live checks, optional filename filters, schema validation and summary counts. Does not store results.
 - `scrapeAll.ts`: loads each `*Cinema.ts` scraper, limits parallel execution, validates results, stores each cinema transactionally and updates TMDB metadata. Closes the DB pool even when a scraper fails; reports failures with a nonzero exit status.
 - `scrapeUpload.ts`: stores one scraper selected by `SCRAPER`.

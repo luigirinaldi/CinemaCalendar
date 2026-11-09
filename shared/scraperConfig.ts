@@ -15,6 +15,7 @@ const path = z
 const field = z.object({
     path,
     attribute: z.string().max(80).default(''),
+    htmlText: z.boolean().optional(),
     scope: z.enum(['row', 'film', 'page', 'ancestor']).optional(),
     ancestor: z.string().max(250).optional(),
     after: z.string().max(200).optional(),
@@ -103,6 +104,15 @@ export const ScraperConfigSchema = z
         booking: field,
         dateFormat: z.string().max(100).default(''),
         dateLocale: z.string().max(40).optional(),
+        yearPolicy: z.enum(['explicit', 'nearby-weekday']).optional(),
+        splitScreeningLines: z.boolean().optional(),
+        details: z
+            .object({
+                root: z.string().min(1).max(250),
+                freshnessPath: path.optional(),
+                maxFilms: z.number().int().min(1).max(50),
+            })
+            .optional(),
         pagination: z
             .object({
                 parameter: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_]*$/),
@@ -125,6 +135,31 @@ export const ScraperConfigSchema = z
     .refine(
         (config) => !config.embeddedAssignment || !!config.embeddedJson,
         'Choose a script selector for the JavaScript assignment'
+    )
+    .refine(
+        (config) =>
+            !config.details ||
+            (config.mode === 'json' &&
+                !!config.filmUrl.path &&
+                !config.render &&
+                !config.embeddedJson),
+        'Following film pages requires a JSON API, a film URL mapping, and HTTP mode'
+    )
+    .refine(
+        (config) =>
+            !config.splitScreeningLines ||
+            ((config.mode === 'html' || !!config.details) &&
+                config.start.path === '$self' &&
+                !config.start.attribute &&
+                !config.date.path),
+        'Line splitting requires HTML screenings, $self text for the complete date/time, and an empty separate date mapping'
+    )
+    .refine(
+        (config) =>
+            !config.details ||
+            config.yearPolicy !== 'nearby-weekday' ||
+            !!config.details.freshnessPath,
+        'Choose an API freshness field, such as modified, before inferring years from film detail pages'
     );
 export type ScraperConfig = z.infer<typeof ScraperConfigSchema>;
 export type FieldMapping = ScraperConfig['title'];

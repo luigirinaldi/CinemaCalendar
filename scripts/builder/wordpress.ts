@@ -20,6 +20,20 @@ const getMethod = (value: unknown) =>
           : object(value) && !!value.GET;
 const collectionWord =
     /^(?:films?|movies?|events?|eventi|evento|screenings?|showings?|sessions?|programmes?|programmazion[ei]|programmi|orari|proiezioni|spettacoli|cinemas?)$/i;
+const usableGet = (meta: unknown): boolean =>
+    object(meta) &&
+    (Array.isArray(meta.endpoints) ? meta.endpoints : [meta]).some(
+        (endpoint) =>
+            object(endpoint) &&
+            getMethod(endpoint.methods) &&
+            (!object(endpoint.args) ||
+                Object.entries(endpoint.args).every(
+                    ([key, arg]) =>
+                        !object(arg) ||
+                        (!(arg.required === true && arg.default == null) &&
+                            !(key === 'context' && arg.default === 'edit'))
+                ))
+    );
 
 /** Follow only advertised, literal collection routes; never fill regex IDs or credentials. */
 export function wordpressCollectionRoutes(
@@ -62,27 +76,7 @@ export function wordpressCollectionRoutes(
                     .some((part) => collectionWord.test(part))
             )
                 return [];
-            const endpoints = Array.isArray(meta.endpoints)
-                ? meta.endpoints
-                : [meta];
-            const usable = endpoints.some(
-                (endpoint) =>
-                    object(endpoint) &&
-                    getMethod(endpoint.methods) &&
-                    (!object(endpoint.args) ||
-                        Object.entries(endpoint.args).every(
-                            ([key, arg]) =>
-                                !object(arg) ||
-                                (!(
-                                    arg.required === true && arg.default == null
-                                ) &&
-                                    !(
-                                        key === 'context' &&
-                                        arg.default === 'edit'
-                                    ))
-                        ))
-            );
-            if (!usable) return [];
+            if (!usableGet(meta)) return [];
             const endpoint = queryRoute
                 ? new URL(base)
                 : publicUrl(new URL(route.slice(1), base).href);
@@ -159,6 +153,72 @@ export async function inspectWordPress(
             `WordPress REST namespaces at ${indexUrl}: ${namespaces.join(', ') || '(none)'}. These identify API extensions, not a complete list of installed plugins.`
         );
         const routes = wordpressCollectionRoutes(index, indexUrl);
+        if (
+            !routes.length &&
+            usableGet(index.routes['/wp/v2/posts']) &&
+            usableGet(index.routes['/wp/v2/categories'])
+        ) {
+            const endpoint = (route: string) => {
+                const url = new URL(indexUrl);
+                if (url.searchParams.has('rest_route'))
+                    url.searchParams.set('rest_route', route);
+                else {
+                    url.search = '';
+                    url.pathname =
+                        url.pathname.replace(/\/?$/, '/') +
+                        route.replace(/^\//, '');
+                }
+                return url;
+            };
+            const categoryUrl = endpoint('/wp/v2/categories');
+            categoryUrl.searchParams.set('per_page', '100');
+            try {
+                const response = await fetch(categoryUrl.href);
+                if (response.ok) {
+                    const categories: unknown = await response.json();
+                    const ids = Array.isArray(categories)
+                        ? categories
+                              .filter(
+                                  (category) =>
+                                      object(category) &&
+                                      Number.isInteger(category.id) &&
+                                      Number(category.id) > 0 &&
+                                      /(?:^|[-\s])(?:cinema|cinéma|films?|movies?|kino)(?:$|[-\s])/i.test(
+                                          String(
+                                              category.slug ||
+                                                  category.name ||
+                                                  ''
+                                          )
+                                      )
+                              )
+                              .slice(0, 10)
+                              .map((category) => category.id)
+                        : [];
+                    if (ids.length) {
+                        const posts = endpoint('/wp/v2/posts');
+                        posts.searchParams.set('categories', ids.join(','));
+                        posts.searchParams.set('per_page', '100');
+                        const result = await fetch(posts.href);
+                        if (result.ok)
+                            responses.push({
+                                url: posts.href,
+                                body: await result.text(),
+                            });
+                        else
+                            warnings.push(
+                                `Cinema-category posts returned HTTP ${result.status}.`
+                            );
+                        warnings.push(
+                            'Found cinema-category WordPress posts. These may contain film metadata without showtimes; use Follow film detail pages to map screening HTML when needed. CMS publication dates are not screening times.'
+                        );
+                    }
+                }
+            } catch (error) {
+                warnings.push(
+                    `Could not inspect cinema-category posts: ${error instanceof Error ? error.message : String(error)}`
+                );
+            }
+        }
         warnings.push(
             `WordPress discovery found ${routes.length} relevant GET collection routes; checking at most five. Routes requiring IDs or required arguments are skipped.`
         );

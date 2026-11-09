@@ -22,6 +22,9 @@ const result = await build({
         {
             name: 'edge-browser-disabled',
             setup(build) {
+                build.onResolve({ filter: /^\.\/network$/ }, (args) => ({
+                    path: path.join(args.resolveDir, 'networkEdge.ts'),
+                }));
                 build.onResolve({ filter: /scraperBrowser$/ }, () => ({
                     path: 'browser-disabled',
                     namespace: 'edge',
@@ -37,7 +40,7 @@ const result = await build({
 });
 if (
     Object.keys(result.metafile.inputs).some((name) =>
-        /playwright|puppeteer|builder[\\/]checks\.ts|builder[\\/]server\.ts/.test(
+        /playwright|puppeteer|builder[\\/](?:checks|server|network)\.ts/.test(
             name
         )
     )

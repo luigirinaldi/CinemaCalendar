@@ -4,9 +4,33 @@ import {
     configuredJson,
     parseConfiguredProgramme,
     valueAt,
+    readHybridCapture,
+    configuredFilmUrls,
 } from '../configuredScraper';
 
-export function fixtureBody(config: ScraperConfig, body: string) {
+export function fixtureBody(config: ScraperConfig, body: string): string {
+    if (config.details) {
+        const capture = readHybridCapture(body);
+        const empty = { path: '', attribute: '' };
+        const metadata = fixtureBody(
+            {
+                ...config,
+                details: undefined,
+                start: empty,
+                date: empty,
+                booking: empty,
+            },
+            JSON.stringify(capture.programme)
+        );
+        const urls = configuredFilmUrls(config, metadata);
+        return JSON.stringify({
+            ...capture,
+            programme: JSON.parse(metadata),
+            pages: Object.fromEntries(
+                urls.map((url) => [url, capture.pages[url]])
+            ),
+        });
+    }
     // Page/ancestor mappings and embedded JSON need their surrounding document.
     // Keep the full source within the existing fixture size bound rather than
     // silently removing a date heading that lives outside the film card.

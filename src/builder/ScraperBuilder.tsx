@@ -20,11 +20,13 @@ import { builderApi, hostedBuilder, type BuilderStatus } from './api';
 import CinemaLocationSearch from './CinemaLocationSearch';
 import FieldOptions from './FieldOptions';
 import DateWorkbench from './DateWorkbench';
+import HybridControls from './HybridControls';
 import './builder.css';
 import {
     scraperFilename,
     selectionDocument,
     suggestJsonMapping,
+    firstFilmLink,
     type SelectionMessage,
 } from './mapping';
 
@@ -71,6 +73,11 @@ export default function ScraperBuilder() {
     const [website, setWebsite] = useState('');
     const [useBrowser, setUseBrowser] = useState(false);
     const [discovery, setDiscovery] = useState<Discovery | null>(null);
+    const [detailPreview, setDetailPreview] = useState<{
+        url: string;
+        html: string;
+    } | null>(null);
+    const [sampleUrl, setSampleUrl] = useState('');
     const [config, setConfig] = useState<ScraperConfig>(() => emptyConfig());
     const [validation, setValidation] = useState<ValidationResult | null>(null);
     const [reviewed, setReviewed] = useState(false);
@@ -87,9 +94,18 @@ export default function ScraperBuilder() {
     const frame = useRef<HTMLIFrameElement>(null);
     const revision = useRef(0);
     const [nonce] = useState(() => crypto.randomUUID());
+    const hybrid = !!config.details;
+    const sample = discovery?.candidates.find(
+        (candidate) => sourceKey(candidate) === sourceKey(config)
+    )?.sample;
+    const sampleLink = sampleUrl || firstFilmLink(sample, config);
     const srcDoc = useMemo(
-        () => (discovery ? selectionDocument(discovery.html, nonce) : ''),
-        [discovery, nonce]
+        () =>
+            selectionDocument(
+                hybrid ? (detailPreview?.html ?? '') : (discovery?.html ?? ''),
+                nonce
+            ),
+        [discovery, detailPreview, hybrid, nonce]
     );
 
     const connect = useCallback(async () => {
@@ -145,7 +161,10 @@ export default function ScraperBuilder() {
             setSelectionText(message.text);
             const next = { ...config };
             if (selected === 'items' || selected === 'showings')
-                next[selected] = message.collection;
+                next[selected] =
+                    selected === 'showings' && config.details
+                        ? message.filmPath.replace(/:nth-of-type\(\d+\)$/, '')
+                        : message.collection;
             else {
                 const screening = ['start', 'date', 'booking'].includes(
                     selected
@@ -184,7 +203,7 @@ export default function ScraperBuilder() {
         frame.current?.contentWindow?.postMessage(
             {
                 type: 'cinema-scope',
-                film: config.items,
+                film: config.details?.root || config.items,
                 showings: config.showings,
                 ancestor:
                     selected !== 'items' && selected !== 'showings'
@@ -213,7 +232,15 @@ export default function ScraperBuilder() {
                 useBrowser
             );
             setDiscovery(result);
-            const candidate = result.candidates[0];
+            setDetailPreview(null);
+            setSampleUrl('');
+            const candidate = result.candidates.find((candidate) => {
+                const suggestion = suggestJsonMapping(candidate.sample);
+                return (
+                    suggestion.title?.path &&
+                    (suggestion.start?.path || suggestion.filmUrl?.path)
+                );
+            });
             edit({
                 ...emptyConfig(result.url),
                 mode: candidate ? 'json' : 'html',
@@ -264,6 +291,25 @@ export default function ScraperBuilder() {
         } catch (error) {
             setError(
                 error instanceof Error ? error.message : 'Validation failed'
+            );
+        } finally {
+            setBusy('');
+        }
+    }
+    async function loadDetailPreview() {
+        if (!status || !sampleLink) return;
+        setBusy('Loading a film detail page…');
+        setError('');
+        try {
+            setDetailPreview(
+                await builderApi.pagePreview(status.csrf, sampleLink)
+            );
+            setSelected('showings');
+        } catch (error) {
+            setError(
+                error instanceof Error
+                    ? error.message
+                    : 'Could not load the film page'
             );
         } finally {
             setBusy('');
@@ -712,6 +758,8 @@ export default function ScraperBuilder() {
                                                         )
                                                     ),
                                                     mode,
+                                                    details: undefined,
+                                                    splitScreeningLines: false,
                                                     embeddedJson:
                                                         mode === 'json'
                                                             ? (discovery
@@ -939,6 +987,25 @@ export default function ScraperBuilder() {
                                             ? 'Use dot paths relative to each film or screening. $ means the response itself. Suggestions are a starting point; review the sample.'
                                             : 'Pick the repeated film container first, then screening rows and their fields. Hold Alt while clicking to select the parent container. You can edit every selector. $self selects the chosen row itself.'}
                                     </p>
+                                    {config.mode === 'json' && (
+                                        <HybridControls
+                                            config={config}
+                                            onChange={(next) => {
+                                                if (
+                                                    !config.details &&
+                                                    next.details
+                                                )
+                                                    setSelected('showings');
+                                                edit(next);
+                                            }}
+                                            sampleUrl={sampleLink}
+                                            setSampleUrl={setSampleUrl}
+                                            loadSample={() =>
+                                                void loadDetailPreview()
+                                            }
+                                            busy={!!busy}
+                                        />
+                                    )}
                                     {(['items', 'showings'] as const).map(
                                         (key) => (
                                             <label
@@ -961,7 +1028,10 @@ export default function ScraperBuilder() {
                                                         }
                                                         className={inputClass}
                                                     />
-                                                    {config.mode === 'html' && (
+                                                    {(config.mode === 'html' ||
+                                                        (!!config.details &&
+                                                            key ===
+                                                                'showings')) && (
                                                         <button
                                                             aria-pressed={
                                                                 selected === key
@@ -988,7 +1058,15 @@ export default function ScraperBuilder() {
                                         >
                                             {label}
                                             <span className="ml-2 text-xs text-neutral-500">
-                                                {help}
+                                                {config.details
+                                                    ? [
+                                                          'start',
+                                                          'date',
+                                                          'booking',
+                                                      ].includes(key)
+                                                        ? 'HTML on each film detail page'
+                                                        : 'JSON metadata'
+                                                    : help}
                                             </span>
                                             <div className="flex gap-2">
                                                 <input
@@ -1002,7 +1080,13 @@ export default function ScraperBuilder() {
                                                     }
                                                     className={inputClass}
                                                 />
-                                                {config.mode === 'html' && (
+                                                {(config.mode === 'html' ||
+                                                    (!!config.details &&
+                                                        [
+                                                            'start',
+                                                            'date',
+                                                            'booking',
+                                                        ].includes(key))) && (
                                                     <>
                                                         <input
                                                             aria-label={`${label} attribute`}
@@ -1040,7 +1124,15 @@ export default function ScraperBuilder() {
                                             </div>
                                             <FieldOptions
                                                 value={config[key]}
-                                                html={config.mode === 'html'}
+                                                html={
+                                                    config.mode === 'html' ||
+                                                    (!!config.details &&
+                                                        [
+                                                            'start',
+                                                            'date',
+                                                            'booking',
+                                                        ].includes(key))
+                                                }
                                                 onChange={(value) =>
                                                     field(key, value)
                                                 }
@@ -1181,7 +1273,8 @@ export default function ScraperBuilder() {
                                         )}
                                 </div>
                                 <div className="sticky top-4 min-w-0 space-y-3">
-                                    {config.mode === 'json' ? (
+                                    {config.mode === 'json' &&
+                                    !config.details ? (
                                         <>
                                             <p className="text-sm text-neutral-400">
                                                 {config.embeddedJson
@@ -1202,6 +1295,29 @@ export default function ScraperBuilder() {
                                         </>
                                     ) : (
                                         <>
+                                            {config.details && (
+                                                <>
+                                                    <p className="text-xs break-all text-neutral-500">
+                                                        Film page:{' '}
+                                                        {detailPreview?.url ||
+                                                            'Load a film page preview to start selecting screening fields.'}
+                                                    </p>
+                                                    <details className="text-xs text-neutral-400">
+                                                        <summary>
+                                                            API film metadata
+                                                            sample
+                                                        </summary>
+                                                        <pre className="max-h-64 overflow-auto">
+                                                            {JSON.stringify(
+                                                                sample ?? {},
+                                                                null,
+                                                                2
+                                                            )}
+                                                        </pre>
+                                                    </details>
+                                                </>
+                                            )}
+
                                             <p className="text-sm text-neutral-300">
                                                 Selecting:{' '}
                                                 <strong className="text-red-300">

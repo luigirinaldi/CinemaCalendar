@@ -17,6 +17,16 @@ export default function FieldOptions({
                 Where to read & text cleanup
             </summary>
             <div className="mt-3 space-y-3 border-l border-neutral-700 pl-3">
+                <label className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        checked={!!value.htmlText}
+                        onChange={(event) =>
+                            onChange({ htmlText: event.target.checked })
+                        }
+                    />
+                    Read HTML as text (e.g. WordPress rendered titles)
+                </label>
                 <label className="block">
                     Read relative to
                     <select

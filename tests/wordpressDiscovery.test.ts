@@ -28,6 +28,96 @@ const programme = [
     { title: 'Film', sessions: [{ start: '2099-07-01T20:00:00Z' }] },
 ];
 
+test('standard WordPress posts in cinema categories are discovered even without an event plugin route', async () => {
+    const requests: string[] = [];
+    const result = await inspectWebsite(`${origin}/`, {
+        fetch: async (url) => {
+            requests.push(url);
+            if (url.endsWith('/wp-json/'))
+                return Response.json({
+                    namespaces: ['wp/v2'],
+                    routes: {
+                        '/wp/v2/posts': route(),
+                        '/wp/v2/categories': route(),
+                    },
+                });
+            if (url.includes('/categories'))
+                return Response.json([
+                    { id: 2, slug: 'cinema', name: 'Cinema' },
+                    { id: 3, slug: 'teatro', name: 'Teatro' },
+                ]);
+            if (url.includes('/posts'))
+                return Response.json([
+                    {
+                        title: { rendered: 'Film' },
+                        link: `${origin}/film`,
+                        modified: '2026-11-01T12:00:00',
+                    },
+                ]);
+            return new Response('<h1>Cinema</h1>');
+        },
+    });
+    assert.equal(result.candidates.length, 1);
+    assert.match(result.candidates[0].url, /posts\?categories=2&per_page=100/);
+    assert.equal(
+        requests.some((url) => url.includes('categories=3')),
+        false
+    );
+    assert.ok(
+        result.warnings.some((warning) =>
+            warning.includes('Follow film detail pages')
+        )
+    );
+});
+
+test('a refused cinema page still exposes independent public WordPress collections when available', async () => {
+    const requests: string[] = [];
+    const result = await inspectWebsite(`${origin}/programme/`, {
+        fetch: async (url) => {
+            requests.push(url);
+            if (url === `${origin}/wp-json/`) return Response.json(index);
+            if (url.includes('/wp-json/')) return Response.json(programme);
+            return new Response(
+                '<script>fetch("/denial-page-hint.json")</script><h1>Forbidden</h1>',
+                { status: 403 }
+            );
+        },
+    });
+    assert.equal(result.candidates.length, 2);
+    assert.equal(result.raw, '');
+    assert.equal(result.html, '');
+    assert.equal(
+        requests.some((url) => url.includes('denial-page-hint')),
+        false
+    );
+    assert.match(result.warnings[0], /HTTP 403/);
+});
+
+test('a fully refused website reports the URL and hosted limitation without offering challenge HTML as programme data', async () => {
+    await assert.rejects(
+        inspectWebsite(`${origin}/programme/`, {
+            fetch: async () =>
+                new Response(
+                    '<title>Just a moment...</title><h1>Forbidden</h1>',
+                    { status: 403 }
+                ),
+        }),
+        (error) => {
+            assert.match(
+                String(error),
+                /https:\/\/cinema.example\/programme\//
+            );
+            assert.match(String(error), /HTTP 403/);
+            assert.match(String(error), /Cloudflare browser access check/);
+            assert.match(
+                String(error),
+                /hosted mode cannot complete browser access checks/
+            );
+            return true;
+        }
+    );
+});
+
 test('homepage inspection probes /wp-json/ and public plugin collections without advertising the index as a programme', async () => {
     const requests: string[] = [];
     const result = await inspectWebsite(`${origin}/programme/`, {

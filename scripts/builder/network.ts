@@ -1,54 +1,12 @@
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
 import { gunzipSync, brotliDecompressSync, inflateSync } from 'node:zlib';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_PROGRAMME_BYTES = 16 * 1024 * 1024;
-export function publicAddress(address: string): boolean {
-    if (isIP(address) === 4) {
-        const [a, b] = address.split('.').map(Number);
-        return !(
-            a === 0 ||
-            a === 10 ||
-            a === 127 ||
-            a >= 224 ||
-            (a === 100 && b >= 64 && b <= 127) ||
-            (a === 169 && b === 254) ||
-            (a === 172 && b >= 16 && b <= 31) ||
-            (a === 192 && [0, 168].includes(b)) ||
-            (a === 198 && [18, 19, 51].includes(b)) ||
-            (a === 203 && b === 0)
-        );
-    }
-    if (isIP(address) === 6)
-        return (
-            /^[23][0-9a-f]{3}:/i.test(address) &&
-            !address.toLowerCase().startsWith('2001:db8:')
-        );
-    return false;
-}
-export function publicUrl(input: string) {
-    const url = new URL(input);
-    const literal = url.hostname.replace(/^\[|\]$/g, '');
-    if (isIP(literal) && !publicAddress(literal))
-        throw new Error('Private network addresses are not allowed');
-    if (
-        !['http:', 'https:'].includes(url.protocol) ||
-        url.username ||
-        url.password ||
-        (url.port && !['80', '443'].includes(url.port))
-    )
-        throw new Error('Use a public HTTP(S) website on a standard port');
-    if (
-        url.hostname === 'localhost' ||
-        /\.(?:localhost|local|internal)$/i.test(url.hostname)
-    )
-        throw new Error('Private network addresses are not allowed');
-    url.hash = '';
-    return url;
-}
+import { publicAddress, publicUrl } from './networkPolicy';
+export { publicAddress, publicUrl } from './networkPolicy';
 
 /** Validate every redirect and pin the checked address to prevent DNS rebinding. */
 export async function publicFetch(

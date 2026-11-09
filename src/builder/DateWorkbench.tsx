@@ -20,6 +20,13 @@ const examples = [
         'cccc d MMMM yyyy h:mm a',
         'en-GB',
     ],
+    [
+        'Italian without year',
+        '',
+        'venerdì 6 novembre ore 21.15',
+        "cccc d MMMM 'ore' HH.mm",
+        'it-IT',
+    ],
 ] as const;
 
 export default function DateWorkbench({
@@ -64,6 +71,10 @@ export default function DateWorkbench({
                             ...config,
                             dateFormat: example[3],
                             dateLocale: example[4],
+                            yearPolicy:
+                                example[0] === 'Italian without year'
+                                    ? 'nearby-weekday'
+                                    : 'explicit',
                         });
                     }}
                 >
@@ -107,6 +118,64 @@ export default function DateWorkbench({
                     />
                 </label>
             </div>
+            {(config.mode === 'html' || config.details) && (
+                <label className="flex items-start gap-2">
+                    <input
+                        type="checkbox"
+                        checked={!!config.splitScreeningLines}
+                        onChange={(event) =>
+                            onChange({
+                                ...config,
+                                splitScreeningLines: event.target.checked,
+                                ...(event.target.checked
+                                    ? {
+                                          start: {
+                                              ...config.start,
+                                              path: '$self',
+                                              attribute: '',
+                                              scope: 'row',
+                                          },
+                                          date: { path: '', attribute: '' },
+                                      }
+                                    : {}),
+                            })
+                        }
+                    />
+                    <span>
+                        One screening per line (split HTML line breaks)
+                        <span className="mt-1 block text-xs">
+                            Select the element containing the dates. Each line
+                            must contain a complete date and time. This sets
+                            Screening time to $self and clears the separate date
+                            field.
+                        </span>
+                    </span>
+                </label>
+            )}
+            <label className="flex items-start gap-2">
+                <input
+                    type="checkbox"
+                    checked={config.yearPolicy === 'nearby-weekday'}
+                    onChange={(event) =>
+                        onChange({
+                            ...config,
+                            yearPolicy: event.target.checked
+                                ? 'nearby-weekday'
+                                : 'explicit',
+                        })
+                    }
+                />
+                <span>
+                    Infer a missing year from the printed weekday
+                    <span className="mt-1 block text-xs">
+                        Requires weekday, day, month and time in the format.
+                        Only one matching date within 183 days is accepted;
+                        ambiguous DST times fail. Use this only for current
+                        programmes. Linked film pages also require recent API
+                        freshness metadata.
+                    </span>
+                </span>
+            </label>
             <p className="text-xs">
                 MMMM = month name, d = day, yyyy = year, HH:mm = 24-hour time.
                 Quote literal text with single quotes. Use unix-ms or
@@ -136,7 +205,9 @@ export default function DateWorkbench({
             <p className="text-xs">
                 Paste the actual selected text. Field cleanup rules also apply
                 here. If date and time are separate, the format describes date,
-                a space, then time. An explicit year is required.
+                a space, then time. Leave the separate date blank when the time
+                field already contains the entire datetime. Years must be
+                explicit unless weekday inference is enabled.
             </p>
             {(result || error) && (
                 <output

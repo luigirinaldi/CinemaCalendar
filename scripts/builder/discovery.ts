@@ -142,9 +142,46 @@ export async function inspectHttp(
     fetch = publicProgrammeFetch
 ): Promise<Discovery & { raw: string }> {
     const response = await fetch(publicUrl(input).href);
-    if (!response.ok)
-        throw new Error(`The cinema page returned HTTP ${response.status}`);
     const url = publicUrl(response.url || input).href;
+    if (!response.ok) {
+        // A protected front page can coexist with a public WordPress programme.
+        // Never treat the refusal/challenge HTML itself as cinema data.
+        if (response.status === 403) {
+            const refusal = await response.text();
+            const title =
+                parse(refusal.slice(0, 200000))
+                    .querySelector('title')
+                    ?.textContent.trim() ?? '';
+            const browserCheck =
+                /^(?:Just a moment|Attention Required.*Cloudflare)/i.test(
+                    title
+                );
+            const wordpress = await inspectWordPress(url, fetch);
+            const candidates = wordpress.responses.flatMap((response) => {
+                const candidate = jsonCandidate(response.url, response.body);
+                return candidate ? [candidate] : [];
+            });
+            if (candidates.length)
+                return {
+                    url,
+                    raw: '',
+                    html: '',
+                    rendered: false,
+                    candidates,
+                    warnings: [
+                        `The page ${url} refused this request (HTTP 403). Its HTML is unavailable; the public WordPress responses below can still be mapped.`,
+                        ...wordpress.warnings,
+                    ],
+                };
+            throw new Error(
+                `The cinema website refused the request to ${url} (HTTP 403). ${browserCheck ? 'The response is a Cloudflare browser access check. ' : ''}No readable public programme was found through WordPress either. The site may restrict automated requests or the hosting network. Try a known public programme API URL, or inspect the site with the local companion; hosted mode cannot complete browser access checks.`
+            );
+        }
+        await response.body?.cancel();
+        throw new Error(
+            `The cinema page ${url} returned HTTP ${response.status}`
+        );
+    }
     const raw = await response.text();
     const candidates: Discovery['candidates'] = [];
     const failures: string[] = [];

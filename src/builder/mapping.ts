@@ -43,10 +43,31 @@ export function suggestJsonMapping(sample: unknown): Partial<ScraperConfig> {
     const match = find(sample);
     if (!match) return {};
     const film = match.items[0] as Record<string, unknown>;
-    const field = (object: Record<string, unknown>, candidates: string[]) => ({
-        path: candidates.find((key) => key in object) ?? '',
-        attribute: '',
-    });
+    const field = (object: Record<string, unknown>, candidates: string[]) => {
+        const key =
+            candidates.find(
+                (key) =>
+                    key in object &&
+                    (key !== 'author' || typeof object[key] === 'string')
+            ) ?? '';
+        const value = object[key];
+        const nested =
+            value && typeof value === 'object' && !Array.isArray(value)
+                ? (value as Record<string, unknown>)
+                : null;
+        const rendered = nested && typeof nested.rendered === 'string';
+        return {
+            path:
+                key +
+                (rendered
+                    ? '.rendered'
+                    : nested && typeof nested.url === 'string'
+                      ? '.url'
+                      : ''),
+            attribute: '',
+            ...(rendered ? { htmlText: true } : {}),
+        };
+    };
     const showings =
         Object.keys(film).find(
             (key) =>
@@ -82,7 +103,11 @@ export function suggestJsonMapping(sample: unknown): Partial<ScraperConfig> {
         ]),
         filmUrl: field(film, ['url', 'link', 'filmUrl']),
         director: field(film, ['director', 'author', 'autore']),
-        poster: field(film, ['poster', 'posterUrl', 'coverUrl', 'image']),
+        poster:
+            film.rttpg_featured_image_url &&
+            typeof film.rttpg_featured_image_url === 'object'
+                ? { path: 'rttpg_featured_image_url.full.0', attribute: '' }
+                : field(film, ['poster', 'posterUrl', 'coverUrl', 'image']),
         showings,
         start,
         dateFormat:
@@ -91,9 +116,42 @@ export function suggestJsonMapping(sample: unknown): Partial<ScraperConfig> {
                 : epoch >= 100000000000
                   ? 'unix-ms'
                   : 'unix-seconds',
-        date: field(showing, ['date', 'day']),
+        date:
+            start.path || showings
+                ? field(showing, ['date', 'day'])
+                : { path: '', attribute: '' },
         booking: field(showing, ['booking_url', 'bookingUrl', 'url', 'link']),
     };
+}
+
+export function firstFilmLink(sample: unknown, config: ScraperConfig): string {
+    const at = (value: unknown, path: string): unknown =>
+        !path || path === '$'
+            ? value
+            : path
+                  .split('.')
+                  .reduce<unknown>(
+                      (value, key) =>
+                          value &&
+                          typeof value === 'object' &&
+                          !['__proto__', 'prototype', 'constructor'].includes(
+                              key
+                          )
+                              ? (value as Record<string, unknown>)[key]
+                              : undefined,
+                      value
+                  );
+    const items = at(sample, config.items);
+    const value = Array.isArray(items)
+        ? at(items[0], config.filmUrl.path)
+        : null;
+    if (typeof value !== 'string' || !value) return '';
+    try {
+        const url = new URL(value, config.url);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch {
+        return '';
+    }
 }
 
 export interface SelectionMessage {

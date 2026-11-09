@@ -107,6 +107,8 @@ export const builderApi = {
             : `${base}/auth/github`,
     discover: (csrf: string, url: string, browser = false) =>
         request<Discovery>('/discover', csrf, { url, browser }),
+    pagePreview: (csrf: string, url: string) =>
+        request<{ url: string; html: string }>('/page-preview', csrf, { url }),
     validate: (csrf: string, config: ScraperConfig) =>
         request<ValidationResult>('/validate', csrf, config),
     preview: (csrf: string, config: ScraperConfig) =>

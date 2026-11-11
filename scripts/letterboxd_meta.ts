@@ -5,6 +5,8 @@ import { parse } from 'node-html-parser';
 import { chromium } from 'playwright-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import type { Page } from 'playwright-chromium';
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 
 chromium.use(StealthPlugin());
 
@@ -86,7 +88,7 @@ function buildCaseStatement<T extends string | number | object>(
   END`;
 }
 
-async function fetchFilmInfo(
+export async function fetchFilmInfo(
     page: Page,
     film: { id: number; title: string; letterboxd_slug: string | null }
 ): Promise<LetterboxdInfo | null> {
@@ -97,23 +99,42 @@ async function fetchFilmInfo(
         } else {
             // Navigate and wait for JS redirect to complete — letterboxd.com/tmdb/{id}
             // redirects via JavaScript to the actual film page
-            await page.goto(`https://letterboxd.com/tmdb/${film.id}`, {
-                waitUntil: 'domcontentloaded',
-                timeout: 20000,
-            });
+            const response = await page.goto(
+                `https://letterboxd.com/tmdb/${film.id}`,
+                {
+                    waitUntil: 'domcontentloaded',
+                    timeout: 20000,
+                }
+            );
+            if (response && response.status() >= 400)
+                throw new Error(
+                    `Letterboxd lookup returned HTTP ${response.status()}`
+                );
             // Wait until URL moves away from the /tmdb/ path (JS redirect)
-            await page.waitForURL((url) => !url.pathname.startsWith('/tmdb/'), {
-                timeout: 20000,
-            });
-            slug = page.url().split('/').filter(Boolean).at(-1);
+            await page.waitForURL(
+                (url) =>
+                    url.hostname === 'letterboxd.com' &&
+                    /^\/film\/[^/]+\/?$/.test(url.pathname),
+                {
+                    timeout: 20000,
+                    waitUntil: 'domcontentloaded',
+                }
+            );
+            slug = new URL(page.url()).pathname.match(
+                /^\/film\/([^/]+)\/?$/
+            )?.[1];
         }
         if (slug === undefined) throw new Error('Slug is undefined');
 
         try {
-            await page.goto(
+            const response = await page.goto(
                 `https://letterboxd.com/csi/film/${slug}/ratings-summary/`,
                 { waitUntil: 'domcontentloaded', timeout: 15000 }
             );
+            if (response && response.status() >= 400)
+                throw new Error(
+                    `Letterboxd ratings returned HTTP ${response.status()}`
+                );
             const ratings_info = extractRatings(await page.content());
             return { film_id: film.id, slug, ratings_info };
         } catch (e) {
@@ -146,6 +167,7 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
     if (!doUpdate) {
         nullLtbxdFilms = nullLtbxdFilms.slice(0, 10);
     }
+    if (!nullLtbxdFilms.length) return;
 
     const browser = await chromium.launch();
     let letterboxdInfo: LetterboxdInfo[] = [];
@@ -176,6 +198,14 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
     console.log(
         `Successfully scraped letterboxd info for ${letterboxdInfo.length} movies (${(letterboxdInfo.length / nullLtbxdFilms.length) * 100}% of ${nullLtbxdFilms.length} candidate movies)`
     );
+    if (!letterboxdInfo.length)
+        throw new Error(
+            `Letterboxd lookup failed for all ${nullLtbxdFilms.length} candidate films; no metadata was saved.`
+        );
+    if (letterboxdInfo.length < nullLtbxdFilms.length)
+        console.warn(
+            `Letterboxd lookup failed for ${nullLtbxdFilms.length - letterboxdInfo.length} films; they remain eligible for a later retry.`
+        );
 
     if (letterboxdInfo.length > 0 && doUpdate) {
         const insertResult = await db.transaction().execute(async (trx) => {
@@ -233,10 +263,22 @@ export async function updateLetterboxdMeta(db: Kysely<DB>, doUpdate = false) {
 }
 
 // Run only if the file is being run as a script
-if (import.meta.url === `file://${process.argv[1]}`) {
+async function main() {
     const doUpdate = !process.argv.includes('--test');
     console.log(`Running as script (doUpdate=${doUpdate})`);
     const db = await connectDB();
-    await updateLetterboxdMeta(db, doUpdate);
-    await db.destroy();
+    try {
+        await updateLetterboxdMeta(db, doUpdate);
+    } finally {
+        await db.destroy();
+    }
 }
+
+if (
+    process.argv[1] &&
+    import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+)
+    main().catch((error) => {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exitCode = 1;
+    });

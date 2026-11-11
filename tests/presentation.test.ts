@@ -135,7 +135,49 @@ test('film cards show readable metadata and a TMDB link even without embedded me
     assert.match(html, /2001/);
     assert.match(html, /href="https:\/\/www.themoviedb.org\/movie\/10"/);
     assert.doesNotMatch(html, /undefined|null min/);
-    assert.doesNotMatch(html, /href="https:\/\/letterboxd.com/);
+    assert.match(html, /href="https:\/\/letterboxd.com\/tmdb\/10\/"/);
+});
+
+test('cards and table use saved Letterboxd slugs, fall back to TMDB IDs and omit unknown films', () => {
+    for (const state of [
+        'slug',
+        'no-slug',
+        'no-metadata',
+        'unknown',
+    ] as const) {
+        const screening = row(1, 1, state === 'unknown' ? null : 10);
+        const film = screening.film!;
+        if (state === 'no-slug') film.tmdb_films!.letterboxd_slug = null;
+        if (state === 'no-metadata') film.tmdb_films = null;
+        const movie = filmWithPoster(film);
+        const card = renderToStaticMarkup(
+            createElement(FilmPosterCard, { movie, children: 'Screenings' })
+        );
+        const table = renderToStaticMarkup(
+            createElement(TableView, {
+                screenings: [screening],
+                getMovie: () => movie,
+                getCinema: () => screening.cinema,
+                zone: 'Europe/London',
+                showTimes: true,
+                singleDay: true,
+                showMode: 'full',
+                onShowModeChange: () => {},
+                tableSort: null,
+                onTableSortChange: () => {},
+            })
+        );
+        for (const html of [card, table]) {
+            if (state === 'unknown')
+                assert.doesNotMatch(html, /title="View on Letterboxd"/);
+            else
+                assert.ok(
+                    html.includes(
+                        `href="https://letterboxd.com/${state === 'slug' ? 'film/test-film' : 'tmdb/10'}/"`
+                    )
+                );
+        }
+    }
 });
 
 test('film views preserve details, cinema collapse and city-local calendar days; compact links match labels', async (t) => {

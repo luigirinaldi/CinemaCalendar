@@ -5,6 +5,7 @@ import type { FilmWithPoster, ShowingsTable } from '../api';
 import { formatDate, formatTime } from '../lib/dates';
 import { sortScreeningByStartTime } from '../utils/grouping';
 import { buildDayUrl } from '../utils/url';
+import { letterboxdFilmUrl } from '../lib/filmLinks';
 
 export function ScreeningTime({
     screening,
@@ -78,7 +79,10 @@ export default function FilmPosterCard({
     const year =
         movie?.tmdb_info?.release_date?.slice(0, 4) || movie?.release_year;
     const tmdbId = movie?.tmdb_info?.id ?? movie?.tmdb_id;
-    const letterboxdSlug = movie?.tmdb_info?.letterboxd_slug;
+    const letterboxdUrl = letterboxdFilmUrl(
+        movie?.tmdb_info?.letterboxd_slug,
+        tmdbId
+    );
     const linkClass =
         'inline-flex items-center gap-1.5 rounded-md border border-neutral-600 px-2 py-1 text-xs font-medium text-neutral-200 transition hover:border-neutral-400 hover:bg-neutral-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400';
     return (
@@ -122,7 +126,7 @@ export default function FilmPosterCard({
                             )}
                         </p>
                     )}
-                    {(tmdbId != null || letterboxdSlug) && (
+                    {(tmdbId != null || letterboxdUrl) && (
                         <div className="flex flex-wrap gap-2 pt-1">
                             {tmdbId != null && (
                                 <a
@@ -139,10 +143,10 @@ export default function FilmPosterCard({
                                     />
                                 </a>
                             )}
-                            {letterboxdSlug && (
+                            {letterboxdUrl && (
                                 <a
                                     className={linkClass}
-                                    href={`https://letterboxd.com/film/${letterboxdSlug}/`}
+                                    href={letterboxdUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title="View on Letterboxd"

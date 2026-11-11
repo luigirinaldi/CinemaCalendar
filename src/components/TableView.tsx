@@ -14,6 +14,7 @@ const formatDate = (value: string, zone: string) =>
 import { buildDayUrl } from '../utils/url';
 import type { ShowMode, TableSort } from '../types';
 import type { ShowingsTable, CinemaTable, FilmWithPoster } from '../api';
+import { letterboxdFilmUrl } from '../lib/filmLinks';
 
 const TMDB_FAVICON =
     'https://www.themoviedb.org/assets/2/favicon-32x32-543a21832c8931d3494a68881f6afcafc58e96c5d324345377f3197a37b367b5.png';
@@ -276,12 +277,15 @@ export default function TableView({
                         const year = tmdb?.release_date
                             ? new Date(tmdb.release_date).getFullYear()
                             : movie?.release_year;
-                        const tmdbUrl = tmdb
-                            ? `https://www.themoviedb.org/movie/${tmdb.id}`
-                            : null;
-                        const letterboxdUrl = tmdb?.letterboxd_slug
-                            ? `https://letterboxd.com/film/${tmdb.letterboxd_slug}/`
-                            : null;
+                        const tmdbId = tmdb?.id ?? movie?.tmdb_id;
+                        const tmdbUrl =
+                            tmdbId != null
+                                ? `https://www.themoviedb.org/movie/${tmdbId}`
+                                : null;
+                        const letterboxdUrl = letterboxdFilmUrl(
+                            tmdb?.letterboxd_slug,
+                            tmdbId
+                        );
                         return (
                             <tr
                                 key={key}
